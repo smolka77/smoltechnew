@@ -17,6 +17,19 @@ function st_cms_with_count(string $cls, string $prefix, int $n, int $default = 3
     return $cls;
 }
 
+function st_cms_lat(string $s): string
+{
+    $map = [
+        'а' => 'a', 'б' => 'b', 'в' => 'v', 'г' => 'h', 'ґ' => 'g', 'д' => 'd', 'е' => 'e', 'є' => 'ie',
+        'ж' => 'zh', 'з' => 'z', 'и' => 'y', 'і' => 'i', 'ї' => 'i', 'й' => 'i', 'к' => 'k', 'л' => 'l',
+        'м' => 'm', 'н' => 'n', 'о' => 'o', 'п' => 'p', 'р' => 'r', 'с' => 's', 'т' => 't', 'у' => 'u',
+        'ф' => 'f', 'х' => 'kh', 'ц' => 'ts', 'ч' => 'ch', 'ш' => 'sh', 'щ' => 'shch', 'ь' => '', 'ю' => 'iu',
+        'я' => 'ia', 'ы' => 'y', 'э' => 'e', 'ё' => 'e', 'ъ' => '',
+        'ą' => 'a', 'ć' => 'c', 'ę' => 'e', 'ł' => 'l', 'ń' => 'n', 'ó' => 'o', 'ś' => 's', 'ź' => 'z', 'ż' => 'z',
+    ];
+    return strtr(mb_strtolower($s), $map);
+}
+
 function st_cms_slugify(string $s): string
 {
     $s = mb_strtolower(html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -336,21 +349,33 @@ function st_cms_add_child_page(array $data): array
     elseif ($machKids !== []) $srcPath = $machKids[array_key_last($machKids)];
     elseif ($children !== []) $srcPath = ST_PAGES . '/' . $children[array_key_last($children)]['id'] . '.html';
     if ($srcPath === null || !is_file($srcPath)) throw new RuntimeException('Ta grupa nie ma jeszcze strony-szablonu, z której można skopiować układ.');
-    $titleEn = trim((string) ($data['title'] ?? '')) ?: 'New product group';
-    $tagEn = trim((string) ($data['tag'] ?? '')) ?: $titleEn;
-    $textEn = trim((string) ($data['text'] ?? '')) ?: 'Describe this machine group — power, process and typical parts.';
-    $linkEn = trim((string) ($data['link'] ?? '')) ?: ('See ' . $titleEn);
+    $titleRaw = trim((string) ($data['title'] ?? ''));
+    $tagRaw = trim((string) ($data['tag'] ?? ''));
+    $textRaw = trim((string) ($data['text'] ?? ''));
+    $linkRaw = trim((string) ($data['link'] ?? ''));
     $image = trim((string) ($data['image'] ?? ''));
-    $uk = [$titleEn => $titleEn, $tagEn => $tagEn, $textEn => $textEn, $linkEn => $linkEn];
-    if (function_exists('st_i18n_many')) {
-        require_once __DIR__ . '/tlumacz.php';
-        $uk = st_i18n_many([$titleEn, $tagEn, $textEn, $linkEn], 'en', 'uk');
+    if (preg_match('/\p{Cyrillic}/u', $titleRaw)) {
+        $titleUk = $titleRaw;
+        $tagUk = $tagRaw !== '' ? $tagRaw : $titleUk;
+        $textUk = $textRaw !== '' ? $textRaw : 'Опишіть цю машину — потужність, процес і типові деталі.';
+        $linkUk = $linkRaw !== '' ? $linkRaw : $titleUk;
+        $slug = st_cms_slugify(st_cms_lat($titleUk));
+    } else {
+        $titleEn = $titleRaw !== '' ? $titleRaw : 'New product group';
+        $tagEn = $tagRaw !== '' ? $tagRaw : $titleEn;
+        $textEn = $textRaw !== '' ? $textRaw : 'Describe this machine group — power, process and typical parts.';
+        $linkEn = $linkRaw !== '' ? $linkRaw : ('See ' . $titleEn);
+        $uk = [$titleEn => $titleEn, $tagEn => $tagEn, $textEn => $textEn, $linkEn => $linkEn];
+        if (function_exists('st_i18n_many')) {
+            require_once __DIR__ . '/tlumacz.php';
+            $uk = st_i18n_many([$titleEn, $tagEn, $textEn, $linkEn], 'en', 'uk');
+        }
+        $titleUk = $uk[$titleEn] ?? $titleEn;
+        $tagUk = $uk[$tagEn] ?? $tagEn;
+        $textUk = $uk[$textEn] ?? $textEn;
+        $linkUk = $uk[$linkEn] ?? $linkEn;
+        $slug = st_cms_slugify($titleEn);
     }
-    $titleUk = $uk[$titleEn] ?? $titleEn;
-    $tagUk = $uk[$tagEn] ?? $tagEn;
-    $textUk = $uk[$textEn] ?? $textEn;
-    $linkUk = $uk[$linkEn] ?? $linkEn;
-    $slug = st_cms_slugify($titleEn);
     $used = [];
     foreach ($pages as $p) $used[$p['id']] = true;
     $nums = [];

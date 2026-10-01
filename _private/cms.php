@@ -2032,6 +2032,11 @@ function st_cms_handle(string $action, array $data): array
         if ($action === 'cms.page.add-child') return st_cms_add_child_page($data);
         if ($action === 'cms.page.delete') return st_cms_delete_page((string) ($data['id'] ?? ''));
         if ($action === 'cms.page.preview') return ['ok' => true, 'html' => st_cms_preview((string) ($data['id'] ?? ''))];
+        if ($action === 'cms.page.builder' || $action === 'cms.page.commit') {
+            require_once __DIR__ . '/builder.php';
+            if ($action === 'cms.page.builder') return st_builder_preview((string) ($data['id'] ?? ''));
+            return st_builder_commit($data);
+        }
         if ($action === 'cms.translate') {
             require_once __DIR__ . '/tlumacz.php';
             $sl = (string) ($data['sl'] ?? 'en');
@@ -2106,6 +2111,8 @@ function st_cms_handle(string $action, array $data): array
                 }
             }
             file_put_contents(ST_FILMY, implode("\n", $lines) . "\n");
+            require_once __DIR__ . '/builder.php';
+            st_builder_sync_catalog();
             require_once __DIR__ . '/tlumacz.php';
             $videos = st_cms_videos();
             $acc = [];

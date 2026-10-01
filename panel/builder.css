@@ -1,0 +1,93 @@
+/* Visual builder — the page fills the editor; tools stay in the panel chrome. */
+.stb {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #e8e8ea;
+  color: #161616;
+}
+.stb__bar, .stb__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem .5rem;
+  padding: .45rem .7rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(22, 22, 22, .08);
+}
+.stb__bar { position: sticky; top: 0; z-index: 2; }
+.stb__name {
+  font-family: var(--f-display, Manrope, sans-serif);
+  font-size: .95rem;
+  margin-right: .3rem;
+}
+.stb__hint, .stb__note {
+  margin: 0;
+  color: #3d3e40;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+.stb__hint { flex: 1 1 16rem; }
+.stb__note {
+  padding: .35rem .75rem;
+  background: #fff8f8;
+  border-bottom: 1px solid rgba(209, 10, 17, .18);
+}
+.stb__lang { display: inline-flex; border: 1px solid rgba(22, 22, 22, .15); border-radius: 999px; overflow: hidden; }
+.stb__lang button {
+  border: 0;
+  background: #fff;
+  color: #161616;
+  padding: .28rem .7rem;
+  font: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+}
+.stb__lang button.is-on { background: #161616; color: #fff; }
+.stb__tools button, .stb__bar button, .stb__bar a.btn {
+  font: inherit;
+}
+.stb__tools button[disabled] { opacity: .4; cursor: default; }
+.stb__tools label.stb__mini {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .78rem;
+  color: #3d3e40;
+}
+.stb__tools input[type="text"], .stb__meta input, .stb__meta textarea {
+  font: inherit;
+  color: #161616;
+  background: #fff;
+  border: 1px solid rgba(22, 22, 22, .18);
+  border-radius: 8px;
+  padding: .28rem .45rem;
+}
+.stb__meta {
+  display: none;
+  gap: .5rem;
+  padding: .4rem .7rem .6rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(22, 22, 22, .08);
+}
+.stb__meta.is-on { display: grid; }
+.stb__meta label { display: grid; gap: .15rem; font-size: .75rem; color: #3d3e40; }
+.stb__meta input, .stb__meta textarea { width: 100%; }
+.stb__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #fff;
+}
+.stb__status {
+  margin: 0;
+  padding: .35rem .75rem;
+  font-size: .82rem;
+  background: #fff;
+  border-top: 1px solid rgba(22, 22, 22, .08);
+}
+.stb__status.is-ok { color: #146b35; }
+.stb__status.is-err { color: #9d1020; }
+.stb .btn { cursor: pointer; }

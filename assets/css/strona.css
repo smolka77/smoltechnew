@@ -4764,3 +4764,39 @@ h1, h2, h3, h4, p, li, a, td, th, label, dt, dd {
   :root { --mbar-h: 0px; }
 }
 
+/* When a photo is removed, the text column uses the full width. */
+@media (min-width: 860px) {
+  .hero__in--mach:not(:has(img)) { grid-template-columns: minmax(0, 1fr); }
+}
+.proof__in:not(:has(img)),
+.about-intro__in:not(:has(img)),
+.stud-stage:not(:has(img)),
+.showcase-intro__in:not(:has(img)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A list typed in the editor still shows markers even without the ticks class. */
+.sec ul:not([class]),
+.prose ul:not([class]) {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+.sec ul:not([class]) > li,
+.prose ul:not([class]) > li {
+  display: block;
+  position: relative;
+  padding-left: 2.1rem;
+  margin: .35rem 0;
+}
+.sec ul:not([class]) > li::before,
+.prose ul:not([class]) > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .08em;
+  width: 1.35rem;
+  height: 1.35rem;
+  background: url("/assets/img/mark-bullet.png?v=20260903tm") center / contain no-repeat;
+}
+

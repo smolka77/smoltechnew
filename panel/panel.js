@@ -507,7 +507,7 @@
     var el = document.getElementById('view-dash');
     var unread = items.filter(function (i) { return !i.read; }).length;
     el.innerHTML =
-      '<div class="cms-head"><div><h1>' + esc(t('Co chcesz zmienić?')) + '</h1><p>' + esc(t('Zapisujesz szkic. Na witrynie pojawi się dopiero po kliknięciu „Zatwierdź na witrynie”.')) + '</p></div></div>' +
+      '<div class="cms-head"><div><h1>' + esc(t('Co chcesz zmienić?')) + '</h1><p>' + esc(t('Kliknij stronę i popraw tekst, zdjęcia albo kolejność. Zapis od razu wchodzi na witrynę.')) + '</p></div></div>' +
       draftBanner() +
       '<div class="dash-go">' +
         '<button type="button" data-go="home"><b>' + esc(t('Strona główna')) + '</b><span>' + esc(t('Baner, kafelki i teksty na wejściu.')) + '</span></button>' +
@@ -643,12 +643,12 @@
       flash(t('Najpierw usuń podstrony tej grupy.'));
       return;
     }
-    var msg = tf('Usunąć stronę „{name}”? Zniknie z listy w panelu od razu. Z witryny zejdzie dopiero po kliknięciu „Zatwierdź na witrynie”.', { name: name || id });
+    var msg = tf('Usunąć stronę „{name}”? Zniknie z witryny od razu.', { name: name || id });
     if (!confirm(msg)) return;
     flash(t('Usuwam stronę…'));
     api({ action: 'cms.page.delete', id: id }).then(function (res) {
       if (!res.ok) { flash(res.error || t('Nie usunięto')); return; }
-      flash(t('Usunięto z panelu. Żeby zeszło z witryny, kliknij „Zatwierdź na witrynie”.'));
+      flash(t('Usunięto. Strony już nie ma na witrynie.'));
       if (currentView === 'editor') setView('pages');
       else loadPages();
     }).catch(function () { flash(t('Błąd połączenia — nie usunięto.')); });
@@ -1116,6 +1116,13 @@
 
   function openEditor(id, opts) {
     opts = opts || {};
+    if (window.STBuilder && typeof STBuilder.open === 'function') {
+      rememberTrail(id, opts.trail || 'reset');
+      var host = document.getElementById('view-editor');
+      setView('editor');
+      STBuilder.open(id, host, { api: api, flash: flash, uploadFile: uploadFile, back: function () { setView('pages'); } });
+      return;
+    }
     rememberTrail(id, opts.trail || 'reset');
     var el = document.getElementById('view-editor');
     el.innerHTML = '<p class="empty">' + esc(t('Otwieram…')) + '</p>';
@@ -1758,7 +1765,7 @@
       }).then(function (res) {
         if (btn) btn.disabled = false;
         if (!res.ok) { flash(res.error || t('Nie utworzono strony.')); return; }
-        flash(t('Utworzono nową podstronę w panelu. Żeby weszła na witrynę, kliknij „Zatwierdź na witrynie”.'));
+        flash(t('Nowa podstrona jest już na witrynie.'));
         pageCache = null;
         openEditor(res.id, { trail: 'push' });
       }).catch(function () {
@@ -4438,11 +4445,11 @@
     var cats = videoState || [];
     var catOpts = cats.map(function (c) { return { v: c.key, l: ct(c.label || c.key) }; });
     var html = '<form class="ed" id="form-videos" style="max-width:960px">' +
-      '<div class="cms-head"><div><h1>' + esc(t('Wideo')) + '</h1><p>' + esc(t('Dodaj film z YouTube i przypisz jedną albo dwie kategorie. Tytuły wpisujesz po angielsku — zapis tłumaczy je na ukraiński.')) + '</p></div></div>' +
-      '<p class="home-note">' + esc(t('Najnowszy film wchodzi na pierwsze miejsce w sekcji na stronie głównej. Piąty schodzi z siatki.')) + '</p>' +
+      '<div class="cms-head"><div><h1>' + esc(t('Wideo')) + '</h1><p>' + esc(t('Dodaj film z YouTube i przypisz kategorię. Tytuł wpisujesz tak, jak ma być na stronie.')) + '</p></div></div>' +
+      '<p class="home-note">' + esc(t('Zmiana tytułu wchodzi na karty tego filmu. Dodanie i usunięcie zmienia katalog wideo. Pasek na stronie głównej zostaje — jego karty edytujesz na stronie głównej.')) + '</p>' +
       '<div class="ed-card"><h2>' + esc(t('Nowy film')) + '</h2><div class="vid-add">' +
       field(t('Link YouTube albo ID'), 'new-id', '', { skipI18n: true }) +
-      field(t('Tytuł'), 'new-title', '', { content: true }) +
+      field(t('Tytuł'), 'new-title', '', { skipI18n: true }) +
       '<button type="button" class="btn" id="btn-add-vid">' + esc(t('Dodaj')) + '</button>' +
       catChecks('new-cat', catOpts[0] ? [catOpts[0].v] : [], catOpts) +
       '</div></div>' +
@@ -4451,7 +4458,7 @@
       html += '<div class="vid-row" data-i="' + i + '">' +
         '<img src="' + esc(ytSrc(row.id)) + '" alt="" onerror="this.src=\'https://i.ytimg.com/vi/' + esc(row.id) + '/hqdefault.jpg\'">' +
         '<div class="fields">' +
-          field(t('Tytuł'), 'vt-' + i, row.title, { content: true }) +
+          field(t('Tytuł'), 'vt-' + i, row.title, { skipI18n: true }) +
           catChecks('vc-' + i, row.cats, catOpts) +
           '<input type="hidden" name="vid-' + i + '" value="' + esc(row.id) + '">' +
           '<input type="hidden" name="va-' + i + '" value="' + esc(row.added || '') + '">' +
@@ -4461,9 +4468,9 @@
     html += '</div></div>';
     html += '<div class="ed-card"><h2>' + esc(t('Kategorie')) + '</h2>';
     cats.forEach(function (c, ci) {
-      html += field(t('Nazwa kategorii'), 'c-label-' + ci, c.label, { content: true }) +
+      html += field(t('Nazwa kategorii'), 'c-label-' + ci, c.label, { skipI18n: true }) +
         '<input type="hidden" name="c-key-' + ci + '" value="' + esc(c.key) + '">' +
-        field(t('Opis'), 'c-desc-' + ci, c.desc, { area: true, content: true });
+        field(t('Opis'), 'c-desc-' + ci, c.desc, { area: true, skipI18n: true });
     });
     html += '</div><div class="ed-actions"><button class="btn" type="submit">' + esc(t('Zapisz')) + '</button></div></form>';
     el.innerHTML = html;
@@ -4553,16 +4560,16 @@
     api({ action: 'cms.settings.get' }).then(function (data) {
       if (!data.ok) { el.innerHTML = '<p class="err">' + esc(data.error) + '</p>'; return; }
       var s = data.settings || {};
-      el.innerHTML = '<form class="ed" id="form-set"><div class="cms-head"><div><h1>' + esc(t('Ustawienia')) + '</h1><p>' + esc(t('Telefon, e-mail i social — w nagłówku, stopce i kontakcie. Teksty wpisujesz po angielsku.')) + '</p></div></div><div class="ed-card stack">' +
+      el.innerHTML = '<form class="ed" id="form-set"><div class="cms-head"><div><h1>' + esc(t('Ustawienia')) + '</h1><p>' + esc(t('Telefon, e-mail i adres zapisują się tak, jak je wpiszesz, i wchodzą na witrynę od razu. Tekst stopki możesz też zmienić w edytorze strony.')) + '</p></div></div><div class="ed-card stack">' +
         field(t('Telefon (widoczny)'), 'phone', s.phone, { skipI18n: true }) +
         field(t('Telefon w linku tel:'), 'phoneTel', s.phoneTel, { skipI18n: true }) +
         field(t('E-mail'), 'email', s.email, { skipI18n: true }) +
-        field(t('Adres krótki'), 'addressShort', s.addressShort, { content: true }) +
-        field(t('Adres pełny'), 'addressLine', s.addressLine, { content: true }) +
+        field(t('Adres krótki'), 'addressShort', s.addressShort, { skipI18n: true }) +
+        field(t('Adres pełny'), 'addressLine', s.addressLine, { skipI18n: true }) +
         field(t('Firma'), 'company', s.company, { skipI18n: true }) +
         field('YouTube', 'youtube', s.youtube, { skipI18n: true }) +
         field('Instagram', 'instagram', s.instagram, { skipI18n: true }) +
-        field(t('Tekst w stopce'), 'footer', s.footer, { area: true, content: true }) +
+        field(t('Tekst w stopce'), 'footer', s.footer, { area: true, skipI18n: true }) +
         '</div><div class="ed-actions"><button class="btn" type="submit">' + esc(t('Zapisz')) + '</button>' +
         '<button class="btn btn-ghost" type="button" id="go-media">' + esc(t('Biblioteka zdjęć')) + '</button></div></form>';
       hydrateEdit(el);
