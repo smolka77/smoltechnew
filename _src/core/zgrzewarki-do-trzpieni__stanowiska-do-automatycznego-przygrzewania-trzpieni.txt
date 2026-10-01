@@ -1,0 +1,31 @@
+﻿FILE: zgrzewarki-do-trzpieni__stanowiska-do-automatycznego-przygrzewania-trzpieni.html
+TITLE: Stanowiska do automatycznego przygrzewania trzpieni - SMOLTECH Technika Zgrzewalnicza Sp. z o.o.
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: Stanowiska CNC do automatycznego przypawania trzpieni
+Automat typu ST-2/1×35/1-CNC do przypawania trzpieni – 1 głowica, wibracyjny podajnik kołków i kondensatorowe źródło prądowe
+Nowoczesne, w pełni zautomatyzowane stanowisko CNC dedykowane do seryjnego przypawania kołków. Urządzenie łączy w sobie precyzję numerycznego sterowania z niezawodną technologią zgrzewania kondensatorowego. Zaprojektowane z myślą o maksymalnej wydajności, bezpieczeństwie operatora oraz elastyczności produkcji.
+Urządzenie posiada pełną możliwość rozbudowy do 4 niezależnych zestawów zgrzewających. Pozwala to na jednoczesne, automatyczne przypawanie do 4 różnych typów lub rozmiarów kołków w jednym cyklu produkcyjnym, bez konieczności przezbrajania maszyny.
+Zautomatyzowane stanowisko typu ST-3/6-CNC z 3 głowicami, wibracyjnymi podajnikami kołków i kondensatorowymi źródłami prądowymi
+Stanowisko z polem roboczym o wymiarach 2500×1500 mm, zaprojektowano tak, aby umożliwiało przygrzewanie różnych rodzajów trzpieni, w dowolnej konfiguracji, do blach stalowych o różnych wymiarach i kształtach.
+Stanowisko wyposażono w trzy głowice przygrzewające, zaopatrywane przez wibracyjne podajniki kołków i kondensatorowe źródła prądowe. Zakres przypawanych kołków: M4-M8 standardowe oraz M8 z kołnierzem, ze stali niskowęglowej i nierdzewnej o długościach w zakresie od 6 do 30 mm.
+Automat do przygrzewania różnych rodzajów trzpieni, w dowolnej konfiguracji, do blach stalowych o różnych wymiarach i kształtach. Stół teowy,  2 głowice przygrzewające, wibracyjne podajniki kołków, kondensatorowe źródła prądowe.
+Oferujemy w pełni zautomatyzowane przypawanie kołków dzięki naszym maszynom CNC. Każdy aspekt procesu zgrzewania może być sterowany komputerowo i zautomatyzowany – od podawania kołków i zgrzewania, po załadunek i rozładunek. Maszyny te zapewniają niezmiennie precyzyjne pozycjonowanie oraz mocne, trwałe rezultaty.
+Za pomocą zgrzewarki CNC Smoltech można obsłużyć detale o wymiarach do 3000 x 2000 mm, korzystając z maksymalnie 4 osi do przypawania wielu kołków (o średnicy od 3 mm do 8 mm) na wielu komponentach w ramach jednego programu. Łatwe programowanie i system szybkiego przezbrajania sprawiają, że jest to idealne rozwiązanie zarówno dla długich, jak i krótkich serii produkcyjnych.
+Przypawarki CNC wykonane przez Smoltech mogą być również używane z robotami jako w pełni automatyczne, 5-osiowe rozwiązanie, idealne dla obiektów 3D.
+Podsumowując, w pełni zautomatyzowana maszyna CNC to wysoce ekonomiczny i wydajny wybór, który oferuje wyjątkową wszechstronność i niezawodność. Zaprojektowane i zbudowane tak, aby spełniać wszystkie wymagane normy
+[[https://exgic2b95c2.exactdn.com/wp-content/uploads/2026/03/IMG_0851.jpeg?strip=all&w=2560]]
+[[https://exgic2b95c2.exactdn.com/wp-content/uploads/2026/03/IMG_0753.jpeg?strip=all&w=2560]]
+[[https://exgic2b95c2.exactdn.com/wp-content/uploads/2026/03/CNC-do-automatycznego-przypawania-trzpieni-1.jpg?strip=all&w=2560]]
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/]] > Zgrzewarki do trzpieni
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/urzadzenia-typu-cdm/]] > CDM – urządzenia do kondensatorowego przypawania trzpieni od Ø2 do Ø10
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/multi-gun/]] > MULTI-GUN kondensatorowe urządzenia z 3 pistoletami do przypawania trzpieni Ø2 – Ø10
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/urzadzenia-typu-da/]] > DA – urządzenia do transformatorowego przypawania trzpieni od Ø3 do Ø16
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/stanowiska-do-automatycznego-przygrzewania-trzpieni/]] > Stanowiska CNC do automatycznego przypawania trzpieni
+- [[https://smoltech.pl/podzespoly-do-automatycznego-przypawania-trzpieni/]] > Podzespoły do automatycznego przypawania trzpieni
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

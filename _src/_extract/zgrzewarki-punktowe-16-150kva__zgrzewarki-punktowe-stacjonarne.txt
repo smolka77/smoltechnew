@@ -1,0 +1,96 @@
+FILE zgrzewarki-punktowe-16-150kva__zgrzewarki-punktowe-stacjonarne.html len=126767
+H: Zgrzewarki punktowe stacjonarne z dociskiem kleszczowym nożnym lub pneumatycznym o mocy od 16 do 25 kVA
+H: Konstrukcja i wyposażenie zgrzewarek stacjonarnych
+H: Zgrzewarki z dociskiem nożnym
+H: Zgrzewarki z dociskiem pneumatycznym
+H: Zastosowanie stacjonarnych zgrzewarek punktowych
+H: Który model wybrać?
+H: Aktualności
+H: Blog
+TABLES 2
+ TABLE 0 rows=28
+  | DANE TECHNICZNE - ZGRZEWARKI Z DOCISKIEM NOŻNYM
+  | ZGRZEWARKA || 4640 || 4641 || 4642 || 4643 || 4644
+  | Moc nominalna 50% kVA || 16 || 20 || 20 || 25 || 25
+  | Moc maksymalna kVA || 35 || 48 || 39 || 68 || 55
+  | Napięcie wtórne V || 3,4 || 4 || 4 || 4,6 || 4,6
+  | Maks. prąd zwarcia kA || 12,5 || 14,5 || 12 || 18 || 14,5
+  | Maks. pąd zgrzewania stali kA || 10 || 11,6 || 9,6 || 14,4 || 11,6
+  | Napięcie V | Hz || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50
+  | Bezpeczniki zwłoczne 230 V, A || 50 || 63 || 63 || 80 || 80
+  | Bezpeczniki zwłoczne 400 V, A || 32 || 40 || 40 || 50 || 50
+  | Przekrój kabli zasilających dla | L=10m, mm 2 | L=30m, mm 2 || | 6 | 10 || | 10 | 10 || | 10 | 10 || | 16 | 16 || | 16 | 16
+  | Klasa izolacji || F || F || F || F || F
+  | Wymagane ciśn. powietrza bar || — || — || — || — || —
+  | Zużycie pow./100 zgrzein N/m 3 || — || — || — || — || —
+  | Min wysięg ramion L, mm || 230 || 230 || 380 || 230 || 380
+  | Max siła doc. dla L=min, daN || 240 || 240 || 150 || 240 || 150
+  | Skok elektrody dla L=min, mm || 8-44 || 8-44 || 10-60 || 4-44 || 10-60
+  | Maks wysięg ramion L, mm || 550 || 550 || 700 || 550 || 700
+  | Max siła doc. dla L=max, daN || 95 || 95 || 80 || 95 || 80
+  | Skok elektrody dla L=max, mm || 15-85 || 15-85 || 15-105 || 15-85 || 15-105
+  | Prąd zwar. dla max wysięgu kA || 8,4 || 10 || 8,8 || 13 || 10,5
+  | Chłodzenie wodne l/min || 2,5 || 3 || 3 || 3,7 || 3,7
+  | Min.ciśnienie wody bar || 2,5 || 2,5 || 2,5 || 2,5 || 2,5
+  | Głośność przy pracy dB(A) || <70 || <70 || <70 || <70 || <70
+  | Masa kg || 135 || 143 || 146 || 145 || 148
+  | Ø ramion mm || 36 || 40 || 40 || 40 || 40
+  | Ø uchwytu elektrody mm || 19 || 22 || 22 || 22 || 22
+  | Ø gniazda elektrody BS mm || 12,7 || 14,8 || 14,8 || 14,8 || 14,8
+ TABLE 1 rows=28
+  | DANE TECHNICZNE - ZGRZEWARKI Z DOCISKIEM PNEUMATYCZNYM
+  | ZGRZEWARKA || 4645 || 4646 || 4647 || 4648 || 4649
+  | Moc nominalna 50% kVA || 16 || 20 || 20 || 25 || 25
+  | Moc maksymalna kVA || 35 || 48 || 39 || 68 || 55
+  | Napięcie wtórne V || 3,4 || 4 || 4 || 4,6 || 4,6
+  | Maks. prąd zwarcia kA || 12,5 || 14,5 || 12 || 18 || 14,5
+  | Maks. pąd zgrzewania stali kA || 10 || 11,6 || 9,6 || 14,4 || 11,6
+  | Napięcie V | Hz || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50
+  | Bezpeczniki zwłoczne 230 V, A || 50 || 63 || 63 || 80 || 80
+  | Bezpeczniki zwłoczne 400 V, A || 32 || 40 || 40 || 50 || 50
+  | Przekrój kabli zasilających dla | L=10m, mm 2 | L=30m, mm 2 || | 6 | 10 || | 10 | 10 || | 10 | 10 || | 16 | 16 || | 16 | 16
+  | Klasa izolacji || F || F || F || F || F
+  | Wymagane ciśn. powietrza bar || 6,5-10 || 6,5-10 || 6,5-10 || 6,5-10 || 6,5-10
+  | Zużycie pow./100 zgrzein N/m 3 || 4,3 || 4,3 || 4,3 || 4,3 || 4,3
+  | Min wysięg ramion L, mm || 230 || 230 || 380 || 230 || 380
+  | Max siła doc. dla L=min, daN || 240 || 240 || 165 || 240 || 165
+  | Skok elektrody dla L=min, mm || 8-44 || 8-44 || 10-60 || 8-44 || 10-60
+  | Maks wysięg ramion L, mm || 550 || 550 || 700 || 550 || 700
+  | Max siła doc. dla L=max, daN || 115 || 115 || 90 || 115 || 90
+  | Skok elektrody dla L=max, mm || 15-85 || 15-85 || 15-105 || 15-85 || 15-105
+  | Prąd zwar. dla max wysięgu kA || 8,4 || 10 || 8,8 || 13 || 10,5
+  | Chłodzenie wodne l/min || 2,5 || 3 || 3 || 3,7 || 3,7
+  | Min.ciśnienie wody bar || 2,5 || 2,5 || 2,5 || 2,5 || 2,5
+  | Głośność przy pracy dB(A) || <70 || <70 || <70 || <70 || <70
+  | Masa kg || 133 || 141 || 144 || 143 || 146
+  | Ø ramion mm || 36 || 40 || 40 || 40 || 40
+  | Ø uchwytu elektrody mm || 19 || 22 || 22 || 22 || 22
+  | Ø gniazda elektrody BS mm || 12,7 || 14,8 || 14,8 || 14,8 || 14,8
+YT 
+IMGS 19
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/jquery.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/jquery-migrate.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/02/pdf-1.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/04/zgrzewarki.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/auto-image-alt/js/auto_image_alt.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/ewww-image-optimizer/includes/lazysizes.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/hooks.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/i18n.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/includes/swv/js/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/includes/js/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/goodlayers-core/plugins/script.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/goodlayers-core/include/js/page-builder.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/ui/effect.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/themes/realfactory/js/script-core.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/ui/core.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/pum/pum-site-scripts.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/vendor/wp-polyfill.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/modules/recaptcha/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/tablepress/js/jquery.datatables.min.js
+LINKS
+  https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-punktowe-stacjonarne/
+  https://smoltech.pl/zgrzewarki-punktowe-16-150kva/
+  https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-stolowe-punktowe/
+  https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-stolowe-inwertorowe/
+  https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-inwertorowe-punktowe/
+  https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-punktowe-stacjonarne-2/

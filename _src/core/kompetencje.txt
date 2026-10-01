@@ -1,0 +1,65 @@
+﻿FILE: kompetencje.html
+TITLE: Automatyzacja produkcji - budowa maszyn
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: PROJEKTOWANIE I PRODUKCJA MASZYN, AUTOMATYZACJA, ROBOTYZACJA
+Naszym celem jest efektywna automatyzacja produkcji u naszego klienta. Dlatego w SMOLTECH stosujemy sprawdzoną procedurę realizacji projektów. Na wstępie analizujemy założenia techniczne inwestora. Na tej podstawie opracowujemy koncepcję maszyny , którą przedstawiamy do akceptacji. Po uwzględnieniu wszystkich wymagań i uwag klienta, wykonujemy projekty konstrukcji mechanicznej i elektrycznej, projektujemy obwody automatyki i sterowania . Następnie budujemy urządzenia , oprogramowujemy i testujemy wraz z inwestorem. Po otrzymaniu pozytywnej oceny urządzenie jest gotowe do wdrożenia i uruchomienia w trybie produkcyjnym.
+Aby zapewnić najwyższą jakość do produkcji maszyn wykorzystujemy najlepsze podzespoły światowych producentów. Są to elementy z zakresu robotyzacji, automatyki, elektroniki, optyki, pneumatyki i systemów serwonapędowych. Na życzenie inwestora stosujemy zaawansowane rozwiązania w zakresie wszechstronnej kontroli i pomiarów procesu produkcyjnego. Oferujemy również stały monitoring online i wsparcie serwisowe po zakończeniu projektu.
+W efekcie nasz klient otrzymuje profesjonalną, kompleksową obsługę na każdym etapie projektu . Dzięki takiemu podejściu zdobyliśmy setki zadowolonych klientów, w tym ze szczególnie wymagającej branży motoryzacyjnej. I na przestrzeni lat zbudowaliśmy pokaźne [[https://smoltech.pl/zgrzewarki-do-metalu-realizacje/]] portfolio niepowtarzalnych maszyn, przede wszystkim automatów do zgrzewania oporowego, w tym linii wielozadaniowych i stanowisk zrobotyzowanych.
+### H2: Projektowanie machaniki
+Przygotowanie, analiza i wstępna koncepcja projektu na podstawie założeń zleceniodawcy
+Wstępne projekty robocze i kalkulacje dla zleceniodawcy
+Projektowanie zasadnicze układów mechanicznych przyrządów, urządzeń i maszyn w programach Autodesk Inventor Proffesional 2020, AutoCAD 2020
+Kompleksowy dobór podzespołów i komponentów do zastosowania w projekcie
+Przygotowanie dokumentacji wykonawczej oraz list zakupowych dla działu produkcji
+Nadzór nad fazą produkcyjną projektu
+Kontrola odbiorów wstępnych i końcowych
+Przygotowanie dokumentacji powykonawczej i techniczno-ruchowej
+### H2: Produkcja maszyn
+Kompleksowa budowa maszyn i urządzeń na podstawie dokumentacji technicznej własnej lub obcej
+Realizacja zleceń od projektu do odbioru końcowego
+Budowa i montaż od prostych narzędzi i przyrządów do wielozadaniowych maszyn przemysłowych
+Realizacja zleceń dla klientów przy współpracy z wyspecjalizowanymi centrami obróbki skrawaniem
+Całościowa i kompletna realizacja zleconych projektów od strony mechaniki, elektryki, pneumatyki, hydrauliki, układów serwo, oraz systemów wizyjnych i pomiarowych
+Doświadczenie w realizacji projektów w układach zrobotyzowanych
+Zastosowanie w realizowanych projektach układów zgrzewalniczych firmy TECNA
+Szeroki park narzędziowy i maszynowy
+### H2: Automatyzacja produkcji
+Projektowanie instalacji elektrycznych i układów automatyki w oparciu o urządzenia wiodących producentów, m.in Siemens, Mitsubishi, Allan-Bradley, B&R
+Wykorzystanie programów dedykowanych oraz WSCAD i EPLAN
+Dostarczanie całościowych rozwiązań w zakresie automatyzacji procesu
+Integracja procesów maszynowych oraz ich wizualizacja i monitoring w czasie rzeczywistym przy zastosowaniu autorskich rozwiązań i aplikacji
+Monitorowanie zdalne on-line procesów i pracy urządzeń
+Doradztwo i serwis
+### H2: Robotyzacja
+Robotyzacja stanowisk i procesów produkcyjnych
+Projektowanie i wykonywanie zrobotyzowanych stanowisk zgrzewalniczych i spawalniczych
+Projektowanie i wykonywanie stanowisk wykorzystujących wieloosiowe roboty do załadunku i rozładunku detali
+Zrobotyzowane urządzenia do pakowania i paletyzacji
+### H4: Zapraszamy do współpracy w zakresie projektowania i budowy:
+zautomatyzowanych linii produkcyjnych
+stanowisk zrobotyzowanych
+oprzyrządowania przemysłowego
+szaf elektrycznych
+elementów konstrukcyjnych
+### H3: Nasze realizacje
+Od podstaw projektujemy i produkujemy stanowiska zgrzewalnicze do realizacji specjalistycznych operacji zgrzewania detali metalowych.
+[[/realizacje/]] Więcej
+-
+[[//www.youtube.com/embed/epa5-Y0UspY?wmode=transparent&autoplay=1]]
+### H3: [[//www.youtube.com/embed/epa5-Y0UspY?wmode=transparent&autoplay=1]] Półautomatyczne stanowisko SG-4/2×200/AC do zgrzewania garbowego uchwytów do misy grilla
+-
+[[//www.youtube.com/embed/JbYcwFOhJYE?wmode=transparent&autoplay=1]]
+### H3: [[//www.youtube.com/embed/JbYcwFOhJYE?wmode=transparent&autoplay=1]] Inwertorowa zgrzewarka garbowa typu SG-2/1×25/MF z systemem wizyjnym do zgrzewania uchwytu do kubka
+-
+[[//www.youtube.com/embed/4Oam_d7nMLc?wmode=transparent&autoplay=1]]
+### H3: [[//www.youtube.com/embed/4Oam_d7nMLc?wmode=transparent&autoplay=1]] Półautomatyczna zgrzewarka garbowa do stateczników granatu moździerzowego typ SG-5/3X160/AC
+-
+[[//www.youtube.com/embed/AFjrgjZMeXo?wmode=transparent&autoplay=1]]
+### H3: [[https://smoltech.pl/portfolio/zrobotyzowane-stanowisko-do-zgrzewania-obudow-stalowych/]] Zrobotyzowane stanowisko SP-8/4×75/AC/R do punktowego zgrzewania obudów stalowych i garbowego zgrzewania kołków
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

@@ -1,0 +1,55 @@
+H1	Automatyzacja zgrzewania - nasze realizacje
+H2	Zgrzewarka punktowa - automatyzacja zgrzewania punktowego
+VID	AFjrgjZMeXo	SMOLTECH - Zrobotyzowane stanowisko do zgrzewania punktowego obudów stalowych i zgrzewania kołków
+VID	LKGqiEDS_LU	SMOLTECH - Automatyczna zgrzewarka punktowa z podajnikiem taśmowym - fast automatic spot welder
+VID	GQUUXf1qjwA	SMOLTECH - Zgrzewanie punktowe okapów kuchennych - spot welding of kitchen hoods
+VID	6KaqFYMPcic	SMOLTECH Stanowisko do wciskania i zgrzewania tulejki na tłoczysku amortyzatora - wersja 2
+VID	c7fkfyafbPs	SMOLTECH Zgrzewanie punktowe skrzyń metalowych i przypawanie kołków - zgrzewarka punktowa
+VID	YdiuEFgriDs	SMOLTECH Stanowisko do montażu i zgrzewania elementów układu wydechowego - zgrzewarka punktowa
+VID	H6s1yXAZUXs	SMOLTECH Zgrzewarka wielopunktowa MFDC - zgrzewanie wsporników i blach
+VID	KmIniPkOHOM	SMOLTECH Cięcie i brykietowanie przewodów - zgrzewarka punktowa 50 kVA
+VID	LSJsRBbX-Z8	SMOLTECH Uniwersalna zgrzewarka punktowa ze stołem do zgrzewania elementów przestrzennych
+VID	hU-yobvS4Ek	SMOLTECH Zgrzewarka punktowa z ruchomym stołem roboczym - zgrzewanie punktowe
+VID	7cMV-bGeVo0	SMOLTECH Zgrzewarka do elementów cewki prądowej - zgrzewarka punktowa
+VID	He6Lng2_M0k	SMOLTECH Stanowisko do wciskania i zgrzewania tulei na tłoczysku amortyzatora - zgrzewarka punktowa
+H2	Zgrzewarka garbowa - automatyzacja zgrzewania garbowego
+VID	4Oam_d7nMLc	SMOLTECH – Półautomatyczna zgrzewarka garbowa do stateczników granatu moździerzowego
+VID	JbYcwFOhJYE	SMOLTECH - Zgrzewanie uchwytu do kubka - welding of cup holder bracket
+VID	epa5-Y0UspY	SMOLTECH - Zgrzewanie uchwytów do misy grilla - projection welding the handles to the grill bowl
+VID	HuwTENXB1N8	SMOLTECH - Robotyzacja zgrzewania, zgrzewanie nakrętek - robotic welding of nuts
+VID	OUtz684rZBM	SMOLTECH - zgrzewanie wsporników do pierścienia - welding of brackets to the ring
+VID	eZZ8jLD9WqU	SMOLTECH Stanowisko do zgrzewania lokatora na cylindrze amortyzatora.
+VID	ytIj4I0PrWc	SMOLTECH Zgrzewarka garbowa z dwoma cylindrami 200kVA - two-cylinder projection welding machine
+VID	ug3qmbYL1Hg	SMOLTECH Zgrzewanie nakrętek do wspornika - zgrzewarka do nakrętek
+VID	o0p_RH_37vA	SMOLTECH Zgrzewanie śruby i obudowy zwijacza pasów - zgrzewanie punktowe i garbowe
+VID	COq_dzNB3xg	SMOLTECH Zgrzewarka garbowa - zgrzewanie nakrętek i grawerowanie
+VID	IFZ09jE0eHw	SMOLTECH Zgrzewarka garbowa z przyrządem - zgrzewanie blach ocynkowanych
+VID	NvXJ61Ja19E	SMOLTECH Zgrzewarka garbowa z przyrządami - zgrzewanie elementów układu wydechowego
+VID	7nNU6n87G6k	SMOLTECH Zgrzewanie koszy metalowych - zgrzewarka punktowa
+VID	Kqm8zuIoBUU	SMOLTECH Zgrzewarka garbowa prądu stałego z przyrządami - zgrzewanie elementów układu wydechowego
+VID	gC2hqqf1-js	SMOLTECH Zgrzewarka garbowa z przyrządem - zgrzewanie nypli
+VID	8enYzDgnToM	SMOLTECH Zgrzewanie garbowe nakrętki do wspornika fotela samochodowego - zgrzewarka garbowa
+VID	NzVMYgiam00	SMOLTECH Zgrzewarka garbowa z obrotowym przyrządem - zgrzewanie nakrętek
+VID	jFnCR1_O3LA	SMOLTECH Zgrzewarka garbowa - zgrzewanie śrub i nakrętek
+VID	JuaB-X_moEg	SMOLTECH Zgrzewarka garbowa prądu stałego z przyrządem - zgrzewanie osłony łożyska.
+VID	xR3QcYjVgjk	SMOLTECH Zgrzewarka garbowa inwertorowa - zgrzewanie wspornika do rury
+H2	Stanowisko do zgrzewania liniowego po obwodzie
+VID	ujX2QN7QHIc	SMOLTECH Zrobotyzowane stanowisko do wciskania i zgrzewania denka do rury - zgrzewarka liniowa
+VID	vOfJVwX2v1o	SMOLTECH Stacja do wciskania i zgrzewania liniowego denka do rury - zgrzewarka liniowa
+VID	SBoRi8ZKQpQ	SMOLTECH Stanowisko do zgrzewania liniowego denka do cylindra amortyzatora - zgrzewarka liniowa
+H2	Zgrzewarki wielopunktowe, w tym linie do produkcji siatek i paneli ogrodzeniowych
+VID	3RnMyTRxjuI	SMOLTECH Inwertorowa zgrzewarka wielopunktowa do paneli ogrodzeniowych 2D i 3D - zgrzewanie siatek
+VID	FeNZrfEwbFE	SMOLTECH Zgrzewarka wielopunktowa inwertorowa do zgrzewania paneli ogrodzeniowych 2D i 3D.
+VID	LK_PNrIc6zw	SMOLTECH Zgrzewarka do siatek ogrodzeniowych i budowlanych z szablonami i systemem paletyzowania
+VID	mXXXzRkxugI	SMOLTECH Zgrzewarka wielopunktowa do zgrzewania siatek stalowych w szablonach
+VID	dUEYgMfzKEA	SMOLTECH Zgrzewarka wielopunktowa do siatek ogrodzeniowych z trzema podajnikami prętów
+VID	D_gxk8vQS_4	SMOLTECH Zgrzewanie wielopunktowe sit żaluzjowych - zgrzewarka wielopunktowa
+VID	8FtH6oCrRJo	SMOLTECH Zgrzewarka wielopunktowa prądu stałego - zgrzewanie siatek
+H2	Automat do przypawania trzpieni
+VID	4NqB3878X-U	SMOLTECH Stanowisko CNC do przypawania kołków - przygrzewanie trzpieni, stud welding
+VID	vVcSHXcg3ZE	SMOLTECH Wciskanie talerza na rurę i przygrzewania pina
+VID	J70B0umihI8	SMOLTECH Przygrzewanie trzpieni - łukowe przypawanie kołków z podajnikami
+VID	FWhQil8LZi0	SMOLTECH Stanowisko do półautomatycznego przygrzewania trzpieni do blach ocynkowanych
+VID	OKB9vxk42Jo	SMOLTECH - CNC automated stud welding machine
+H3	Aktualności
+H3	Blog

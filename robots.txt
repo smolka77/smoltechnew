@@ -1,0 +1,33 @@
+# smoltech.com.ua — машини контактного зварювання SMOLTECH
+# https://smoltech.com.ua/sitemap.xml
+
+User-agent: *
+Allow: /
+Disallow: /_src/
+Disallow: /_build/
+Disallow: /send.php
+Disallow: /wyslij.php
+Disallow: /panel/
+Disallow: /_private/
+Disallow: /*?sent=
+
+# AI / LLM crawlers — indexing allowed, we want to be cited
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://smoltech.com.ua/sitemap.xml

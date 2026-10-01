@@ -1,0 +1,5 @@
+proj-35-80 https://smoltech.pl/zgrzewarki-punktowo-garbowe-35-630kva/35-do-80-kva/
+H []
+YT []
+IMGS []
+TABLES 0

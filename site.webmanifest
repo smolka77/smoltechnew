@@ -1,0 +1,39 @@
+{
+  "name": "SMOLTECH — машини контактного зварювання",
+  "short_name": "SMOLTECH",
+  "description": "Виробник машин контактного зварювання: точкові та рельєфні машини, автоматизовані комплекси, машини для зварювання сіток, приварювання шпильок.",
+  "lang": "uk-UA",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "categories": ["business", "industrial", "manufacturing"],
+  "icons": [
+    { "src": "/assets/img/favicon-32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "/assets/img/favicon-48.png", "sizes": "48x48", "type": "image/png" },
+    { "src": "/assets/img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Точкові та рельєфні машини",
+      "url": "/tochkovo-relyefni-mashyny/",
+      "icons": [{ "src": "/assets/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Приварювання шпильок",
+      "url": "/pryvaryuvannya-shpylok/",
+      "icons": [{ "src": "/assets/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Контакти",
+      "url": "/kontakty/",
+      "icons": [{ "src": "/assets/img/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+FILE zgrzewarki-podwieszane-25-90-kva__zgrzewarki-punktowe-kleszczowe-16-38kva.html len=116339
+H: Zgrzewarki kleszczowe podwieszane z wbudowanym sterownikiem i transformatorem o mocy od 16 do 38 kVA
+H: Budowa i możliwości pracy – zgrzewarka kleszczowa punktowa
+H: Parametry techniczne – tabela
+H: Dobierz zgrzewarkę do stanowiska pracy
+H: Aktualności
+H: Blog
+TABLES 1
+ TABLE 0 rows=16
+  | Zgrzewarki punktowe | kleszczowe ||  || 3321 || 3322 || 3323 || 3324 || 3327 || 3328
+  | Moc znamionowa || kVA || 16 || 23 || 23 || 23 || 38 || 38
+  | Moc maksymalna zgrzewania || kVA || 37 || 65 || 63 || 52 || 110 || 92
+  | Maksymalny prąd zwarcia || kA || 16 || 21 || 21 || 16 || 27 || 22
+  | Napięcie/Częstotliwość || V/Hz || 400/50 || 400/50 || 400/50 || 400/50 || 400/50 || 400/50
+  | Zabezpieczenie zwłoczne || A || 32 || 40 || 40 || 40 || 80 || 80
+  | Rozstaw ramion || mm || 16 || 16 || 16 || 16 || 16 || 16
+  | Długość ramion standardowych L || mm || 190, 250, | 350, 508, | 650 || 190, 250, | 350, 508, | 650, 800 || – || 250, 350, | 508, 650 || 255, 408, | 610, 820, | 1030 || 255, 408, | 610, 820
+  | Minimalna długość ramion || mm || 190 || 190 || – || 250 || 250 || 250
+  | Maksymalna długość ramion || mm || 650 || 800 || – || 650 || 1030 || 820
+  | Maksymalna siła docisku | (6 bar) dla Lmin || daN || 286 || 338 || 300 || 268 || 695 || 695
+  | Wymagane ciśnienie powietrza || bar || 6,5 || 6,5 || 6,5 || 6,5 || 6,5 || 6,5
+  | Zużycie wody chłodzącej | przy 250 kPa (2,5 bar) || l/min || 7 || 7 || 7 || 7 || 8 || 8
+  | Zgrzewanie blach niskowęglowych | przy Lmin || mm || 3+3 || 4+4 || 4+4 || 3,5+3,5 || 5+5 || 5+5
+  | Pręty na krzyż stal niskowęglowa || Ø mm || 10+10 || 14+14 || 14+14 || 12+12 || 16+16 || 16+16
+  | Masa brutto z najkrótszymi ramionami || kg || 46 || 52 || 53 || 55 || 76 || 76 | |
+YT 
+IMGS 20
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/jquery.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/jquery-migrate.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/02/pdf-1.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/02/kleszczowe.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/02/kleszczowe_2.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/auto-image-alt/js/auto_image_alt.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/ewww-image-optimizer/includes/lazysizes.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/hooks.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/i18n.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/includes/swv/js/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/includes/js/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/goodlayers-core/plugins/script.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/goodlayers-core/include/js/page-builder.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/ui/effect.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/themes/realfactory/js/script-core.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/ui/core.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/pum/pum-site-scripts.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/vendor/wp-polyfill.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/modules/recaptcha/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/tablepress/js/jquery.datatables.min.js
+LINKS
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-punktowe-kleszczowe-16-38kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-podwieszane-56-90-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-kleszczowe-32-do-75-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarka-kleszczowa-50-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-punktowe-2-5-6-kva/

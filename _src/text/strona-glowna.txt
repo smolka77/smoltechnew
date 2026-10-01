@@ -1,0 +1,231 @@
+﻿FILE: home.html
+TITLE: Producent zgrzewarek na zamówienie - SMOLTECH
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+IMAGES:
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2008/12/zgrzewarka-uchwytu-kubka.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/02/logo_smoltech_footer2.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/03/ico_footer.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/03/przyrzady.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/03/zgrzewarki_podstawowe.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/03/zgrzewarki_specializowane.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/04/play.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2022/09/zgrzewarki.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2024/09/Logo-Smoltech_New-01.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2025/09/podzespoly-i-wyposazenie.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2025/10/Zgrzewarka-uchwytow-do-misy-grilla.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2025/11/zgrzewarki-z-przyrzadami.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2026/04/projection-welding-of-mortar-grenade-fins-1.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2026/04/zrobotyzowane-stanowisko-do-zgrzewania-obudow.jpg
+CONTENT:
+-
+-
+-
+-
+-
+-
+-
+-
+- Producent zgrzewarek na zamówienie - SMOLTECH
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+[[https://smoltech.pl/]]
+[[https://www.youtube.com/user/SMOLTECH/videos]]
+[[https://www.facebook.com/SmoltechTechnikaZgrzewalnicza]]
+[[https://www.linkedin.com/company/smoltech-technika-zgrzewalnicza/]]
+[[https://www.instagram.com/smoltech_resistance_welding]]
+[[#realfactory-mobile-menu]]
+- Firma
+- [[https://smoltech.pl/o-firmie/]] O firmie
+- [[https://smoltech.pl/kompetencje/]] Kompetencje
+- [[https://smoltech.pl/aktualnosci/]] Aktualności
+- [[https://smoltech.pl/polityka-prywatnosci/]] Polityka prywatności
+- [[https://smoltech.pl/polityka-ochrony-srodowiska/]] Polityka ochrony środowiska
+- Zgrzewarki do metalu
+- [[https://smoltech.pl/zgrzewarka-punktowa/]] Zgrzewarki punktowe i garbowe
+- [[https://smoltech.pl/automatyzacja-zgrzewania/]] Stanowiska zautomatyzowane
+- [[https://smoltech.pl/zgrzewarki-do-siatek/]] Zgrzewarki do siatek
+- [[https://smoltech.pl/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]] Zgrzewarki z oprzyrządowaniem
+- [[https://smoltech.pl/przyrzady-zgrzewalnicze/]] Przyrządy zgrzewalnicze i spawalnicze
+- [[https://smoltech.pl/podzespoly-i-wyposazenie/]] Podzespoły i wyposażenie
+- [[https://exgic2b95c2.exactdn.com/wp-content/uploads/2024/06/SMOLTECH_Katalog-Elektrod.pdf]] Elektrody do zgrzewarek
+- [[https://smoltech.pl/pomiary-uslugi-serwis/]] Pomiary – Usługi – Serwis
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/]] Przypawanie trzpieni
+- [[https://smoltech.pl/zgrzewarki-do-metalu-realizacje/]] Filmy – automatyzacja zgrzewania
+- [[https://smoltech.pl/katalogi/]] Katalogi
+- [[https://smoltech.pl/kontakt/]] Kontakt
+- [[https://smoltech.pl/en/]]
+[[https://smoltech.pl/]]
+Biuro
+konstrukcyjne
+Budowa
+stanowisk
+Automatyzacja
+i robotyzacja [[/zgrzewarki-do-metalu-realizacje/]] REALIZACJE
+[[https://www.youtube.com/user/SMOLTECH/videos]]
+[[https://www.facebook.com/SmoltechTechnikaZgrzewalnicza]]
+[[https://www.linkedin.com/company/smoltech-technika-zgrzewalnicza/]]
+[[https://www.instagram.com/smoltech_resistance_welding]]
+- Firma
+- [[https://smoltech.pl/o-firmie/]] O firmie
+- [[https://smoltech.pl/kompetencje/]] Kompetencje
+- [[https://smoltech.pl/aktualnosci/]] Aktualności
+- [[https://smoltech.pl/polityka-prywatnosci/]] Polityka prywatności
+- [[https://smoltech.pl/polityka-ochrony-srodowiska/]] Polityka ochrony środowiska
+- Zgrzewarki do metalu
+- [[https://smoltech.pl/zgrzewarka-punktowa/]] Zgrzewarki punktowe i garbowe
+- [[https://smoltech.pl/automatyzacja-zgrzewania/]] Stanowiska zautomatyzowane
+- [[https://smoltech.pl/zgrzewarki-do-siatek/]] Zgrzewarki do siatek
+- [[https://smoltech.pl/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]] Zgrzewarki z oprzyrządowaniem
+- [[https://smoltech.pl/przyrzady-zgrzewalnicze/]] Przyrządy zgrzewalnicze i spawalnicze
+- [[https://smoltech.pl/podzespoly-i-wyposazenie/]] Podzespoły i wyposażenie
+- [[https://exgic2b95c2.exactdn.com/wp-content/uploads/2024/06/SMOLTECH_Katalog-Elektrod.pdf]] Elektrody do zgrzewarek
+- [[https://smoltech.pl/pomiary-uslugi-serwis/]] Pomiary – Usługi – Serwis
+- [[https://smoltech.pl/zgrzewarki-do-trzpieni/]] Przypawanie trzpieni
+- [[https://smoltech.pl/zgrzewarki-do-metalu-realizacje/]] Filmy – automatyzacja zgrzewania
+- [[https://smoltech.pl/katalogi/]] Katalogi
+- [[https://smoltech.pl/kontakt/]] Kontakt
+- [[https://smoltech.pl/en/]]
+[[/automatyzacja-zgrzewania/]]
+[[/automatyzacja-zgrzewania/]] Automatyzacja i robotyzacja zgrzewania metali
+Projektujemy i budujemy specjalizowane zgrzewarki do metali, zautomatyzowane stanowiska do zgrzewania oporowego i wielofunkcyjne linie technologiczne. Naszymi odbiorcami są branże: motoryzacyjna, elektrotechniczna, metalowa, meblowa, wentylacyjna, AGD,…
+Stosujemy najwyższe standardy bezpieczeństwa, systemy kontroli detali oraz zaawansowane systemy pomiaru i kontroli poprawności parametrów procesu. Dzięki temu nasze zgrzewarki spełniają surowe wymogi jakościowe branży motoryzacyjnej. [[/automatyzacja-zgrzewania/]]
+[[https://smoltech.pl/zgrzewarki-do-siatek/]]
+[[https://smoltech.pl/zgrzewarki-do-siatek/]] Zgrzewarki do siatek i paneli ogrodzeniowych
+Budujemy zgrzewarki i linie przemysłowe do produkcji paneli ogrodzeniowych, siatek górniczych, gabionów, kratownic , itp.
+Dobieramy stopień automatyzacji procesu do specyfiki produkcji i wymagań inwestora. Dzięki temu możemy zaoferować szeroki wachlarz rozwiązań począwszy od ręcznego załadunku prętów do szablonów, po automatyczne podajniki dla siatek 2D i 3D, prasę przeginającą panele, czy system odbioru i paletyzowania gotowych siatek. Zapewniamy odpowiednią wydajność, niezawodność oraz najwyższą jakość zgrzewania. [[https://smoltech.pl/zgrzewarki-do-siatek/]]
+[[/zgrzewarka-punktowa/]]
+[[/zgrzewarka-punktowa/]] Podstawowe punktowe i garbowe zgrzewarki do metali
+Oferujemy podstawowe zgrzewarki do metali dla warsztatu i przemysłu. Nowoczesne i niezawodne zgrzewarki punktowe i garbowe do zgrzewania blach, prętów, nakrętek i śrub. Nasze urządzenia wyróżnia mocna konstrukcja, chłodzenie wodą i mikroprocesorowe sterowanie parametrami zgrzewania, co gwarantuje najwyższą wydajność i jakość zgrzewania.
+Naszą ofertę uzupełniają uniwersalne ręczne zgrzewarki punktowe do zgrzewania blach i karoserii samochodowej. A także kondensatorowe zgrzewarki do kołków i przypawarki do trzpieni wraz z akcesoriami. [[/zgrzewarka-punktowa/]]
+[[/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]]
+[[/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]] Zgrzewarki do metali z przyrządami
+Oferujemy dobór odpowiedniej zgrzewarki do metali, zaprojektowanie i wykonanie oprzyrządowania, uruchomienie i wdrożenie urządzenia do produkcji.
+Zobacz przykłady urządzeń dla  branży metalowej i motoryzacyjnej , wyposażonych w oprzyrządowanie  do bazowania i zgrzewania nietypowych elementów. Dzięki odpowiednim przyrządom nasze urządzenia umożliwiają precyzyjne i łatwe zgrzewanie elementów 3D. Na przykład: nakrętki, śruby, wsporniki i kątowniki, a także wytłoczki z blachy, rury i inne. [[/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]]
+[[/przyrzady-i-elektrody/]]
+[[/przyrzady-i-elektrody/]] Przyrządy zgrzewalnicze i spawalnicze
+Projektujemy i wykonujemy przyrządy zgrzewalnicze i spawalnicze do zgrzewania elementów przestrzennych z metalu: nakrętek, śrub, trzpieni, wsporników, kształtek, kątowników, wytłoczek z blachy, itd.
+Oprzyrządowanie może być wyposażone w ręczne lub automatyczne systemy bazowania, systemy bezpieczeństwa, a także pełną lub częściową kontrolę obecności, jakości i pozycjonowania detali. Stosujemy systemy szybkiego przezbrajania i wymiany przyrządów na maszynie. [[https://smoltech.pl/przyrzady-zgrzewalnicze/]]
+[[/podzespoly-i-wyposazenie/]]
+[[/podzespoly-i-wyposazenie/]] Podzespoły, wyposażenie, elektrody do zgrzewania
+Oferujemy szeroką gamę podzespołów i części zamiennych do zgrzewarek takich jak: mikroprocesorowe sterowniki parametrów zgrzewania, konwencjonalne i inwertorowe transformatory zgrzewalnicze, siłowniki, układy dociskowe, balansery, agregaty chłodnicze, testery do pomiaru parametrów zgrzewania oporowego, itd.
+Dostarczamy wszystkie typy elektrod do zgrzewania. [[/podzespoly-i-wyposazenie/]]
+### H1: Zgrzewarki przemysłowe na zamówienie
+Jesteśmy liderem w obszarze oporowego zgrzewania metali w Polsce. Projektujemy i budujemy zautomatyzowane i zrobotyzowane zgrzewarki do metali na zamówienie, stanowiska i linie technologiczne do obróbki elementów metalowych. W naszym portfolio znajdują się stanowiska jedno- i wielogniazdowe, konwencjonalne i inwertorowe, a także zgrzewarki garbowe, liniowe, punktowe i wielopunktowe, np. [[https://smoltech.pl/automatyzacja-zgrzewania/inwertorowa-zgrzewarka-typu-sw-51-4x180/]] maszyny do zgrzewania paneli ogrodzeniowych i siatek [[https://smoltech.pl/automatyzacja-zgrzewania/inwertorowa-zgrzewarka-typu-sw-51-4x180/]] metalowych .
+W ramach jednego stanowiska integrujemy dodatkowe procesy, między innymi: kalibracja detali, wciskanie, grawerowanie oznaczeń, cięcie, gięcie, automatyczne testowanie wytrzymałości zgrzeiny, paletyzowanie i pakowanie.
+Nasze produkty pracują w wielu fabrykach branży motoryzacyjnej i metalowej w Polsce i na świecie. Każdy realizowany przez nas projekt ma na celu optymalizację procesu produkcyjnego poprzez zwiększenie wydajności i jakości, a co za tym idzie – maksymalizację zysków inwestora. Poznaj nasze urządzenia!
+Szukasz urządzenia do zgrzewania metali, ręcznej zgrzewarki punktowej, modelu do blach albo elektrod? A może potrzebujesz stanowiska do pracy z nietypowymi detalami?
+WYŚLIJ FORMULARZ , a my skontaktujemy się z Tobą, żeby zaproponować najlepsze zgrzewarki przemysłowe na zamówienie. Możesz też od razu do nas zadzwonić na numer: [[tel:71 321 54 27]] 71 321 54 27
+Zapraszamy do kontaktu!
+Wybierz województwo* dolnośląskie kujawsko-pomorskie lubelskie lubuskie łódzkie małopolskie mazowieckie opolskie podkarpackie podlaskie pomorskie śląskie świętokrzyskie warmińsko-mazurskie wielkopolskie zachodniopomorskie
+* Zgadzam się na przetwarzanie przez SMOLTECH Technika Zgrzewalnicza Sp. z o.o., danych osobowych zamieszczonych w niniejszym formularzu, w celu udzielania odpowiedzi na zapytanie [[#]]
+* - pola oznaczone gwiazdką są wymagane
+### H2: Zgrzewarki do metali
+[[https://smoltech.pl/zgrzewarki-do-metalu-realizacje/]] Realizacje [[/kontakt/]] Kontakt
+Jesteśmy liderem w obszarze oporowego zgrzewania metali w Polsce . Projektujemy i budujemy zautomatyzowane i zrobotyzowane zgrzewarki do metali, stanowiska i linie technologiczne do zgrzewania elementów metalowych. W naszym portfolio znajdują się stanowiska jedno i kilku gniazdowe, konwencjonalne i inwertorowe, a także zgrzewarki garbowe, liniowe, punktowe i wielopunktowe np. maszyny do [[/zgrzewarki-specjalizowane/inwertorowa-zgrzewarka-typu-sw-51-4x180/]] zgrzewania paneli ogrodzeniowych bądź siatek metalowych . Nasze zgrzewarki pracują w wielu fabrykach branży motoryzacyjnej i metalowej w Polsce i na świecie.
+Każdy realizowany przez nas projekt ma na celu optymalizację procesu produkcyjnego poprzez zwiększenie wydajności i jakości, a co za tym idzie maksymalizację zysków inwestora.
+### H2: Realizacje zgrzewarek na zamówienie dla różnych branż
+W zakładce [[https://smoltech.pl/zgrzewarki-do-metalu-realizacje/]] REALIZACJE można zobaczyć filmy przedstawiające kilkadziesiąt specjalistycznych maszyn przemysłowych do zgrzewania oporowego zaprojektowanych i wyprodukowanych przez naszą firmę. Budowane na indywidualne zamówienie maszyny i stanowiska są skonstruowane tak, aby zapewnić automatyczne zgrzewanie punktowe, garbowe lub liniowe specyficznych elementów metalowych.
+Ponadto naszą ofertę uzupełniają podstawowe [[https://smoltech.pl/zgrzewarka-punktowa/]] zgrzewarki punktowe do blachy oraz [[https://smoltech.pl/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]] zgrzewarki [[https://smoltech.pl/zgrzewarki-garbowe-do-metali-przyrzady-zgrzewalnicze/]] garbowe z przyrządami . Urządzenia znajdują zastosowanie zarówno przy produkcji niskoseryjnej, jak i podczas realizacji bardziej wymagających projektów technologicznych. Dzięki zastosowaniu odpowiedniego oprzyrządowania każda nasza zgrzewarka na zamówienie umożliwia precyzyjne zgrzewanie nakrętek, wsporników, prętów i innych dowolnych stalowych elementów przestrzennych.
+### H2: Najnowsze realizacje
+Projektujemy i budujemy stanowiska zgrzewalnicze do realizacji specjalistycznych operacji zgrzewania metalu.
+[[/zgrzewarki-do-metalu-realizacje/]] Więcej
+-
+[[//www.youtube.com/embed/epa5-Y0UspY?wmode=transparent&autoplay=1]]
+### H3: [[//www.youtube.com/embed/epa5-Y0UspY?wmode=transparent&autoplay=1]] Półautomatyczne stanowisko SG-4/2×200/AC do zgrzewania garbowego uchwytów do misy grilla
+-
+[[//www.youtube.com/embed/JbYcwFOhJYE?wmode=transparent&autoplay=1]]
+### H3: [[//www.youtube.com/embed/JbYcwFOhJYE?wmode=transparent&autoplay=1]] Inwertorowa zgrzewarka garbowa typu SG-2/1×25/MF z systemem wizyjnym do zgrzewania uchwytu do kubka
+-
+[[//www.youtube.com/embed/4Oam_d7nMLc?wmode=transparent&autoplay=1]]
+### H3: [[//www.youtube.com/embed/4Oam_d7nMLc?wmode=transparent&autoplay=1]] Półautomatyczna zgrzewarka garbowa do stateczników granatu moździerzowego typ SG-5/3X160/AC
+-
+[[//www.youtube.com/embed/AFjrgjZMeXo?wmode=transparent&autoplay=1]]
+### H3: [[https://smoltech.pl/portfolio/zrobotyzowane-stanowisko-do-zgrzewania-obudow-stalowych/]] Zrobotyzowane stanowisko SP-8/4×75/AC/R do punktowego zgrzewania obudów stalowych i garbowego zgrzewania kołków
+### H2: Dlaczego warto wybrać współpracę z nami?
+[[https://smoltech.pl/zgrzewarki-do-metalu-realizacje/]] Realizacje [[/kontakt/]] Kontakt
+Jako doświadczony producent zgrzewarek przemysłowych od lat projektujemy rozwiązania dopasowane do indywidualnych procesów produkcyjnych naszych klientów. Co zyskujesz dzięki współpracy z nami?
+- Doświadczenie zweryfikowane w przemyśle – w tym kilkadziesiąt projektów dla wymagającej branży motoryzacyjnej.
+- Własne zaplecze inżynieryjne (100% In-house) – pełna kontrola procesu od projektu do wdrożenia
+- Komponenty światowej klasy – najlepsi dostawcy automatyki, optyki, pneumatyki, serwonapędów i transformatorów zgrzewalniczych
+- Dedykowany serwis i stałe wsparcie – gwarantujemy sprawny serwis posprzedażowy, pełne szkolenie Twojego personelu oraz stały dostęp do części zamiennych
+- Bardzo dobry kontakt z klientem – co potwierdzają referencje, opinie i powracający klienci
+Szukasz sprawdzonego rozwiązania do zgrzewania metali lub partnera, który zaprojektuje maszynę dopasowaną do Twojej produkcji? Skontaktuj się z nami – pomożemy dobrać odpowiednią technologię oraz przygotujemy urządzenia odpowiadające specyfice procesu. Wypełnij formularz kontaktowy lub zadzwoń i poznaj możliwości nowoczesnych zgrzewarek przemysłowych.
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326
+### H3: [[/aktualnosci/]] Aktualności
+[[/aktualnosci/]] ITM INDUSTRY EUROPE Poznań 2026
+[[/aktualnosci/]] 10. Targi Spawalnicze ExpoWELDING 2026
+[[/aktualnosci/]] „Przemysłowa Wiosna” Targi Kielce 03.2026
+[[/aktualnosci/]] SMOLTECH laureatem rankingu DIAMENTY FORBESA
+### H3: [[/blog/]] Blog
+[[/co-to-jest-zgrzewanie-i-jakie-ma-zastosowanie/]] Co to jest zgrzewanie i jakie ma zastosowanie
+[[/oporowe-zgrzewanie-punktowe-zasada-schemat-zalety-i-wady/]] Oporowe zgrzewanie punktowe – zasada, schemat, zalety i wady
+2026 Smoltech Technika Zgrzewalnicza Sp. z o. o. Wszelkie prawa zastrzeżone. [[#realfactory-top-anchor]]
+Zarządzanie zgodą
+Aby zapewnić najlepsze doświadczenia, używamy technologii takich jak pliki cookie do przechowywania i/lub uzyskiwania dostępu do informacji o urządzeniu. Wyrażenie zgody na te technologie umożliwi nam przetwarzanie danych, takich jak zachowanie podczas przeglądania lub unikalne identyfikatory na tej stronie. Brak zgody lub jej wycofanie może negatywnie wpłynąć na niektóre funkcje.
+Funkcjonalny
+Funkcjonalny
+Zawsze aktywne
+Techniczne przechowywanie lub dostęp jest ściśle niezbędny do uzasadnionego celu umożliwienia korzystania z konkretnej usługi wyraźnie żądanej przez abonenta lub użytkownika lub wyłącznie w celu przeprowadzenia transmisji komunikacji za pośrednictwem sieci łączności elektronicznej.
+Preferences
+Preferences
+The technical storage or access is necessary for the legitimate purpose of storing preferences that are not requested by the subscriber or user.
+Statystyki
+Statystyki
+The technical storage or access that is used exclusively for statistical purposes.
+Techniczne przechowywanie lub dostęp, który jest wykorzystywany wyłącznie do anonimowych celów statystycznych. Bez wezwania sądowego, dobrowolnej zgody dostawcy usług internetowych lub dodatkowych zapisów od strony trzeciej, informacje przechowywane lub pobierane wyłącznie w tym celu zwykle nie mogą być wykorzystane do identyfikacji użytkownika.
+Marketing
+Marketing
+The technical storage or access is required to create user profiles to send advertising, or to track the user on a website or across several websites for similar marketing purposes.
+- [[#]] Zarządzaj opcjami
+- [[#]] Zarządzaj serwisami
+- [[#]] Zarządzaj {vendor_count} dostawcami
+- [[https://cookiedatabase.org/tcf/purposes/]] Przeczytaj więcej o tych celach
+Akceptuj
+Odmowa
+Wyświetl preferencje
+Zapisywanie preferencji
+[[#]] Wyświetl preferencje
+- [[#]] {title}
+- [[#]] {title}
+- [[#]] {title}
+Zarządzanie zgodą
+- Administratorem Twoich danych osobowych jest SMOLTECH Technika Zgrzewalnicza Spółka z ograniczoną odpowiedzialnością z siedzibą w Mokronosie Dolnym 55-080, przy ul. Przyjaznej 2, e-mail: biuro@smoltech.pl.
+- Masz prawo do dostępu do swoich danych osobowych, do ich poprawiania, żądania ograniczenia przetwarzania lub ich usunięcia.
+- Jeżeli uznasz, że Twoje dane osobowe są przetwarzane niezgodnie z wymogami prawa, masz prawo wnieść skargę do organu nadzorczego, którym od 25.05.2018 r. jest Prezes Urzędu Ochrony Danych Osobowych.
+- Twoje dane osobowe będą przetwarzane w kilku celach tj. w celu udzielenia odpowiedzi na pytanie zawarte w formularzu kontaktowym, a także w celach związanych z marketingiem produktów i usług Administratora.
+- Podanie przez Ciebie danych jest dobrowolne, lecz konieczne do udzielenia odpowiedzi na pytanie zadane w formularzu.
+- Podstawą prawną przetwarzania Twoich danych jest art. 6 ust. 1 lit. a rozporządzenie Parlamentu Europejskiego i Rady (UE) 2016/679 z 27 kwietnia 2016 r. w sprawie ochrony osób fizycznych w związku z przetwarzaniem danych osobowych i w sprawie swobodnego przepływu takich danych oraz uchylenia dyrektywy 95/46/WE (ogólne rozporządzenie o ochronie danych) (Dz. U. UE. L. z 2016 r. Nr 119, str. 1) – dalej RODO, (wyraziłeś zgodę na przetwarzanie w celu odpowiedzi na pytanie w formularzu), art. 6 ust. 1 lit. f RODO (Administrator będzie korzystał z Twoich danych w celu informowania o swoich nowych ofertach handlowych).
+- Odbiorcami twoich danych osobowych będą te podmioty, którym mamy obowiązek przekazywania danych na gruncie obowiązujących przepisów prawa, a także podmioty świadczące dla nas usługi związane z marketingiem naszych produktów i usług.
+- Twoje dane osobowe będą przez nas przetwarzane przez cały czas, przez który będzie to niezbędne dla celów udzielenia odpowiedzi na pytanie zwarte w formularzu, nie dłużej niż do momentu wyrażenia przez Ciebie sprzeciwu wobec przetwarzania lub cofnięcia zgody na przetwarzanie.
+×
+- The administrator of your personal data is SMOLTECH Technika Zgrzewalnicza Sp. z o.o. with its registered office in Mokronos Dolny 55-080 Poland, at 2 Przyjazna Street, e-mail: biuro@smoltech.pl.
+- You have the right to access, correct, limit or delete your personal data.
+- If you decide that your personal data is being processed in breach of the law, you have the right to lodge a complaint with the supervisory authority, which since 25.05.2018 has been the President of the Office for Personal Data Protection.
+- Your personal data will be processed for several purposes, exp.: to answer a question included in the contact form, as well as for the purposes related to marketing the Administrator’s products and services.
+- Your submission is voluntary but necessary to answer a question you have asked in this form.
+- The legal basis for the processing of your data is Article 6 (1)(a). Regulation (EU) No 2016/679 of the European Parliament and of the Council of 27 April 2016 on the protection of individuals with regard to the processing of personal data and on the free movement of such data and repealing Directive 95/46/EC (General Data Protection Regulation) (EU L 119 of 2016, p. 1) – hereinafter referred to as 'the GDPR’, (you have agreed to the processing in order to reply to a question in the form) and Article 6 (1) (f) GDPR (the Administrator will use your data in order to inform about his/her new commercial offers)
+- The recipients of your personal data will be those entities to whom we are obliged to provide data under the applicable law, as well as entities providing services to us related to the marketing of our products and services.
+- Your personal data will be processed by us for as long as it is necessary for the purpose of answering the question contained in the form, as long as you do not object to the processing or withdraw your consent to the processing.
+×

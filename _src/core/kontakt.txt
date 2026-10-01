@@ -1,0 +1,65 @@
+﻿FILE: kontakt.html
+TITLE: Kontakt - firma Smoltech
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: Kontakt
+### H3: SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+NIP: 8971804142; REGON: 360382474; KRS: 0000535326, Kapitał zakładowy opłacony w całości: 500 000,00 zł
+- [[https://www.google.com/maps/place/Przyjazna+2,+55-080+Mokronos+Dolny/@51.0720771,16.9260533,17z/data=!3m1!4b1!4m6!3m5!1]]
+ul. Przyjazna 2, 55-080 Mokronos Dolny koło Wrocławia
+- [[mailto:biuro@smoltech.pl]]
+biuro@smoltech.pl
+- [[tel:+48713215427]]
++48 71 321 54 27
+- [[tel:+48717234843]]
++48 71 723 48 43
+### H1: Sprzedaż: zgrzewarki specjalizowane
+Szymon Smółka
+- [[mailto:szymon.smolka@smoltech.pl]]
+szymon.smolka@smoltech.pl
+- [[tel:+48691047400]]
++48 691 047 400
+- [[tel:+48713215427]]
++48 71 321 54 27 wew. 22
+### H1: Sprzedaż: zgrzewarki podstawowe, przypawarki do trzpieni i części zamienne
+Dawid Ladyca
+- [[mailto:dawid.ladyca@smoltech.pl]]
+dawid.ladyca@smoltech.pl
+- [[tel:+48662189243]]
++48 662 189 243
+- [[tel:+48713215427]]
++48 71 321 54 27 wew. 20
+### H1: Produkcja i serwis techniczny
+Mariusz Janikowski
+- [[mailto:mariusz.janikowski@smoltech.pl]]
+mariusz.janikowski@smoltech.pl
+- [[tel:+48532065370]]
++48 532 065 370
+- [[tel:+48713215427]]
++48 71 321 54 27 wew. 25
+### H3: Administracja i Marketing
+Krystyna Mizia-Smółka
+- [[mailto:krystyna.mizia@smoltech.pl]]
+krystyna.mizia@smoltech.pl
+- [[tel:+48502191833]]
++48 502 191 833
+- [[tel:+48713215427]]
++48 71 321 54 27 wew. 23
+### H3: Księgowość
+Anna Golec
+- [[mailto:anna.golec@smoltech.pl]]
+anna.golec@smoltech.pl
+- [[tel:+48662344505]]
++48 662 344 505
+- [[tel:+48713215427]]
++48 71 321 54 27 wew. 24
+### H3: Formularz kontaktowy
+Wybierz województwo* dolnośląskie kujawsko-pomorskie lubelskie lubuskie łódzkie małopolskie mazowieckie opolskie podkarpackie podlaskie pomorskie śląskie świętokrzyskie warmińsko-mazurskie wielkopolskie zachodniopomorskie
+* Zgadzam się na przetwarzanie przez SMOLTECH Technika Zgrzewalnicza Sp. z o.o., danych osobowych zamieszczonych w niniejszym formularzu, w celu udzielania odpowiedzi na zapytanie [[#]]
+* - pola oznaczone gwiazdką są wymagane
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

@@ -1,0 +1,33 @@
+﻿FILE: zgrzewarki-do-trzpieni.html
+TITLE: Zgrzewarki do trzpieni - SMOLTECH
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: Urządzenia do przypawania trzpieni
+[[https://www.taylor-studwelding.com/]] TAYLOR Studwelding Systems Limited to brytyjska firma, która od ponad 35 lat produkuje zgrzewarki do przypawania trzpieni, zaopatrując firmy przemysłowe w Europie i na świecie. SMOLTECH Technika Zgrzewalnicza sp. z o.o., jako wyłączny dystrybutor sprzętu TAYLOR w Polsce, oferuje szeroką gamę urządzeń i akcesoriów do pracy manualnej, jak i zautomatyzowane stanowiska CNC projektowane i budowane przez naszą firmę w oparciu o systemy TAYLOR. Zapraszamy do zapoznania się z asortymentem urządzeń i rozwiązań przeznaczonych do profesjonalnego zgrzewania trzpieni w różnych gałęziach przemysłu.
+### H2: Urządzenia do przypawania trzpieni TAYLOR
+Oferujemy zgrzewarki do kołków gwintowanych lub niegwintowanych – do produkcji jednostkowej, jak i seryjnej. W naszej ofercie znajdują się urządzenia ręczne, systemy automatyczne oraz wyposażenie dodatkowe umożliwiające realizację najbardziej wymagających procesów technologicznych.
+[[/zgrzewarki-do-trzpieni/urzadzenia-typu-cdm/]]
+### H2: [[/zgrzewarki-do-trzpieni/urzadzenia-typu-cdm/]] CDM – urządzenia do kondensatorowego przypawania trzpieni od Ø2 do Ø10
+Kompaktowe, przenośne urządzenia do kondensatorowego przypawania trzpieni o średnicy do 10 mm. Dzięki prostej i solidnej konstrukcji seria CDM oferuje ekonomiczne i niezawodne zgrzewanie kołków ze stali miękkiej, stali nierdzewnej, aluminium i mosiądzu.
+[[/zgrzewarki-do-trzpieni/multi-gun/]]
+### H2: [[/zgrzewarki-do-trzpieni/multi-gun/]] MULTI-GUN – kondensatorowe źródła z 3 pistoletami do przypawania kołków od Ø2 do Ø10
+Wygodny w użyciu, przenośny sprzęt kondensatorowy przeznaczony do przypawania różnych średnic i długości trzpieni przy użyciu dowolnych kombinacji 3 pistoletów kontaktowych i z uniesieniem.
+[[/zgrzewarki-do-trzpieni/urzadzenia-typu-da/]]
+### H2: [[/zgrzewarki-do-trzpieni/urzadzenia-typu-da/]] DA – urządzenia inwertorowe do transformatorowego przygrzewnia kołków od Ø3 do Ø16
+i12 oraz i16 to szybki i dokładny sprzęt inwertorowy do łukowego przypawania kołków o średnicy do 16 mm. Technologia inwertorowa zapewnia wysoką stabilność łuku elektrycznego, nawet przy bardzo krótkich czasach i prądach przypawania oraz wysoką wydajność energetyczną.
+[[/zgrzewarki-do-trzpieni/stanowiska-do-automatycznego-przygrzewania-trzpieni/]]
+### H2: [[/zgrzewarki-do-trzpieni/stanowiska-do-automatycznego-przygrzewania-trzpieni/]] Stanowiska CNC do automatycznego przypawania trzpieni
+Wykonujemy zautomatyzowane stanowiska CNC do przypawania różnych rodzajów trzpieni, w dowolnej konfiguracji, do blach stalowych o różnych wymiarach i kształtach. Głowice zgrzewające zaopatrywane są przez wibracyjne podajniki kołków i kondensatorowe źródła prądowe.
+[[https://smoltech.pl/podzespoly-do-automatycznego-przypawania-trzpieni/%20]]
+### H2: [[https://smoltech.pl/podzespoly-do-automatycznego-przypawania-trzpieni/%20]] Podzespoły do automatycznego przypawania trzpieni
+Podstawowy zestaw komponentów przeznaczony do zastosowania w urządzeniach do automatycznego przypawania trzpieni o średnicach do 8 mm. Polecany do aplikacji CNC oraz na stanowiskach zrobotyzowanych w celu zapewnienia wysokiej wydajności produkcji przy zachowaniu najwyższej jakości i powtarzalności parametrów przypawania trzpieni.
+### H2: Zgrzewarki do kołków, naprawy i serwis
+Poza dostarczaniem urządzeń do przypawania trzpieni zapewniamy również kompleksowe wsparcie techniczne. Wykonujemy pomiary, usługi technologiczne, modernizację i remonty, diagnostykę oraz naprawy urządzeń wykorzystywanych w procesach przypawania kołków. Nasz serwis obejmuje zarówno zgrzewarki kondensatorowe do kołków marki TAYLOR, jak i inny sprzęt sprawdzonych producentów. Dzięki wieloletniemu doświadczeniu pomagamy utrzymać ciągłość produkcji oraz najwyższą jakość wykonywanych połączeń.
+### H2: Postaw na sprawdzone urządzenia do przypawania trzpieni
+Od kompaktowych zgrzewarek do trzpieni po w pełni zautomatyzowane stanowiska CNC – pomagamy dobrać technologię, która sprawdzi się w realnych warunkach produkcyjnych. Powiedz nam, co chcesz wykonać – zespół SMOLTECH pomoże dobrać rozwiązanie dopasowane do potrzeb Twojej firmy. [[https://smoltech.pl/kontakt/]] Skontaktuj się z nami, aby uzyskać fachowe doradztwo techniczne oraz ofertę na urządzenia przeznaczone do procesów zgrzewania kołków.
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

@@ -1,0 +1,47 @@
+﻿FILE: zgrzewarka-punktowa__zgrzewarki-wielofunkcyjne-e-tech.html
+TITLE: Zgrzewarki do karoserii samochodowej
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: Inwertorowe zgrzewarki wielofunkcyjne do punktowego zgrzewania blach i elementów przestrzennych np. karoserii samochodowej
+[[/wp-content/uploads/2024/06/Zgrzewarki-wielofunkcyjne-E-tech.pdf]] Karta katalogowa
+Zgrzewarki do karoserii samochodowej z serii E-tech to nowa grupa zgrzewarek inwertorowych dedykowanych do prac na liniach montażowych i serwisowych. Różnorodność maszyn razem z doskonałymi możliwościami sterownika parametrów zgrzewania TE760 sprawia, że urządzenia mogą być szeroko stosowane zarówno do prac warsztatowych np. napraw karoserii samochodowych, jak i na przemysłowych liniach montażowych.
+Zobacz krótki film z pracy [[https://youtube.com/shorts/0803tUzfoTQ?feature=share]] zgrzewarki do karoserii samochodowej z serii E-tech!
+### H2: Właściwości zgrzewarki do karoserii samochodowej E-tech:
+- Wymienne pistolety zgrzewalnicze – w standardzie dostarczane z chłodzonym wodą zgrzewadłem typu „C” o sile docisku 450 daN (8 bar)
+- Zgrzewadła łączone z urządzenieniem super-elastycznym, chłodzonym wodą przewodem o długości 2400 mm
+- Urządzenia są wyposażone w ramię i balanser do zawieszenia zgrzewadła
+### H5: Własności mikroprocesorowego sterownika TE760:
+- Sterowanie transformatorem inwertorowym MF z IGBT
+- Łatwe programowanie za pomoca 9 przycisków i wyświetlacza cyfrowego
+- Pamięć 150 technologii zgrzewania
+- 15 zmiennych do sparametryzowania technologii zgrzewania
+- Narost i opadanie prądu zgrzewania, pulsacja, czas zgrzewania ustawiany z dokłądnością do 1 ms
+- Pomiar rzeczywistej wartości prądu zgrzewania RMS w kA
+- 2 tryby pracy: standardowy FIX lub stałoprądowy IK
+- Programowalne limity prądu i procent wykorzystania inwertora
+- Funkcja Sepper – kompensacja zużycia elektrod
+- Cykl pracy pojedynczy i automatyczny
+- Funkcja “WELD” i “NO WELD” (z prądem, bez prądu zgrzewania)
+- Autoregulacja do częstotliwości sieci 50/60 Hz
+- Komunikacja przez port USB
+MODEL   3660E-tech 3670E-tech
+| Napięcie zasilania/Częstotliwość | V/Hz | 400/50-60
+| Zabezpieczenie zwłoczne | A | 32 | 40
+| Moc nominalna (p=50% ED) | kVA | 25 | 25
+| Max moc zgrzewania | kVA | 125 | 180
+| Max wtórny prąd zwarcia | kA | 9 | 12
+| Czas zgrzewania | s | 0,01-2 | 0,01-2
+| Ochrona | IP | 21 | 21
+| Ciężar | kg | 155 | 155
+[[https://smoltech.pl/zgrzewarka-punktowa/]] Zgrzewarki podstawowe
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/]] > Zgrzewarki punktowe podwieszane z wbudowanym transformatorem, o mocach 2,5 – 90 kVA
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/]] > Zgrzewarki punktowe do zgrzewania blach płaskich, prętów na krzyż i elementów przestrzennych
+- [[https://smoltech.pl/zgrzewarki-punktowo-garbowe-35-630kva/]] > Zgrzewarki punktowo-garbowe z dociskiem liniowym do łączenia detali wyposażonych w garby
+- [[https://smoltech.pl/zgrzewarka-punktowa/zgrzewarka-inwertorowa-ze-stolem/]] > Uniwersalna zgrzewarka inwertorowa ze stołem, do punktowego zgrzewania blach i elementów przestrzennych 160 kVA
+- [[https://smoltech.pl/zgrzewarka-punktowa/zgrzewarki-wielofunkcyjne-e-tech/]] > Inwertorowe zgrzewarki wielofunkcyjne do punktowego zgrzewania blach i elementów przestrzennych
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

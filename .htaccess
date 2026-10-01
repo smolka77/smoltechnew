@@ -1,0 +1,188 @@
+# =============================================================================
+#  smoltech.com.ua — Apache configuration
+#  Canonical host: https://smoltech.com.ua (no www), trailing slash on directories
+# =============================================================================
+
+Options -Indexes
+DirectoryIndex index.html index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # --- HTTPS ---------------------------------------------------------------
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://smoltech.com.ua%{REQUEST_URI} [R=301,L]
+
+  # --- strip www ------------------------------------------------------------
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+  # --- hide /index.html ----------------------------------------------------
+  RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?] [NC]
+  RewriteRule ^ /%1 [R=301,L]
+
+  # --- force trailing slash on real directories ----------------------------
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_URI} !/$
+  RewriteRule ^ %{REQUEST_URI}/ [R=301,L]
+
+  # --- legacy Polish-site paths --------------------------------------------
+  RewriteRule ^o-firmie/?$                    /pro-kompaniyu/                            [R=301,L]
+  RewriteRule ^kompetencje/?$                 /kompetentsiyi/                             [R=301,L]
+  RewriteRule ^kontakt/?$                     /kontakty/                                  [R=301,L]
+  RewriteRule ^realizacje/?$                  /video-avtomatyzatsiya-zvaryuvannya/        [R=301,L]
+  RewriteRule ^filmy/?$                       /video-avtomatyzatsiya-zvaryuvannya/        [R=301,L]
+  RewriteRule ^przypawanie-trzpieni/?$        /pryvaryuvannya-shpylok/                    [R=301,L]
+  RewriteRule ^polityka-prywatnosci/?$        /polityka-konfidentsiynosti/                [R=301,L]
+
+  # --- stare nazwy plików (kompatybilność) --------------------------------
+  RewriteRule ^send\.php$                     /wyslij.php                                 [L]
+  RewriteRule ^assets/css/site\.css$          /assets/css/strona.css                      [L]
+  RewriteRule ^assets/js/site\.js$            /assets/js/strona.js                        [L]
+  RewriteRule ^assets/js/i18n\.js$            /assets/js/tlumaczenia.js                   [L]
+  RewriteRule ^assets/js/i18n-cms\.js$        /assets/js/nakladka-jezyk.js                [L]
+  RewriteRule ^panel/i18n\.js$                /panel/jezyk.js                             [L]
+  RewriteRule ^assets/fonts/faces\.css$       /assets/fonts/czcionki.css                  [L]
+  RewriteRule ^panel/api\.php$                /panel/obsluga.php                          [L]
+  RewriteRule ^panel/app\.js$                 /panel/panel.js                             [L]
+  RewriteRule ^panel/app\.css$                /panel/panel.css                            [L]
+</IfModule>
+
+ErrorDocument 404 /404.html
+
+# =============================================================================
+#  COMPRESSION
+# =============================================================================
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css text/xml \
+    application/javascript application/json application/xml image/svg+xml \
+    application/ld+json application/rss+xml text/javascript
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml \
+    application/javascript application/json application/xml image/svg+xml \
+    application/ld+json application/rss+xml text/javascript
+</IfModule>
+
+# =============================================================================
+#  CACHING
+# =============================================================================
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                              "access plus 1 month"
+  ExpiresByType text/html                     "access plus 0 seconds"
+  ExpiresByType text/xml                      "access plus 1 hour"
+  ExpiresByType application/xml               "access plus 1 hour"
+  ExpiresByType text/plain                    "access plus 1 day"
+
+  ExpiresByType text/css                      "access plus 1 year"
+  ExpiresByType application/javascript        "access plus 1 year"
+  ExpiresByType text/javascript               "access plus 1 year"
+
+  ExpiresByType image/webp                    "access plus 1 year"
+  ExpiresByType image/jpeg                    "access plus 1 year"
+  ExpiresByType image/png                     "access plus 1 year"
+  ExpiresByType image/svg+xml                 "access plus 1 year"
+  ExpiresByType image/x-icon                  "access plus 1 year"
+
+  ExpiresByType font/woff2                    "access plus 1 year"
+  ExpiresByType font/woff                     "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff2?|webp|jpe?g|png|svg|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(html|xml|txt|json)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  # --- security headers ----------------------------------------------------
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+
+  # fonts are same-origin, but keep CORS clean for any CDN edge in front
+  <FilesMatch "\.woff2?$">
+    Header set Access-Control-Allow-Origin "*"
+  </FilesMatch>
+</IfModule>
+
+# =============================================================================
+#  MIME
+# =============================================================================
+<IfModule mod_mime.c>
+  AddType image/webp                  .webp
+  AddType font/woff2                  .woff2
+  AddType application/ld+json         .jsonld
+  AddType image/svg+xml               .svg
+  AddType application/manifest+json   .webmanifest
+  AddCharset UTF-8 .html .css .js .xml .txt .json .webmanifest
+</IfModule>
+
+# =============================================================================
+#  PROTECT SOURCE DIRECTORIES
+# =============================================================================
+RedirectMatch 403 ^/_private
+RedirectMatch 403 ^/_src
+RedirectMatch 403 ^/_build
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(_src|_build|_private)(/|$) - [F,L]
+</IfModule>
+
+<FilesMatch "\.env$">
+  Require all denied
+</FilesMatch>
+
+<FilesMatch "^\.(htaccess|htpasswd|git.*)$">
+  Require all denied
+</FilesMatch>
+
+<Files "auth.env">
+  Require all denied
+</Files>
+<Files "start.php">
+  Require all denied
+</Files>
+<Files "zapytania.json">
+  Require all denied
+</Files>
+<Files "magazyn.php">
+  Require all denied
+</Files>
+<Files "skrzynka.php">
+  Require all denied
+</Files>
+<Files "limity-logowan.json">
+  Require all denied
+</Files>
+<Files "store.php">
+  Require all denied
+</Files>
+<Files "inbox.php">
+  Require all denied
+</Files>
+<Files "inquiries.json">
+  Require all denied
+</Files>
+<Files "login-rl.json">
+  Require all denied
+</Files>
+
+<FilesMatch "\.(ps1|md|log|bak|txt~)$">
+  Require all denied
+</FilesMatch>
+<Files "robots.txt">
+  Require all granted
+</Files>
+<Files "llms.txt">
+  Require all granted
+</Files>

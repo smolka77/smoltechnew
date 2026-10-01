@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pl" data-st-i18n="off">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#d10a11">
+  <title>SMOLTECH â€” panel administracyjny</title>
+  <link rel="icon" href="/assets/img/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="preload" href="/assets/fonts/manrope-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/inter-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/fonts/czcionki.css">
+  <link rel="stylesheet" href="/panel/panel.css?v=20261001all1">
+  <script src="/assets/js/nakladka-jezyk.js?v=1789413119"></script>
+  <script src="/assets/js/tlumaczenia.js?v=20260914nav1"></script>
+  <script src="/panel/jezyk.js?v=20260909pl1"></script>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+
+  <section class="gate" id="view-login">
+    <div class="card">
+      <div class="card__top">
+        <div class="card__brand">
+          <span class="mark"><img src="/assets/img/logo.png" width="42" height="28" alt=""></span>
+          <div>
+            <b>SMOLTECH</b>
+            <small>Panel administracyjny</small>
+          </div>
+        </div>
+      </div>
+      <h1 data-i18n="Logowanie">Logowanie</h1>
+      <form id="form-login" autocomplete="on">
+        <label class="field">
+          <span data-i18n="Login">Login</span>
+          <input type="text" name="user" required maxlength="80" autocomplete="username" autocapitalize="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span data-i18n="HasĹ‚o">HasĹ‚o</span>
+          <input type="password" name="pass" required maxlength="200" autocomplete="current-password">
+        </label>
+        <p class="err" id="login-err" role="alert" hidden></p>
+        <button class="btn" type="submit" data-i18n="Kontynuuj">Kontynuuj</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="gate" id="view-totp" hidden>
+    <div class="card">
+      <div class="card__top">
+        <div class="card__brand">
+          <span class="mark"><img src="/assets/img/logo.png" width="42" height="28" alt=""></span>
+          <div>
+            <b>SMOLTECH</b>
+            <small data-i18n="Weryfikacja dwuskĹ‚adnikowa">Weryfikacja dwuskĹ‚adnikowa</small>
+          </div>
+        </div>
+      </div>
+      <h1 data-i18n="Kod z aplikacji">Kod z aplikacji</h1>
+      <form id="form-totp">
+        <div class="otp" id="otp">
+          <input inputmode="numeric" pattern="[0-9]*" maxlength="1" data-i18n-aria="Cyfra 1" aria-label="Cyfra 1" autocomplete="one-time-code">
+          <input inputmode="numeric" pattern="[0-9]*" maxlength="1" data-i18n-aria="Cyfra 2" aria-label="Cyfra 2">
+          <input inputmode="numeric" pattern="[0-9]*" maxlength="1" data-i18n-aria="Cyfra 3" aria-label="Cyfra 3">
+          <input inputmode="numeric" pattern="[0-9]*" maxlength="1" data-i18n-aria="Cyfra 4" aria-label="Cyfra 4">
+          <input inputmode="numeric" pattern="[0-9]*" maxlength="1" data-i18n-aria="Cyfra 5" aria-label="Cyfra 5">
+          <input inputmode="numeric" pattern="[0-9]*" maxlength="1" data-i18n-aria="Cyfra 6" aria-label="Cyfra 6">
+        </div>
+        <p class="err" id="totp-err" role="alert" hidden></p>
+        <button class="btn" type="submit" data-i18n="ZatwierdĹş">ZatwierdĹş</button>
+        <button class="btn btn-ghost" type="button" id="btn-back" data-i18n="WrĂłÄ‡ do logowania">WrĂłÄ‡ do logowania</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="app" id="view-app" hidden>
+    <header class="top">
+      <button class="icon-btn side-toggle" type="button" id="btn-side" data-i18n-aria="Menu" aria-label="Menu">â°</button>
+      <div class="top__brand">
+        <img class="top__logo" src="/assets/img/logo.png" width="36" height="24" alt="">
+        <div>
+          <b class="top__name">SMOLTECH</b>
+          <small id="top-section">Panel administracyjny</small>
+        </div>
+      </div>
+      <div class="top__tools">
+        <button class="btn btn-sm btn-publish" type="button" id="btn-publish" disabled data-i18n="Witryna aktualna">Witryna aktualna</button>
+        <span class="pill" id="unread-pill">0</span>
+        <button class="icon-btn" type="button" id="btn-logout" data-i18n="Wyloguj">Wyloguj</button>
+      </div>
+    </header>
+
+    <div class="desk">
+      <nav class="side" id="side">
+        <div class="side__brand">
+          <span class="mark"><img src="/assets/img/logo.png" width="36" height="24" alt=""></span>
+          <div>
+            <b>SMOLTECH</b>
+            <small>CMS</small>
+          </div>
+        </div>
+        <p class="side__label">Menu</p>
+        <button type="button" class="side__i is-on" data-view="dash" data-i18n="Start">Start</button>
+        <button type="button" class="side__i" data-view="pages" data-i18n="Witryna">Witryna</button>
+        <button type="button" class="side__i" data-view="videos" data-i18n="Filmy">Filmy</button>
+        <button type="button" class="side__i" data-view="inbox"><span data-i18n="Zapytania">Zapytania</span> <span class="side__badge" id="side-unread" hidden></span></button>
+        <button type="button" class="side__i" data-view="settings" data-i18n="Ustawienia">Ustawienia</button>
+      </nav>
+
+      <div class="work">
+        <section class="view" id="view-dash"></section>
+        <section class="view" id="view-inbox" hidden>
+          <div class="shell">
+            <aside class="list">
+              <div class="list__bar">
+                <label class="search">
+                  <span class="vh" data-i18n="Szukaj">Szukaj</span>
+                  <input type="search" id="q" data-i18n-placeholder="Szukaj imienia, firmy, e-mailaâ€¦" placeholder="Szukaj imienia, firmy, e-mailaâ€¦" maxlength="120">
+                </label>
+                <div class="tabs" role="tablist">
+                  <button type="button" class="tab is-on" data-filter="all" data-i18n="Wszystkie">Wszystkie</button>
+                  <button type="button" class="tab" data-filter="unread" data-i18n="Nieprzeczytane">Nieprzeczytane</button>
+                </div>
+              </div>
+              <div class="list__body" id="list"></div>
+            </aside>
+            <article class="detail" id="detail">
+              <div class="empty" id="empty-detail">
+                <p data-i18n="Wybierz zapytanie z listy">Wybierz zapytanie z listy</p>
+              </div>
+              <div class="detail__in" id="detail-in" hidden></div>
+            </article>
+          </div>
+        </section>
+        <section class="view" id="view-pages" hidden></section>
+        <section class="view" id="view-editor" hidden></section>
+        <section class="view" id="view-videos" hidden></section>
+        <section class="view" id="view-media" hidden></section>
+        <section class="view" id="view-settings" hidden></section>
+      </div>
+    </div>
+  </section>
+
+  <input type="file" id="file-pick" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+  <div class="toast" id="toast" hidden></div>
+  <script src="/panel/panel.js?v=20261001all1"></script>
+</body>
+</html>

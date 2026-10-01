@@ -1,0 +1,34 @@
+﻿FILE: zgrzewarki-podwieszane-25-90-kva__zgrzewarki-podwieszane-56-90-kva.html
+TITLE: SMOLTECH - Inwertorowe zgrzewarki punktowe podwieszane 56-90 kVA
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: Inwertorowe zgrzewarki podwieszane o mocach 56 - 90 kVA dla przemysłu
+Modele: 3062, 3066, 3176, 3177, 3183, 3184
+[[/wp-content/uploads/2024/06/Inwertorowe-podwieszane-56-90-kVA.pdf]] Karta katalogowa
+Urządzenia zaprojektowano do wykonywania wysokiej jakości spoin z dużą wydajnością i przy zoptymalizowanych kosztach instalacji. Posiadają duże siły docisku elektrod, zredukowane wymiary i bezpieczne komponenty.
+Żyroskopowe zawieszenie, zapewnia dokładną manewrowość w każdym kierunku. Długi regulowany skok roboczy do zgrzewania wzmocnień, żeber oraz umożliwienia pracy w trudno dostępnych miejscach. Chromowany cylinder o dużej wytrzymałości i długiej żywotności oraz bezsmarowy obwód pneumatyczny, aby uniknąć mgły olejowej w otoczeniu. Obwód wtórny w miedzi całkowicie chłodzony wodą. Uchwyt sterujący umożliwiający wybór dwóch programów zgrzewania, a także otwarcie podwójnego skoku i funkcji „tylko nacisk”. Zabezpieczenie przed przypadkowym uruchomieniem i przycisk awaryjny do natychmiastowego zatrzymania maszyny oraz zabezpieczenie przed pracą bez chłodzenia.
+Zalety technologii inwertorowej, w którą wyposażone są urządzenia:
+- wzrost współczynnika mocy, co znaczne zmniejsza pobór prądu z sieci zasilającej;
+- zredukowanie gabarytów zgrzewarki przy zachowaniu dużych prądów zgrzewania;
+- skrócenie czasu zgrzewania do 1 ms w porównaniu do 20 ms przy technologii konwencjonalnej, co wpływa na doskonały wygląd i jakość zgrzeiny;
+- dostarczanie prądu zgrzewania w sposób ciągły i bez strat wynikających z wymiarów obwodu zgrzewania.
+MODEL Moc Rozstaw ramion Siła docisku daN Ø Cylindra Prąd zwarcia Średnica ramion Ciężar netto (bez ramion)
+|   | kVA 20% | kVA 50% | mm | przy 6 bar | przy 8 bar | mm | kA | bez izolacji mm | z izolacją mm | kg
+| 3062 | 88 | 56 | - | 375 | 500 | 90 | 25 | 44 | 42 | 53
+| 3066 | 142 | 90 | - | 465 | 620 | 100 | 30 | 49 | 47 | 63
+| 3176 | 88 | 56 | 205 | 340 | 450 | 100 | 25 | 44 | 42 | 55
+| 3177 | 88 | 56 | 265 | 340 | 450 | 100 | 25 | 44 | 42 | 55
+| 3183 | 142 | 90 | 219 | 645 | 855 | 140 | 30 | 49 | 47 | 75
+| 3184 | 142 | 90 | 312 | 645 | 855 | 140 | 30 | 49 | 47 | 76
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/]] Zgrzewarki punktowe podwieszane z wbudowanym transformatorem, o mocach 2,5 – 90 kVA
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-punktowe-kleszczowe-16-38kva/]] > Zgrzewarki kleszczowe podwieszane z wbudowanym sterownikiem i transformatorem o mocy od 16 do 38 kVA
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-podwieszane-56-90-kva/]] > Inwertorowe zgrzewarki podwieszane o mocach 56 – 90 kVA dla przemysłu
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-kleszczowe-32-do-75-kva/]] > Zgrzewarki kleszczowe podwieszane z wbudowanym sterownikiem i transformatorem o mocy od 32 do 75 kVA
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarka-kleszczowa-50-kva/]] > Zgrzewarka kleszczowa podwieszana inwertorowa o mocy 50 kVA, model 3230 i 3233
+- [[https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-punktowe-2-5-6-kva/]] > Zgrzewarki punktowe kleszczowe ręczne i lekkie podwieszane o mocy od 2,5 do 6 kVA
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

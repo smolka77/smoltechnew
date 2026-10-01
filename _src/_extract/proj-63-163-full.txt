@@ -1,0 +1,84 @@
+proj-63-163.html
+HEADINGS
+  Zgrzewarki stacjonarne punktowo-garbowe prądu zmiennego, z dociskiem liniowym, o mocy od 63 do 163 kVA
+PARAS
+Modele: 8201, 8202, 8203, 8204, 8206, 8207, 8208, 8209, 8211, 8212, 8213, 8214 |
+
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o. | ul. Przyjazna 2, 55-080 Mokronos Dolny
+
+Dedykowane maszyny zgrzewalniczne vs. uniwersalne zgrzewarki stacjonarne – co wybrać do masowej produkcji
+
+Zgrzewanie garbowe w przemyśle automotive – jak zoptymalizować proces i dobrać parametry maszyny
+
+2026 Smoltech Technika Zgrzewalnicza Sp. z o. o. Wszelkie prawa zastrzeżone.
+
+LIS
+- Polityka ochrony środowiska
+- Stanowiska zautomatyzowane
+- Zgrzewarki z oprzyrządowaniem
+- Przyrządy zgrzewalnicze i spawalnicze
+- Podzespoły i wyposażenie
+- Elektrody do zgrzewarek
+- Pomiary – Usługi – Serwis
+- Filmy – automatyzacja zgrzewania
+- Polityka ochrony środowiska
+- Stanowiska zautomatyzowane
+- Zgrzewarki z oprzyrządowaniem
+- Przyrządy zgrzewalnicze i spawalnicze
+- Podzespoły i wyposażenie
+- Elektrody do zgrzewarek
+- Pomiary – Usługi – Serwis
+- Filmy – automatyzacja zgrzewania
+- Modułowa konstrukcja ramy, ramion, łączników i siłowników.
+- Siłowniki z chromowanymi ściankami cylindrów o przedłużonej żywotności; przeciwobrotowe.
+- Elementy pneumatyki nie wymagające smarowania, eliminujące wyrzut mgły olejowej.
+- Wolne opadanie głowicy bez ciśnienia dla prowadzenia ustawień i serwisu.
+- Siłownik ze skokiem wstępnym sterowanym kluczem.
+- Wbudowany filtr i buforowy zbiornik powietrza; urządzenie odcinające dopływ powietrza.
+- Przyłącze dla dodatkowego pedału do bezpośredniego przywoływania programu nr 2 (nie występuje przy zgrzewarkach wyposażonych w opcję 8232).
+- Transformator, uchwyty elektrod i elektrody chłodzone wodą; transformator pokryty żywicą epoksydową .
+- Synchroniczny, izolowany z obiegu wody tyrystor z wbudowanym termostatem ochronnym.
+- Start zgrzewania z konsoli oburęcznej w zgrzewarkach garbowych jako wyposażenie standardowe (w zgrzewarkach punktowych dostępny w opcji).
+- Stop bezpieczeństwa natychmiast wyłączający zgrzewarkę.
+- Sterownik mikroprocesorowy TE 500 z możliwością odczytu prądu.
+- Zgrzewarki punktowo-garbowe z dociskiem liniowym do łączenia detali wyposażonych w garby > Zgrzewarki punktowo-garbowe prądu zmiennego, o mocach od 35 do 80 kVA
+- > Inwertorowe zgrzewarki punktowo-garbowe o mocy 56 kVA
+- > Inwertorowe zgrzewarki punktowo-garbowe o mocach od 90 do 200 kVA
+- > Nowe inwertorowe zgrzewarki punktowo-garbowe o mocach od 90 do 200 kVA SENSUM
+- > Zgrzewarki punktowo-garbowe prądu zmiennego, o mocach od 63 do 163 kVA
+- > Zgrzewarki stacjonarne punktowo-garbowe prądu zmiennego, z dociskiem liniowym, o mocy od 80 do 315 kVA
+- > Zgrzewarki stacjonarne punktowo-garbowe, trójfazowe, prądu stałego, z dociskiem liniowym, o mocy 100 kVA
+- > Zgrzewarki punktowo-garbowe prądu stałego, o mocach od 100 do 630 kVA
+- Zarządzaj {vendor_count} dostawcami
+- Przeczytaj więcej o tych celach
+- Administratorem Twoich danych osobowych jest SMOLTECH Technika Zgrzewalnicza Spółka z ograniczoną odpowiedzialnością z siedzibą w Mokronosie Dolnym 55-080, przy ul. Przyjaznej 2, e-mail: biuro@smoltech.pl.
+- Masz prawo do dostępu do swoich danych osobowych, do ich poprawiania, żądania ograniczenia przetwarzania lub ich usunięcia.
+- Jeżeli uznasz, że Twoje dane osobowe są przetwarzane niezgodnie z wymogami prawa, masz prawo wnieść skargę do organu nadzorczego, którym od 25.05.2018 r. jest Prezes Urzędu Ochrony Danych Osobowych.
+- Twoje dane osobowe będą przetwarzane w kilku celach tj. w celu udzielenia odpowiedzi na pytanie zawarte w formularzu kontaktowym, a także w celach związanych z marketingiem produktów i usług Administratora.
+- Podanie przez Ciebie danych jest dobrowolne, lecz konieczne do udzielenia odpowiedzi na pytanie zadane w formularzu.
+- Odbiorcami twoich danych osobowych będą te podmioty, którym mamy obowiązek przekazywania danych na gruncie obowiązujących przepisów prawa, a także podmioty świadczące dla nas usługi związane z marketingiem naszych produktów i usług.
+- Twoje dane osobowe będą przez nas przetwarzane przez cały czas, przez który będzie to niezbędne dla celów udzielenia odpowiedzi na pytanie zwarte w formularzu, nie dłużej niż do momentu wyrażenia przez Ciebie sprzeciwu wobec przetwarzania lub cofnięcia zgody na przetwarzanie.
+- The administrator of your personal data is SMOLTECH Technika Zgrzewalnicza Sp. z o.o. with its registered office in Mokronos Dolny 55-080 Poland, at 2 Przyjazna Street, e-mail: biuro@smoltech.pl.
+- You have the right to access, correct, limit or delete your personal data.
+- If you decide that your personal data is being processed in breach of the law, you have the right to lodge a complaint with the supervisory authority, which since 25.05.2018 has been the President of the Office for Personal Data Protection.
+- Your personal data will be processed for several purposes, exp.: to answer a question included in the contact form, as well as for the purposes related to marketing the Administrator’s products and services.
+- Your submission is voluntary but necessary to answer a question you have asked in this form.
+- The recipients of your personal data will be those entities to whom we are obliged to provide data under the applicable law, as well as entities providing services to us related to the marketing of our products and services.
+- Your personal data will be processed by us for as long as it is necessary for the purpose of answering the question contained in the form, as long as you do not object to the processing or withdraw your consent to the processing.
+TABLES 1
+ TABLE 0 rows=15
+  | ZGRZEWARKA ||  || 8201 || 8202 || 8203 || 8204 || 8206 || 8207 || 8208 || 8209 || 8211 || 8212 || 8213 || 8214
+  | Moc nominalna przy P=50% || kVA || 63 || 80 || 100 || 125 || 63 || 80 || 100 || 125 || 80 || 100 || 125 || 160
+  | Moc maksymalna || kVA || 230 || 295 || 420 || 460 || 170 || 230 || 315 || 350 || 135 || 205 || 225 || 650
+  | Maks. prąd zwarcia || kA || 40 || 44 || 52 || 54 || 29 || 34 || 39 || 41 || 20 || 25 || 26 || 65
+  | Napięcie/Częstotliwość || V/Hz || 400/50
+  | Zabezpieczenie zwłoczne || A || 125 || 160 || 200 || 250 || 125 || 160 || 200 || 250 || 160 || 200 || 250 || 315
+  | Wymagane ciśnienie powietrza || bar || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5 || 6.5
+  | Maks. siła docisku || daN || 736 || 736 || 736 || 736 || 736 || 736 || 736 || 736 || 736 || 736 || 736 || 736
+  | Maks. siła docisku | przy opcji 8235 || daN || 1242 || 1242 || 1242 || 1242 || 1242 || 1242 || 1242 || 1242 || - || - || - || 1242
+  | Wysięg ramion L || mm || 390 || 390 || 390 || 390 || 540 || 540 || 540 || 540 || 800 || 800 || 800 || 390
+  | Maks. skok elektrody || mm || 100 || 100 || 100 || 100 || 100 || 100 || 100 || 100 || 100 || 100 || 100 || 100
+  | Skok wstępny (standard) || mm || 60 || 60 || 60 || 60 || 60 || 60 || 60 || 60 || 60 || 60 || 60 || 60
+  | Min. rozstaw ramion | Maks. rozstaw ramion || mm | mm || 175 | 475
+  | Min ciśnienie wody || bar || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5 || 2,5
+  | Waga netto || kg || 510 || 525 || 540 || 555 || 530 || 545 || 560 || 575 || 585 || 600 || 615 || 570

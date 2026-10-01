@@ -1,0 +1,140 @@
+zgrzewarki-punktowe-16-150kva__zgrzewarki-punktowe-stacjonarne.html
+HEADINGS
+  Zgrzewarki punktowe stacjonarne z dociskiem kleszczowym nożnym lub pneumatycznym o mocy od 16 do 25 kVA
+  Konstrukcja i wyposażenie zgrzewarek stacjonarnych
+  Zgrzewarki z dociskiem nożnym
+  Zgrzewarki z dociskiem pneumatycznym
+  Zastosowanie stacjonarnych zgrzewarek punktowych
+  Który model wybrać?
+PARAS
+Zgrzewarki stacjonarne to urządzenia montowane na stałe w jednym miejscu, przy którym operator zgrzewa doprowadzane do maszyny detale. Mają stabilną konstrukcję, która zapewnia powtarzalność zgrzein i wygodę pracy w produkcji seryjnej, gdzie elementy o zbliżonych wymiarach łączy się w stałym cyklu. Prezentowana grupa obejmuje podstawowe zgrzewarki punktowe o mocy od 16 do 25 kVA, przeznaczone przede wszystkim do zgrzewania blach. Cechą wyróżniającą tę serię jest wybór rodzaju docisku elektrod: dostępne są warianty z dociskiem nożnym oraz pneumatycznym. To od niego zależy sposób pracy, wydajność i zakres zastosowań, dlatego właśnie od tej różnicy warto zacząć dobór odpowiedniego modelu. Zapraszamy do sprawdzenia oferty!
+
+Wszystkie modele z tej serii łączy ta sama, solidna baza. Ramiona mają regulowaną długość, więc maszynę łatwo dopasować do wielkości zgrzewanych detali, a regulowany skok elektrod pozwala obsługiwać elementy o różnej grubości. Transformator zatopiono w tworzywie, co chroni go przed uszkodzeniem, a woda chłodzi go wraz z tyrystorem, ramionami i elektrodami, dzięki czemu urządzenie nie traci wydajności podczas dłuższej pracy. Za sterowanie odpowiada mikroprocesorowy sterownik TE101, z opcją mocniejszego TE550.
+
+Modele różnią się natomiast sposobem docisku elektrod. Do wyboru są dwie wersje – z dociskiem nożnym i pneumatycznym – a to, na którą warto się zdecydować, zależy od charakteru pracy.
+
+W tym modelu siłę nacisku nadaje sam operator, naciskając pedał, a prąd zaczyna płynąć dopiero po osiągnięciu właściwego docisku. Prosta i tania w eksploatacji konstrukcja nie wymaga instalacji sprężonego powietrza, a długość przycisku nożnego można spersonalizować pod operatora. To dobry wybór do pracy o mniejszej intensywności i wszędzie tam, gdzie zależy nam na nieskomplikowanej obsłudze.
+
+W tej wersji nacisk wywiera siłownik zasilany sprężonym powietrzem, dzięki czemu jest on równy, powtarzalny i większy niż przy pedale, niezależnie od siły operatora. Nacisk reguluje się zaworem, a dławiki pozwalają ustawić prędkość ruchu górnego ramienia. Dwupozycyjny pedał elektryczny umożliwia najpierw docisk detali bez prądu, do ich dokładnego ustawienia, a potem samo zgrzewanie. Taka konstrukcja lepiej sprawdza się w produkcji seryjnej, gdzie liczy się stała jakość każdej zgrzeiny.
+
+Stacjonarne zgrzewarki punktowe to urządzenia z segmentu podstawowego, dobrze dopasowane do codziennej pracy warsztatów, zakładów produkcyjnych i stanowisk montażowych. Najczęściej wykorzystuje się je do łączenia blach stalowych, a dzięki regulacji długości ramion i skoku elektrod radzą sobie z detalami o różnych kształtach i grubościach. Sprawdzają się przede wszystkim tam, gdzie liczy się trwałe i powtarzalne połączenie bez materiału dodatkowego:
+
+łączenie blach stalowych w produkcji elementów i konstrukcji z blachy,
+
+praca w warsztatach i na stanowiskach montażowych, gdzie potrzebna jest niezawodna maszyna stacjonarna,
+
+produkcja mniejszych i średnich serii, bez konieczności stosowania rozbudowanej automatyki,
+
+zgrzewanie detali o różnej grubości, dzięki regulacji ramion i skoku elektrod,
+
+zadania wymagające stałej jakości zgrzeiny, z wyborem docisku nożnego lub pneumatycznego zależnie od intensywności pracy.
+
+Wszystkie zgrzewarki z tej serii pracują w zakresie 16–25 kVA, a o wyborze konkretnego modelu decyduje przede wszystkim rodzaj docisku oraz wysięg ramion i siła docisku, dopasowane do zgrzewanych detali. Jeśli nie masz pewności, czy lepszym rozwiązaniem będzie wersja nożna czy pneumatyczna, napisz do nas – pomożemy dobrać zgrzewarkę stacjonarną do rodzaju blach, ich grubości i rodzaju Twojej produkcji.
+
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o. | ul. Przyjazna 2, 55-080 Mokronos Dolny
+
+2026 Smoltech Technika Zgrzewalnicza Sp. z o. o. Wszelkie prawa zastrzeżone.
+
+LIS
+- Polityka ochrony środowiska
+- Stanowiska zautomatyzowane
+- Zgrzewarki z oprzyrządowaniem
+- Przyrządy zgrzewalnicze i spawalnicze
+- Podzespoły i wyposażenie
+- Elektrody do zgrzewarek
+- Pomiary – Usługi – Serwis
+- Filmy – automatyzacja zgrzewania
+- Polityka ochrony środowiska
+- Stanowiska zautomatyzowane
+- Zgrzewarki z oprzyrządowaniem
+- Przyrządy zgrzewalnicze i spawalnicze
+- Podzespoły i wyposażenie
+- Elektrody do zgrzewarek
+- Pomiary – Usługi – Serwis
+- Filmy – automatyzacja zgrzewania
+- łączenie blach stalowych w produkcji elementów i konstrukcji z blachy,
+- praca w warsztatach i na stanowiskach montażowych, gdzie potrzebna jest niezawodna maszyna stacjonarna,
+- produkcja mniejszych i średnich serii, bez konieczności stosowania rozbudowanej automatyki,
+- zgrzewanie detali o różnej grubości, dzięki regulacji ramion i skoku elektrod,
+- zadania wymagające stałej jakości zgrzeiny, z wyborem docisku nożnego lub pneumatycznego zależnie od intensywności pracy.
+- Zgrzewarki punktowe do zgrzewania blach płaskich, prętów na krzyż i elementów przestrzennych > Zgrzewarki stołowe punktowe i garbowe prądu zmiennego o mocy od 16 do 150 kVA
+- > Zgrzewarki stołowe inwertorowe, punktowe i garbowe o mocy od 32 do 90 kVA
+- > Zgrzewarki punktowe z dociskiem kleszczowym nożnym lub pneumatycznym o mocy od 16 do 25 kVA
+- > Zgrzewarki inwertorowe punktowe z dociskiem kleszczowym nożnym lub pneumatycznym o mocy 25 kVA
+- Zgrzewarki inwertorowe punktowe z pneumatycznym dociskiem kleszczowym lub liniowym o mocy 40 kVA
+- Zgrzewarki punktowe z dociskiem pneumatycznym, kleszczowym lub liniowym o mocy od 35 do 50 kVA
+- Zarządzaj {vendor_count} dostawcami
+- Przeczytaj więcej o tych celach
+- Administratorem Twoich danych osobowych jest SMOLTECH Technika Zgrzewalnicza Spółka z ograniczoną odpowiedzialnością z siedzibą w Mokronosie Dolnym 55-080, przy ul. Przyjaznej 2, e-mail: biuro@smoltech.pl.
+- Masz prawo do dostępu do swoich danych osobowych, do ich poprawiania, żądania ograniczenia przetwarzania lub ich usunięcia.
+- Jeżeli uznasz, że Twoje dane osobowe są przetwarzane niezgodnie z wymogami prawa, masz prawo wnieść skargę do organu nadzorczego, którym od 25.05.2018 r. jest Prezes Urzędu Ochrony Danych Osobowych.
+- Twoje dane osobowe będą przetwarzane w kilku celach tj. w celu udzielenia odpowiedzi na pytanie zawarte w formularzu kontaktowym, a także w celach związanych z marketingiem produktów i usług Administratora.
+- Podanie przez Ciebie danych jest dobrowolne, lecz konieczne do udzielenia odpowiedzi na pytanie zadane w formularzu.
+- Odbiorcami twoich danych osobowych będą te podmioty, którym mamy obowiązek przekazywania danych na gruncie obowiązujących przepisów prawa, a także podmioty świadczące dla nas usługi związane z marketingiem naszych produktów i usług.
+- Twoje dane osobowe będą przez nas przetwarzane przez cały czas, przez który będzie to niezbędne dla celów udzielenia odpowiedzi na pytanie zwarte w formularzu, nie dłużej niż do momentu wyrażenia przez Ciebie sprzeciwu wobec przetwarzania lub cofnięcia zgody na przetwarzanie.
+- The administrator of your personal data is SMOLTECH Technika Zgrzewalnicza Sp. z o.o. with its registered office in Mokronos Dolny 55-080 Poland, at 2 Przyjazna Street, e-mail: biuro@smoltech.pl.
+- You have the right to access, correct, limit or delete your personal data.
+- If you decide that your personal data is being processed in breach of the law, you have the right to lodge a complaint with the supervisory authority, which since 25.05.2018 has been the President of the Office for Personal Data Protection.
+- Your personal data will be processed for several purposes, exp.: to answer a question included in the contact form, as well as for the purposes related to marketing the Administrator’s products and services.
+- Your submission is voluntary but necessary to answer a question you have asked in this form.
+- The recipients of your personal data will be those entities to whom we are obliged to provide data under the applicable law, as well as entities providing services to us related to the marketing of our products and services.
+- Your personal data will be processed by us for as long as it is necessary for the purpose of answering the question contained in the form, as long as you do not object to the processing or withdraw your consent to the processing.
+TABLES 2
+ TABLE 0 rows=28
+  | DANE TECHNICZNE - ZGRZEWARKI Z DOCISKIEM NOŻNYM
+  | ZGRZEWARKA || 4640 || 4641 || 4642 || 4643 || 4644
+  | Moc nominalna 50% kVA || 16 || 20 || 20 || 25 || 25
+  | Moc maksymalna kVA || 35 || 48 || 39 || 68 || 55
+  | Napięcie wtórne V || 3,4 || 4 || 4 || 4,6 || 4,6
+  | Maks. prąd zwarcia kA || 12,5 || 14,5 || 12 || 18 || 14,5
+  | Maks. pąd zgrzewania stali kA || 10 || 11,6 || 9,6 || 14,4 || 11,6
+  | Napięcie V | Hz || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50
+  | Bezpeczniki zwłoczne 230 V, A || 50 || 63 || 63 || 80 || 80
+  | Bezpeczniki zwłoczne 400 V, A || 32 || 40 || 40 || 50 || 50
+  | Przekrój kabli zasilających dla | L=10m, mm 2 | L=30m, mm 2 || | 6 | 10 || | 10 | 10 || | 10 | 10 || | 16 | 16 || | 16 | 16
+  | Klasa izolacji || F || F || F || F || F
+  | Wymagane ciśn. powietrza bar || — || — || — || — || —
+  | Zużycie pow./100 zgrzein N/m 3 || — || — || — || — || —
+  | Min wysięg ramion L, mm || 230 || 230 || 380 || 230 || 380
+  | Max siła doc. dla L=min, daN || 240 || 240 || 150 || 240 || 150
+  | Skok elektrody dla L=min, mm || 8-44 || 8-44 || 10-60 || 4-44 || 10-60
+  | Maks wysięg ramion L, mm || 550 || 550 || 700 || 550 || 700
+  | Max siła doc. dla L=max, daN || 95 || 95 || 80 || 95 || 80
+  | Skok elektrody dla L=max, mm || 15-85 || 15-85 || 15-105 || 15-85 || 15-105
+  | Prąd zwar. dla max wysięgu kA || 8,4 || 10 || 8,8 || 13 || 10,5
+  | Chłodzenie wodne l/min || 2,5 || 3 || 3 || 3,7 || 3,7
+  | Min.ciśnienie wody bar || 2,5 || 2,5 || 2,5 || 2,5 || 2,5
+  | Głośność przy pracy dB(A) || <70 || <70 || <70 || <70 || <70
+  | Masa kg || 135 || 143 || 146 || 145 || 148
+  | Ø ramion mm || 36 || 40 || 40 || 40 || 40
+  | Ø uchwytu elektrody mm || 19 || 22 || 22 || 22 || 22
+  | Ø gniazda elektrody BS mm || 12,7 || 14,8 || 14,8 || 14,8 || 14,8
+ TABLE 1 rows=28
+  | DANE TECHNICZNE - ZGRZEWARKI Z DOCISKIEM PNEUMATYCZNYM
+  | ZGRZEWARKA || 4645 || 4646 || 4647 || 4648 || 4649
+  | Moc nominalna 50% kVA || 16 || 20 || 20 || 25 || 25
+  | Moc maksymalna kVA || 35 || 48 || 39 || 68 || 55
+  | Napięcie wtórne V || 3,4 || 4 || 4 || 4,6 || 4,6
+  | Maks. prąd zwarcia kA || 12,5 || 14,5 || 12 || 18 || 14,5
+  | Maks. pąd zgrzewania stali kA || 10 || 11,6 || 9,6 || 14,4 || 11,6
+  | Napięcie V | Hz || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50 || 400 | 50
+  | Bezpeczniki zwłoczne 230 V, A || 50 || 63 || 63 || 80 || 80
+  | Bezpeczniki zwłoczne 400 V, A || 32 || 40 || 40 || 50 || 50
+  | Przekrój kabli zasilających dla | L=10m, mm 2 | L=30m, mm 2 || | 6 | 10 || | 10 | 10 || | 10 | 10 || | 16 | 16 || | 16 | 16
+  | Klasa izolacji || F || F || F || F || F
+  | Wymagane ciśn. powietrza bar || 6,5-10 || 6,5-10 || 6,5-10 || 6,5-10 || 6,5-10
+  | Zużycie pow./100 zgrzein N/m 3 || 4,3 || 4,3 || 4,3 || 4,3 || 4,3
+  | Min wysięg ramion L, mm || 230 || 230 || 380 || 230 || 380
+  | Max siła doc. dla L=min, daN || 240 || 240 || 165 || 240 || 165
+  | Skok elektrody dla L=min, mm || 8-44 || 8-44 || 10-60 || 8-44 || 10-60
+  | Maks wysięg ramion L, mm || 550 || 550 || 700 || 550 || 700
+  | Max siła doc. dla L=max, daN || 115 || 115 || 90 || 115 || 90
+  | Skok elektrody dla L=max, mm || 15-85 || 15-85 || 15-105 || 15-85 || 15-105
+  | Prąd zwar. dla max wysięgu kA || 8,4 || 10 || 8,8 || 13 || 10,5
+  | Chłodzenie wodne l/min || 2,5 || 3 || 3 || 3,7 || 3,7
+  | Min.ciśnienie wody bar || 2,5 || 2,5 || 2,5 || 2,5 || 2,5
+  | Głośność przy pracy dB(A) || <70 || <70 || <70 || <70 || <70
+  | Masa kg || 133 || 141 || 144 || 143 || 146
+  | Ø ramion mm || 36 || 40 || 40 || 40 || 40
+  | Ø uchwytu elektrody mm || 19 || 22 || 22 || 22 || 22
+  | Ø gniazda elektrody BS mm || 12,7 || 14,8 || 14,8 || 14,8 || 14,8

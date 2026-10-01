@@ -1,0 +1,54 @@
+﻿FILE: zgrzewarki-inwertorowe-punktowe-z-pneumatycznym-dociskiem-nozycowym-lub-liniowym-o-mocy-40-kva.html
+TITLE: Zgrzewarki inwertorowe punktowe z pneumatycznym dociskiem nożycowym lub liniowym o mocy 40 kVA - SMOLTECH Technika Zgrzewalnicza Sp. z o.o.
+DESC: Zgrzewarki punktowe i garbowe do zgrzewania metali. Projektujemy i budujemy zgrzewarki do siatek oraz zautomatyzowane stanowiska zgrzewalnicze dla branży metalowej i motoryzacyjnej.
+### H1: Zgrzewarki inwertorowe punktowe z pneumatycznym dociskiem kleszczowym lub liniowym o mocy 40 kVA
+Modele: 6020F, 6021F, 6022F, 6023F, 6020FA, 6021FA, 6022FA, 6023FA
+[[/wp-content/uploads/2024/06/Zgrzewarki-punktowe-inwertorowe-40-kVA.pdf]] Karta katalogowa
+Podstawowe własności zgrzewarek 6020F(A), 6021F(A), 6022F(A), 6023F(A)
+Zgrzewarki punktowe TECNA 6020F-6023F zostały zaprojektowane tak, aby spełnić najwyższe standardy zgrzewania. Technologia inwertorowa, w którą wyposażone są te maszyny, pozwala na:
+- zmniejszenie poboru mocy z sieci zasilającej (energooszczędność)
+- skrócenie czasu przepływu prądu (lepszy wygląd i jakości zgrzeiny)
+- zmniejszenie prądu zgrzewania (większa trwałość elektrod)
+- zgrzewanie materiałów trudnozgrzewalnych
+Ponadto technologia inwertorowa gwarantuje uzyskanie doskonałej jakości zgrzewania dzięki najwyższej precyzji kontroli czasu i prądu zgrzewania. Czas zgrzewania jest regulowany w milisekundach, co pozwala na najlepszą konfigurację. Prąd jest dostarczany w sposób ciągły i nie mają na niego wpływu wymiary obwodu zgrzewania.
+Inne cechy urządzeń:
+- Uchwyty elektrod chromowo-miedziane do dużych obciążeń i o długiej żywotności, zaprojektowane do montażu zarówno prostego jak i kątowego na ramieniu.
+- Transformator, uchwyty i elektrody chłodzone wodą; uzwojenia transformatora pokryte żywicą epoksydową.
+- Mikroprocesorowa jednostka sterująca TE751 wyposażona w szeroki ekran. Opcjonalnie port USB do przechowywania danych.
+- Bezsmarowy cylinder i elementy pneumatyczne, które eliminują mgłę olejową.
+- Dwustopniowy elektryczny pedał nożny do mocowania detali i zgrzewania tylko w przypadku prawidłowego ustawienia.
+- Wstępne podłączenie dodatkowego elektrycznego pedału nożnego do bezpośredniego przywołania programu zgrzewania nr 2. Funkcja ta jest pomocna, gdy na tym samym elemencie mają być wykonywane różne rodzaje zgrzewania.
+DANE TECHNICZNE
+| ZGRZEWARKA ze sterownikiem TE751 | 6020F | 6021F | 6022F | 6023F
+| ZGRZEWARKA ze sterownikiem TE700 | 6020FA | 6021FA | 6022FA | 6023FA
+| Docisk | kleszczowy | kleszczowy | liniowy | liniowy
+| Moc nominalna 50% kVA | 40
+| Moc maksymalna kVA | 85
+| Napięcie wtórne V | 6,1
+| Maks. prąd zwarcia kA | 19
+| Napięcie V/Hz | 400/50
+| Bezpeczniki zwłoczne 400V, A | 40
+| Przekrój kabli zasilających dla L=30m, 400V, mm 2 | 16
+| Klasa izolacji | F
+| Ciśnienie powietrza min/max bar | 6,5/10
+| Podwójny skok elektrody, mm | — | — | 60 | 60
+| Min wysięg ramion L, mm | 280 | 480 | 400 | 500
+| Max siła doc. dla L=min, daN | 425 | 260 | 470 | 300
+| Max wysięg ramion L, mm | 600 | 800 | — | —
+| Max siła doc. dla L=max, daN | 210 | 160 | — | —
+| Ø ramion mm | 50
+| Ø uchwytu elektrody mm | 25
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/]] Zgrzewarki punktowe do zgrzewania blach płaskich, prętów na krzyż i elementów przestrzennych
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-stolowe-punktowe/]] > Zgrzewarki stołowe punktowe i garbowe prądu zmiennego o mocy od 16 do 150 kVA
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-stolowe-inwertorowe/]] > Zgrzewarki stołowe inwertorowe, punktowe i garbowe o mocy od 32 do 90 kVA
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-punktowe-stacjonarne/]] > Zgrzewarki punktowe z dociskiem kleszczowym nożnym lub pneumatycznym o mocy od 16 do 25 kVA
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-inwertorowe-punktowe/]] > Zgrzewarki inwertorowe punktowe z dociskiem kleszczowym nożnym lub pneumatycznym o mocy 25 kVA
+- [[https://smoltech.pl/zgrzewarki-inwertorowe-punktowe-z-pneumatycznym-dociskiem-nozycowym-lub-liniowym-o-mocy-40-kva/]] Zgrzewarki inwertorowe punktowe z pneumatycznym dociskiem kleszczowym lub liniowym o mocy 40 kVA
+- [[https://smoltech.pl/zgrzewarki-punktowe-16-150kva/zgrzewarki-punktowe-stacjonarne-2/]] Zgrzewarki punktowe z dociskiem pneumatycznym, kleszczowym lub liniowym o mocy od 35 do 50 kVA
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o.
+ul. Przyjazna 2, 55-080 Mokronos Dolny
+[[tel:+48 71 321 54 27]] tel. +48 71 321 54 27
+email: [[mailto:biuro@smoltech.pl]] biuro@smoltech.pl
+NIP: 8971804142
+REGON: 360382474
+KRS: 0000535326

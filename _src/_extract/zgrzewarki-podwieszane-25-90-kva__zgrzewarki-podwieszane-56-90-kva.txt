@@ -1,0 +1,42 @@
+FILE zgrzewarki-podwieszane-25-90-kva__zgrzewarki-podwieszane-56-90-kva.html len=109557
+H: Inwertorowe zgrzewarki podwieszane o mocach 56 - 90 kVA dla przemysłu
+H: Aktualności
+H: Blog
+TABLES 1
+ TABLE 0 rows=8
+  | MODEL || Moc || Rozstaw ramion || Siła docisku daN || Ø Cylindra || Prąd zwarcia || Średnica ramion || Ciężar netto (bez ramion)
+  |  || kVA 20% || kVA 50% || mm || przy 6 bar || przy 8 bar || mm || kA || bez izolacji mm || z izolacją mm || kg
+  | 3062 || 88 || 56 || - || 375 || 500 || 90 || 25 || 44 || 42 || 53
+  | 3066 || 142 || 90 || - || 465 || 620 || 100 || 30 || 49 || 47 || 63
+  | 3176 || 88 || 56 || 205 || 340 || 450 || 100 || 25 || 44 || 42 || 55
+  | 3177 || 88 || 56 || 265 || 340 || 450 || 100 || 25 || 44 || 42 || 55
+  | 3183 || 142 || 90 || 219 || 645 || 855 || 140 || 30 || 49 || 47 || 75
+  | 3184 || 142 || 90 || 312 || 645 || 855 || 140 || 30 || 49 || 47 || 76
+YT 
+IMGS 19
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/jquery.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/jquery-migrate.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/02/pdf-1.png
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/2020/03/zgrzewarki.jpg
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/auto-image-alt/js/auto_image_alt.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/ewww-image-optimizer/includes/lazysizes.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/hooks.min.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/i18n.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/includes/swv/js/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/includes/js/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/goodlayers-core/plugins/script.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/goodlayers-core/include/js/page-builder.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/ui/effect.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/themes/realfactory/js/script-core.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/jquery/ui/core.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/uploads/pum/pum-site-scripts.js
+  https://exgic2b95c2.exactdn.com/wp-includes/js/dist/vendor/wp-polyfill.min.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/contact-form-7/modules/recaptcha/index.js
+  https://exgic2b95c2.exactdn.com/wp-content/plugins/tablepress/js/jquery.datatables.min.js
+LINKS
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-podwieszane-56-90-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-punktowe-kleszczowe-16-38kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-kleszczowe-32-do-75-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarka-kleszczowa-50-kva/
+  https://smoltech.pl/zgrzewarki-podwieszane-25-90-kva/zgrzewarki-punktowe-2-5-6-kva/

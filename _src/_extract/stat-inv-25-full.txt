@@ -1,0 +1,102 @@
+zgrzewarki-punktowe-16-150kva__zgrzewarki-inwertorowe-punktowe.html
+HEADINGS
+  Zgrzewarki inwertorowe punktowe stacjonarne z dociskiem kleszczowym nożnym lub pneumatycznym o mocy 25 kVA
+  Co wyróżnia zgrzewarki inwertorowe?
+  Budowa i sterowanie
+  Wersja z dociskiem nożnym i pneumatycznym
+  Dobór modelu
+PARAS
+Zgrzewarki inwertorowe sterują prądem zgrzewania w technice średniej częstotliwości, a nie klasycznym prądem zmiennym 50 Hz. Impuls prądu jest przez to krótszy i lepiej kontrolowany, co widać w jakości zgrzeiny, zużyciu energii i trwałości elektrod. Prezentowana seria to stacjonarne zgrzewarki punktowe o mocy 25 kVA, przeznaczone do zgrzewania blach i elementów metalowych. Typoszereg obejmuje cztery modele – 6010 i 6011 z dociskiem nożnym oraz 6012 i 6013 z dociskiem pneumatycznym – każdy łączący technikę inwertorową ze stacjonarną konstrukcją dostosowaną do warunków produkcyjnych.
+
+Przewaga tej serii wynika wprost z techniki inwertorowej, która daje kilka konkretnych korzyści:
+
+niższy pobór mocy z sieci – inwerter zużywa mniej energii niż zgrzewarki prądu zmiennego o zbliżonych możliwościach,
+
+krótszy czas przepływu prądu – lepiej kontrolowany impuls poprawia jakość i wygląd zgrzeiny,
+
+mniejszy prąd zgrzewania – niższe natężenie wydłuża żywotność elektrod, co oznacza rzadsze przestoje i niższe koszty eksploatacji,
+
+zgrzewanie materiałów trudno zgrzewalnych – precyzyjne sterowanie prądem pozwala łączyć materiały, z którymi klasyczna zgrzewarka radzi sobie gorzej.
+
+Inwerter obniża więc koszty energii i elektrod, dając przy tym lepszą kontrolę nad samym procesem zgrzewania.
+
+Seria 6010–6013 zgrzewarek inwertorowych opiera się na sprawdzonych rozwiązaniach konstrukcyjnych. Ramiona mają regulowaną długość, więc maszynę można dopasować do wymiarów zgrzewanych detali, a regulowany skok elektrod ułatwia pracę z elementami o różnej grubości. Transformator zatopiono w tworzywie, co zwiększa jego odporność, a woda chłodzi transformator, tyrystor, ramiona i elektrody. Za sterowanie odpowiada mikroprocesorowy sterownik TE850, na którym ustawia się parametry zgrzewania.
+
+Serię przygotowano w dwóch wariantach docisku elektrod. W modelach 6010 i 6011 nacisk zadaje operator pedałem, a prąd rusza dopiero po osiągnięciu wymaganego docisku. W modelach 6012 i 6013 docisk zapewnia siłownik pneumatyczny, który daje równy, powtarzalny nacisk oraz funkcję pracy pojedynczej i seryjnej. Szczegółowe różnice między modelami zestawiono w tabeli poniżej.
+
+Wszystkie cztery zgrzewarki z serii pracują z mocą 25 kVA, a o wyborze decydują przede wszystkim rodzaj docisku oraz wysięg i siła docisku ramion, dopasowane do konkretnych detali. Jeśli nie masz pewności, który model sprawdzi się przy Twojej produkcji, skontaktuj się z nami – pomożemy dobrać zgrzewarkę inwertorową do rodzaju materiału, grubości blach i charakteru pracy.
+
+SMOLTECH Technika Zgrzewalnicza Sp. z o. o. | ul. Przyjazna 2, 55-080 Mokronos Dolny
+
+2026 Smoltech Technika Zgrzewalnicza Sp. z o. o. Wszelkie prawa zastrzeżone.
+
+LIS
+- Polityka ochrony środowiska
+- Stanowiska zautomatyzowane
+- Zgrzewarki z oprzyrządowaniem
+- Przyrządy zgrzewalnicze i spawalnicze
+- Podzespoły i wyposażenie
+- Elektrody do zgrzewarek
+- Pomiary – Usługi – Serwis
+- Filmy – automatyzacja zgrzewania
+- Polityka ochrony środowiska
+- Stanowiska zautomatyzowane
+- Zgrzewarki z oprzyrządowaniem
+- Przyrządy zgrzewalnicze i spawalnicze
+- Podzespoły i wyposażenie
+- Elektrody do zgrzewarek
+- Pomiary – Usługi – Serwis
+- Filmy – automatyzacja zgrzewania
+- niższy pobór mocy z sieci – inwerter zużywa mniej energii niż zgrzewarki prądu zmiennego o zbliżonych możliwościach,
+- krótszy czas przepływu prądu – lepiej kontrolowany impuls poprawia jakość i wygląd zgrzeiny,
+- mniejszy prąd zgrzewania – niższe natężenie wydłuża żywotność elektrod, co oznacza rzadsze przestoje i niższe koszty eksploatacji,
+- zgrzewanie materiałów trudno zgrzewalnych – precyzyjne sterowanie prądem pozwala łączyć materiały, z którymi klasyczna zgrzewarka radzi sobie gorzej.
+- Zgrzewarki punktowe do zgrzewania blach płaskich, prętów na krzyż i elementów przestrzennych > Zgrzewarki stołowe punktowe i garbowe prądu zmiennego o mocy od 16 do 150 kVA
+- > Zgrzewarki stołowe inwertorowe, punktowe i garbowe o mocy od 32 do 90 kVA
+- > Zgrzewarki punktowe z dociskiem kleszczowym nożnym lub pneumatycznym o mocy od 16 do 25 kVA
+- > Zgrzewarki inwertorowe punktowe z dociskiem kleszczowym nożnym lub pneumatycznym o mocy 25 kVA
+- Zgrzewarki inwertorowe punktowe z pneumatycznym dociskiem kleszczowym lub liniowym o mocy 40 kVA
+- Zgrzewarki punktowe z dociskiem pneumatycznym, kleszczowym lub liniowym o mocy od 35 do 50 kVA
+- Zarządzaj {vendor_count} dostawcami
+- Przeczytaj więcej o tych celach
+- Administratorem Twoich danych osobowych jest SMOLTECH Technika Zgrzewalnicza Spółka z ograniczoną odpowiedzialnością z siedzibą w Mokronosie Dolnym 55-080, przy ul. Przyjaznej 2, e-mail: biuro@smoltech.pl.
+- Masz prawo do dostępu do swoich danych osobowych, do ich poprawiania, żądania ograniczenia przetwarzania lub ich usunięcia.
+- Jeżeli uznasz, że Twoje dane osobowe są przetwarzane niezgodnie z wymogami prawa, masz prawo wnieść skargę do organu nadzorczego, którym od 25.05.2018 r. jest Prezes Urzędu Ochrony Danych Osobowych.
+- Twoje dane osobowe będą przetwarzane w kilku celach tj. w celu udzielenia odpowiedzi na pytanie zawarte w formularzu kontaktowym, a także w celach związanych z marketingiem produktów i usług Administratora.
+- Podanie przez Ciebie danych jest dobrowolne, lecz konieczne do udzielenia odpowiedzi na pytanie zadane w formularzu.
+- Odbiorcami twoich danych osobowych będą te podmioty, którym mamy obowiązek przekazywania danych na gruncie obowiązujących przepisów prawa, a także podmioty świadczące dla nas usługi związane z marketingiem naszych produktów i usług.
+- Twoje dane osobowe będą przez nas przetwarzane przez cały czas, przez który będzie to niezbędne dla celów udzielenia odpowiedzi na pytanie zwarte w formularzu, nie dłużej niż do momentu wyrażenia przez Ciebie sprzeciwu wobec przetwarzania lub cofnięcia zgody na przetwarzanie.
+- The administrator of your personal data is SMOLTECH Technika Zgrzewalnicza Sp. z o.o. with its registered office in Mokronos Dolny 55-080 Poland, at 2 Przyjazna Street, e-mail: biuro@smoltech.pl.
+- You have the right to access, correct, limit or delete your personal data.
+- If you decide that your personal data is being processed in breach of the law, you have the right to lodge a complaint with the supervisory authority, which since 25.05.2018 has been the President of the Office for Personal Data Protection.
+- Your personal data will be processed for several purposes, exp.: to answer a question included in the contact form, as well as for the purposes related to marketing the Administrator’s products and services.
+- Your submission is voluntary but necessary to answer a question you have asked in this form.
+- The recipients of your personal data will be those entities to whom we are obliged to provide data under the applicable law, as well as entities providing services to us related to the marketing of our products and services.
+- Your personal data will be processed by us for as long as it is necessary for the purpose of answering the question contained in the form, as long as you do not object to the processing or withdraw your consent to the processing.
+TABLES 1
+ TABLE 0 rows=25
+  | DANE TECHNICZNE
+  | ZGRZEWARKA || 6010 || 6011 || 6012 || 6013
+  | Docisk || nożny || nożny || pneumatyczny || pneumatyczny
+  | Moc nominalna 50% kVA || 25 || 25 || 25 || 25
+  | Moc maksymalna kVA || 118 || 118 || 118 || 118
+  | Napięcie wtórne V || 9,8 || 9,8 || 9,8 || 9,8
+  | Maks. prąd zwarcia kA || 12 || 12 || 12 || 12
+  | Napięcie V/Hz || 400/50 || 400/50 || 400/50 || 400/50
+  | Bezpeczniki zwłoczne 400V, A || 35 || 35 || 35 || 35
+  | Przekrój kabli zasilających dla L=30m, mm 2 || 10 || 10 || 10 || 10
+  | Klasa izolacji || F || F || F || F
+  | Ciśnienie powietrza min/max bar || — || — || 6,5/10 || 6,5/10
+  | Zużycie pow./1000 zgrzein N/m 3 || — || — || 4,3 || 4,3
+  | Min wysięg ramion L, mm || 230 || 380 || 230 || 380
+  | Max siła doc. dla L=min, daN || 240 || 150 || 240 || 165
+  | Skok elektrody dla L=min, mm || 8-44 || 10-60 || 8-44 || 10-60
+  | Max wysięg ramion L, mm || 550 || 700 || 550 || 700
+  | Max siła doc. dla L=max, daN || 95 || 80 || 115 || 90
+  | Skok elektrody dla L=max, mm || 15-85 || 15-105 || 15-85 || 15-105
+  | Chłodzenie wodne l/min || 5 || 5 || 5 || 5
+  | Min/max ciśnienie wody bar || 2,5/4 || 2,5/4 || 2,5/4 || 2,5/4
+  | Masa kg || 145 || 150 || 145 || 150
+  | Ø ramion mm || 40 || 40 || 40 || 40
+  | Ø uchwytu elektrody mm || 22 || 22 || 22 || 22
+  | Ø gniazda elektrody BS mm || 12,7 || 12,7 || 12,7 || 12,7
