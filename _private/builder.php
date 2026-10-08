@@ -11,6 +11,7 @@ function st_builder_style(string $style): string
         [$prop, $val] = explode(':', $decl, 2);
         $prop = strtolower(trim($prop));
         $val = trim($val);
+        if ($prop === 'text-decoration-line') $prop = 'text-decoration';
         if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration', 'font-size', 'object-position', 'background-position', '--st-x', '--st-y', '--st-z'], true)) continue;
         if (preg_match('/url\s*\(|expression|javascript/i', $val)) continue;
         $edge = '(?:left|center|right|top|bottom|(?:0|[1-9]\d?|100)(?:\.\d+)?%)';
@@ -177,6 +178,7 @@ function st_builder_preview(string $id): array
     }
     $html = st_cms_render_page($meta, $body, $layout, $partials, $ld, basename($path));
     $html = preg_replace('/<script\b[^>]*\bsrc="[^"]*strona\.js[^"]*"[^>]*>\s*<\/script>\s*/i', '', $html) ?? $html;
+    $html = preg_replace('/<meta\b[^>]*http-equiv=["\']refresh["\'][^>]*>\s*/i', '', $html) ?? $html;
     $html = preg_replace_callback('/<video\b([^>]*)>/i', static function (array $m): string {
         $attrs = preg_replace('/\s+(?:autoplay|preload="[^"]*")/i', '', $m[1]) ?? $m[1];
         return '<video' . $attrs . ' preload="none">';

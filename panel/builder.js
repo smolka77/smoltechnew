@@ -668,6 +668,8 @@
       if (!t) return;
       if (skipClick) {
         skipClick = false;
+        e.preventDefault();
+        e.stopPropagation();
         var imgOnly = t.closest('img');
         if (imgOnly && !skipPhoto(imgOnly)) {
           image = imgOnly;
@@ -1171,18 +1173,74 @@
       markDirty('page');
     }
 
+    function linkFromSelection() {
+      var sel = doc.getSelection();
+      var node = sel && sel.rangeCount ? sel.anchorNode : null;
+      var el = node ? (node.nodeType === 1 ? node : node.parentElement) : null;
+      var existing = el && el.closest ? el.closest('a[href]') : null;
+      if (existing) return existing;
+      var host = doc.querySelector('[contenteditable="true"]');
+      if (host && host.matches && host.matches('a[href]')) return host;
+      if (host && host.closest) return host.closest('a[href]');
+      return null;
+    }
+
     function makeLink() {
       if (!doc) return;
-      var url = window.prompt('Link address (https://, /page/ or mailto:)', 'https://');
-      if (!url) return;
-      url = url.trim();
+      var sel = doc.getSelection();
+      var range = null;
+      try { if (sel && sel.rangeCount) range = sel.getRangeAt(0).cloneRange(); } catch (err) { range = null; }
+      var existing = linkFromSelection();
+      var url = window.prompt('Link address (https://, /page/, mailto: or tel:). Leave it empty to remove the link.', existing ? (existing.getAttribute('href') || '') : 'https://');
+      if (url == null) return;
+      if (range) {
+        try {
+          var again = doc.getSelection();
+          again.removeAllRanges();
+          again.addRange(range);
+        } catch (err2) { /* the prompt can drop the selection */ }
+      }
+      url = String(url).trim();
+      if (!url) {
+        if (!existing) { say('Select the link you want to remove.', 'err'); return; }
+        beforeChange();
+        var parent = existing.parentNode;
+        while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
+        parent.removeChild(existing);
+        markDirty(whereOf(parent));
+        say('Link removed.');
+        return;
+      }
       if (!/^(https?:|mailto:|tel:|\/|#)/i.test(url)) {
         say('Use an http, mailto or tel address, or a path that starts with /.', 'err');
         return;
       }
       beforeChange();
-      doc.execCommand('createLink', false, url);
+      var sel = doc.getSelection();
+      var inside = existing && sel && sel.rangeCount && existing.contains(sel.anchorNode) && existing.contains(sel.focusNode);
+      if (existing && (!sel || !sel.rangeCount || sel.isCollapsed || inside)) {
+        existing.setAttribute('href', url);
+        markDirty(whereOf(existing));
+        say('Link updated.');
+        return;
+      }
+      try { frame.contentWindow.focus(); } catch (err) { /* optional */ }
+      var made = false;
+      var live = doc.getSelection();
+      if (live && live.rangeCount && !live.isCollapsed) {
+        var wrap = live.getRangeAt(0);
+        var a = doc.createElement('a');
+        a.setAttribute('href', url);
+        try {
+          wrap.surroundContents(a);
+          made = true;
+        } catch (err3) {
+          made = !!doc.execCommand('createLink', false, url);
+        }
+      }
+      if (!made) { say('Select the words you want to link.', 'err'); return; }
       markDirty('page');
+      say('Link added.');
     }
 
     function currentEl() {
@@ -1239,7 +1297,15 @@
         say('Bullet removed.');
         return;
       }
-      var p = el && el.closest ? (el.matches && el.matches('p, h2, h3, div') ? el : el.closest('p')) : null;
+      var p = null;
+      if (el && el.closest) {
+        if (el.matches && el.matches('p, h2, h3')) p = el;
+        else p = el.closest('p, h2, h3');
+        if (!p) {
+          var box = el.matches && el.matches('div') ? el : el.closest('div');
+          if (box && !box.querySelector('p, h2, h3, ul, ol, section, figure')) p = box;
+        }
+      }
       if (!p || (p.closest && p.closest('ul, ol'))) {
         say('Click a paragraph, then + Bullet.', 'err');
         return;
