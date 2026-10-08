@@ -11,16 +11,21 @@ function st_builder_style(string $style): string
         [$prop, $val] = explode(':', $decl, 2);
         $prop = strtolower(trim($prop));
         $val = trim($val);
-        if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration', 'object-position'], true)) continue;
+        if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration', 'font-size', 'object-position', 'background-position', '--st-x', '--st-y', '--st-z'], true)) continue;
         if (preg_match('/url\s*\(|expression|javascript/i', $val)) continue;
         $edge = '(?:left|center|right|top|bottom|(?:0|[1-9]\d?|100)(?:\.\d+)?%)';
+        $pct = '(?:0|[1-9]\d?|100)(?:\.\d+)?%';
         $ok = match ($prop) {
             'color' => (bool) preg_match('/^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?(?:\s*,\s*[\d.]+%?){2,3}\s*\)|[a-z]{3,20})$/i', $val),
             'text-align' => in_array(strtolower($val), ['left', 'right', 'center', 'justify', 'start', 'end'], true),
             'font-weight' => (bool) preg_match('/^(normal|bold|bolder|lighter|[1-9]00)$/i', $val),
             'font-style' => in_array(strtolower($val), ['normal', 'italic', 'oblique'], true),
             'text-decoration' => (bool) preg_match('/^(none|underline|line-through|overline)(?:\s+(?:none|underline|line-through|overline))*$/i', $val),
+            'font-size' => (bool) preg_match('/^(?:inherit|(?:0|[1-9]\d?)(?:\.\d+)?(?:px|rem|em|%))$/i', $val),
             'object-position' => (bool) preg_match('/^' . $edge . '(?:\s+' . $edge . ')?$/i', $val),
+            'background-position' => (bool) preg_match('/^' . $edge . '(?:\s+' . $edge . ')?$/i', $val),
+            '--st-x', '--st-y' => (bool) preg_match('/^' . $pct . '$/i', $val),
+            '--st-z' => (bool) preg_match('/^(?:1(?:\.\d+)?|[12](?:\.\d+)?|3(?:\.0+)?)$/', $val),
             default => false,
         };
         if ($ok) $keep[] = $prop . ':' . $val;

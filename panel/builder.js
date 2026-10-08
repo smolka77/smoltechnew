@@ -83,6 +83,9 @@
     var typing = false;
     var typeTimer = null;
     var drag = null;
+    var moveMode = false;
+    var photoTap = null;
+    var lastOpen = 0;
     var skipClick = false;
     var slugTouched = false;
     var freshForm = false;
@@ -101,41 +104,56 @@
             '<button type="button" data-lang="uk">Українська</button>' +
             '<button type="button" data-lang="en" class="is-on">English</button>' +
           '</div>' +
-          '<p class="stb__hint">English is the editing view. Ukrainian is what the public site shows. Save publishes immediately.</p>' +
-          '<a class="btn btn-ghost btn-sm" id="stb-live" target="_blank" rel="noopener" hidden>View on site</a>' +
-          '<button type="button" class="btn btn-sm" id="stb-save">Save to site</button>' +
+          '<p class="stb__hint">Click once to edit words. Double-click a menu link to open that page.</p>' +
         '</div>' +
-        '<div class="stb__tools">' +
-          '<button type="button" data-act="undo" id="stb-undo" disabled title="Undo (Ctrl+Z)">Undo</button>' +
-          '<button type="button" data-act="redo" id="stb-redo" disabled title="Redo (Ctrl+Y)">Redo</button>' +
-          '<button type="button" data-act="left" title="Align left">Left</button>' +
-          '<button type="button" data-act="center" title="Align center">Center</button>' +
-          '<button type="button" data-act="right" title="Align right">Right</button>' +
-          '<button type="button" data-act="bold" title="Bold"><b>B</b></button>' +
-          '<button type="button" data-act="italic" title="Italic"><i>I</i></button>' +
-          '<button type="button" data-act="link">Link</button>' +
-          '<label class="stb__mini">Color <input type="color" id="stb-color" value="#d10a11"></label>' +
-          '<button type="button" data-act="list">List</button>' +
-          '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">+ Bullet</button>' +
-          '<button type="button" data-act="up" title="Move up">↑</button>' +
-          '<button type="button" data-act="down" title="Move down">↓</button>' +
-          '<button type="button" data-act="dup">Duplicate</button>' +
-          '<button type="button" data-act="del">Remove</button>' +
-          '<button type="button" data-act="add">Add block</button>' +
-          '<button type="button" data-act="img" disabled>Replace photo</button>' +
-          '<button type="button" data-act="alt" disabled>Alt text</button>' +
-          '<button type="button" data-act="noimg" disabled>Remove photo</button>' +
-          '<label class="stb__mini" id="stb-ph-wrap" hidden>Field hint <input type="text" id="stb-ph"></label>' +
-          '<button type="button" id="stb-pages">Add page</button>' +
-          '<button type="button" id="stb-delpage" hidden>Delete page</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" id="stb-meta-btn">Google title</button>' +
+        '<div class="stb__tools" role="toolbar" aria-label="Editor tools">' +
+          '<div class="stb__grp" data-grp="text">' +
+            '<span class="stb__grp-h">Text</span>' +
+            '<button type="button" data-act="bold" title="Bold"><b>B</b></button>' +
+            '<button type="button" data-act="italic" title="Italic"><i>I</i></button>' +
+            '<button type="button" data-act="under" title="Underline"><u>U</u></button>' +
+            '<label class="stb__mini" title="Text size">Size <select id="stb-size" title="Text size"><option value="">Size</option><option value="0.85rem">Small</option><option value="1rem">Normal</option><option value="1.25rem">Large</option><option value="1.6rem">Larger</option></select></label>' +
+            '<label class="stb__mini" title="Text color">Color <input type="color" id="stb-color" value="#d10a11" title="Text color"></label>' +
+            '<button type="button" data-act="left" title="Align left">Left</button>' +
+            '<button type="button" data-act="center" title="Align center">Center</button>' +
+            '<button type="button" data-act="right" title="Align right">Right</button>' +
+            '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">Bullets</button>' +
+            '<button type="button" data-act="link" title="Insert a link">Link</button>' +
+          '</div>' +
+          '<div class="stb__grp" data-grp="layout">' +
+            '<span class="stb__grp-h">Layout</span>' +
+            '<button type="button" data-act="add" title="Insert a ready-made section">Add block</button>' +
+            '<button type="button" data-act="up" title="Move this section up">Up</button>' +
+            '<button type="button" data-act="down" title="Move this section down">Down</button>' +
+            '<button type="button" data-act="dup" title="Duplicate this section">Duplicate</button>' +
+            '<button type="button" data-act="del" title="Delete this section">Delete</button>' +
+          '</div>' +
+          '<div class="stb__grp" data-grp="media">' +
+            '<span class="stb__grp-h">Media</span>' +
+            '<button type="button" data-act="move" id="stb-move" title="Turn this on, then drag a photo inside its frame" aria-pressed="false">Move photo</button>' +
+            '<button type="button" data-act="img" title="Replace the selected photo" disabled>Replace</button>' +
+            '<button type="button" data-act="resetpos" title="Put the photo back in the middle of its frame" disabled>Reset</button>' +
+            '<button type="button" data-act="alt" title="Edit the photo description" disabled>Alt text</button>' +
+            '<button type="button" data-act="noimg" title="Remove the selected photo" disabled>Remove</button>' +
+          '</div>' +
+          '<div class="stb__grp" data-grp="page">' +
+            '<span class="stb__grp-h">Page</span>' +
+            '<button type="button" data-act="undo" id="stb-undo" disabled title="Undo (Ctrl+Z)">Undo</button>' +
+            '<button type="button" data-act="redo" id="stb-redo" disabled title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>' +
+            '<button type="button" id="stb-pages" title="Add a page or change where a page sits in the menu">Add page</button>' +
+            '<button type="button" id="stb-delpage" hidden title="Delete this page">Delete page</button>' +
+            '<button type="button" id="stb-meta-btn" title="Google title and description">Page settings</button>' +
+            '<a class="btn btn-ghost btn-sm" id="stb-live" target="_blank" rel="noopener" hidden title="Open the public page">Preview</a>' +
+            '<button type="button" class="btn btn-sm" id="stb-save" title="Publish this page to the site">Save</button>' +
+          '</div>' +
+          '<label class="stb__mini" id="stb-ph-wrap" hidden>Field hint <input type="text" id="stb-ph" title="Placeholder shown in the empty field"></label>' +
         '</div>' +
         '<div class="stb__meta" id="stb-meta">' +
           '<label>Google title <input type="text" id="stb-title"></label>' +
           '<label>Description <textarea id="stb-desc" rows="2"></textarea></label>' +
           '<label>Share title <input type="text" id="stb-og"></label>' +
         '</div>' +
-        '<p class="stb__note" id="stb-note">Click text to edit it. Drag a photo inside its frame to change the crop. Double-click a menu item to open that page.</p>' +
+        '<p class="stb__note" id="stb-note">Click text to edit it. Double-click a menu or card link to open that page. To crop a photo, click Move photo, then drag.</p>' +
         '<iframe class="stb__frame" id="stb-frame" title="Page editor"></iframe>' +
         '<p class="stb__status" id="stb-status"></p>' +
       '</div>';
@@ -281,6 +299,10 @@
     host.querySelector('#stb-color').addEventListener('input', function (e) {
       paint(e.target.value);
     });
+    host.querySelector('#stb-size').addEventListener('change', function (e) {
+      applySize(e.target.value);
+      e.target.value = '';
+    });
     host.querySelector('#stb-ph').addEventListener('input', function (e) {
       if (!field) return;
       beforeChange();
@@ -305,10 +327,13 @@
       else if (act === 'add') openBlocks();
       else if (act === 'bold') fmt('bold');
       else if (act === 'italic') fmt('italic');
+      else if (act === 'under') fmt('underline');
       else if (act === 'link') makeLink();
       else if (act === 'list') toggleBullet();
       else if (act === 'item') toggleBullet();
+      else if (act === 'move') setMoveMode(!moveMode);
       else if (act === 'img') replaceImage();
+      else if (act === 'resetpos') resetPhoto();
       else if (act === 'alt') editAlt();
       else if (act === 'noimg') removeImage();
     });
@@ -353,7 +378,7 @@
       resetHistory();
       var hello = ctx.hello || '';
       ctx.hello = '';
-      say(hello || 'Click any text. Drag a photo to reposition it. Save publishes immediately.');
+      say(hello || 'Click text to edit it. Double-click a menu link to open that page. Save publishes immediately.');
     });
 
     function injectChrome(d) {
@@ -364,12 +389,23 @@
       style.setAttribute('data-stb-ui', '1');
       style.textContent = [
         '.stb-on{outline:2px solid #d10a11;outline-offset:3px}',
+        'html{scroll-behavior:auto!important}',
         '.stb-ink-light,.stb-ink-light *{background-color:#1a1a1a!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
         '.stb-ink-dark,.stb-ink-dark *{background-color:#fff!important;color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
         '.stb-ink-light,.stb-ink-dark{border-radius:2px}',
         'a{cursor:text}',
-        'img{cursor:grab}',
-        'img.stb-dragging{cursor:grabbing}'
+        '[data-st-region="header"] a[href^="/"],[data-st-region="drawer"] a[href^="/"],[data-st-region="mbar"] a[href^="/"],[data-st-region="footer"] a[href^="/"],a.tile{cursor:pointer}',
+        'img{cursor:grab;-webkit-user-drag:none;user-select:none;touch-action:none}',
+        'img.stb-dragging{cursor:grabbing}',
+        '[data-st-builder] .hdr{overflow:visible!important}',
+        '@media (max-width:1279px) and (min-width:820px){[data-st-builder] .nav{display:flex}[data-st-builder] .burger{display:none}[data-st-builder] .hdr__cta .btn{display:none}[data-st-builder] .nav__link{font-size:.64rem;padding:.45rem .22rem;letter-spacing:.01em;white-space:nowrap}}',
+        '[data-st-builder] .nav__item.is-open>.mega,[data-st-builder] .mega__fly.is-open>.mega--flyout{opacity:1;visibility:visible;transform:none;pointer-events:auto}',
+        '[data-st-builder] .drawer.is-open{transform:none}',
+        '[data-st-builder] .drawer__sub.is-open{max-height:80rem}',
+        'html.stb-move .hero__in,html.stb-move .hero::before,html.stb-move .hero__emerge::after,html.stb-move .hero__bg::after,html.stb-move .grid-lines,html.stb-move .spark{pointer-events:none!important}',
+        'html.stb-move .hero__bg,html.stb-move .hero__emerge,html.stb-move .hero__shot,html.stb-move figure,html.stb-move .tile__media,html.stb-move .card__media,html.stb-move .hero__bg img,html.stb-move .hero__emerge img,html.stb-move .hero__shot img,html.stb-move figure img,html.stb-move .tile__media img,html.stb-move .card__media img{pointer-events:auto!important;cursor:grab!important}',
+        'html.stb-move .hero,html.stb-move figure,html.stb-move a.tile,html.stb-move a.card{cursor:grab}',
+        'html.stb-move body{user-select:none}'
       ].join('');
       d.head.appendChild(style);
     }
@@ -415,6 +451,19 @@
       d.addEventListener('pointermove', onPointerMove, true);
       d.addEventListener('pointerup', onPointerUp, true);
       d.addEventListener('pointercancel', onPointerUp, true);
+      d.addEventListener('dragstart', function (e) {
+        var img = e.target && e.target.closest && e.target.closest('img');
+        if (img) { e.preventDefault(); e.stopPropagation(); }
+      }, true);
+      d.addEventListener('selectstart', function (e) {
+        if (moveMode || (drag && drag.moved)) e.preventDefault();
+      }, true);
+      d.querySelectorAll('img').forEach(function (img) { img.setAttribute('draggable', 'false'); });
+      d.querySelectorAll('[data-st-region="header"] a[href], [data-st-region="drawer"] a[href], [data-st-region="footer"] a[href], a.tile').forEach(function (a) {
+        if (!pageByUrl(a.getAttribute('href'))) return;
+        if (!a.getAttribute('title')) a.setAttribute('title', 'Double-click to open this page. Click once to edit the words.');
+      });
+      if (moveMode) d.documentElement.classList.add('stb-move');
     }
 
     function whereOf(el) {
@@ -482,23 +531,30 @@
       doc.querySelectorAll('.stb-on').forEach(function (n) { n.classList.remove('stb-on'); });
       if (el) el.classList.add('stb-on');
       selected = el;
+      syncImageTools();
     }
 
     function syncImageTools() {
-      var on = !!image;
-      ['img', 'alt', 'noimg'].forEach(function (act) {
+      var on = !!(image && image.tagName === 'IMG');
+      ['img', 'alt', 'noimg', 'resetpos'].forEach(function (act) {
         var b = host.querySelector('[data-act="' + act + '"]');
         if (b) b.disabled = !on;
+      });
+      ['up', 'down', 'dup', 'del'].forEach(function (act) {
+        var b = host.querySelector('[data-act="' + act + '"]');
+        if (b) b.disabled = !selected;
       });
     }
 
     function setNote(el) {
       if (el && el.closest && el.closest('#zapyt')) {
         note.textContent = 'This quote form is shared. A change shows on every page that includes it. Save publishes immediately.';
+      } else if (moveMode) {
+        note.textContent = 'Move photo is on. Drag a picture inside its frame. Click Move photo again to go back to editing text.';
       } else if (image) {
-        note.textContent = 'Photo. Drag it inside the frame to change the crop. You can also replace it or remove it.';
+        note.textContent = 'Photo selected. Click Move photo, then drag it inside the frame. Replace, reset or remove it from Media.';
       } else {
-        note.textContent = 'Click text to edit it. Left, center and right align the selection. Double-click a top-menu item to open that page.';
+        note.textContent = 'Click text to edit it. Double-click a menu link or a card to open that page. Click a menu category to open its dropdown.';
       }
     }
 
@@ -511,19 +567,99 @@
       return '';
     }
 
+    function openFromAnchor(a) {
+      if (!a) return;
+      var inNav = a.closest('[data-st-region="header"], [data-st-region="drawer"], [data-st-region="mbar"], [data-st-region="footer"], .mega, .drawer__sub, .nav');
+      var tile = a.matches && a.matches('a.tile, a.card, a.mach');
+      if (!inNav && !tile) return;
+      var pid = pageByUrl(a.getAttribute('href'));
+      if (!pid) return;
+      if (Date.now() - lastOpen < 700) return;
+      lastOpen = Date.now();
+      if (pid === id) {
+        say('This link is the page you already have open.');
+        return;
+      }
+      if (dirty && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
+      open(pid, host, ctx);
+    }
+
     function onDblClick(e) {
       var t = e.target;
       if (!t || t.nodeType !== 1) t = t && t.parentElement;
       if (!t) return;
       var a = t.closest('a[href]');
       if (!a) return;
-      if (!a.closest('[data-st-region="header"], [data-st-region="drawer"], [data-st-region="mbar"]')) return;
-      var pid = pageByUrl(a.getAttribute('href'));
-      if (!pid || pid === id) return;
+      var inNav = a.closest('[data-st-region="header"], [data-st-region="drawer"], [data-st-region="mbar"], [data-st-region="footer"], .mega, .drawer__sub, .nav');
+      var tile = a.matches('a.tile, a.card, a.mach');
+      if (!inNav && !tile) return;
       e.preventDefault();
       e.stopPropagation();
-      if (dirty && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
-      open(pid, host, ctx);
+      openFromAnchor(a);
+    }
+
+    function toggleNav(e) {
+      var t = e.target;
+      if (!t || !t.closest) return false;
+      var burger = t.closest('#burger');
+      if (burger) {
+        e.preventDefault();
+        e.stopPropagation();
+        var drawer = doc.getElementById('drawer');
+        if (!drawer) return true;
+        var open = !drawer.classList.contains('is-open');
+        drawer.classList.toggle('is-open', open);
+        drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        return true;
+      }
+      if (t.closest('#drawer-close')) {
+        e.preventDefault();
+        e.stopPropagation();
+        var box = doc.getElementById('drawer');
+        if (box) {
+          box.classList.remove('is-open');
+          box.setAttribute('aria-hidden', 'true');
+        }
+        return true;
+      }
+      var drawerBtn = t.closest('.drawer__toggle');
+      if (drawerBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var panel = doc.getElementById(drawerBtn.getAttribute('aria-controls') || '');
+        var on = drawerBtn.getAttribute('aria-expanded') === 'true';
+        drawerBtn.setAttribute('aria-expanded', on ? 'false' : 'true');
+        if (panel) panel.classList.toggle('is-open', !on);
+        return true;
+      }
+      var megaToggle = t.closest('[data-mega-toggle]');
+      if (megaToggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        var flyPanel = doc.getElementById(megaToggle.getAttribute('aria-controls') || '');
+        var fly = megaToggle.closest('.mega__fly');
+        var flyOn = megaToggle.getAttribute('aria-expanded') === 'true';
+        megaToggle.setAttribute('aria-expanded', flyOn ? 'false' : 'true');
+        if (flyPanel) flyPanel.classList.toggle('is-open', !flyOn);
+        if (fly) fly.classList.toggle('is-open', !flyOn);
+        return true;
+      }
+      var cat = t.closest('.nav__item--has-menu > .nav__link');
+      if (cat) {
+        var item = cat.parentElement;
+        if (item) {
+          doc.querySelectorAll('.nav__item.is-open').forEach(function (n) { if (n !== item) n.classList.remove('is-open'); });
+          item.classList.add('is-open');
+        }
+        var href = cat.getAttribute('href') || '';
+        if (href === '' || href === '#') {
+          e.preventDefault();
+          e.stopPropagation();
+          return true;
+        }
+      }
+      return false;
     }
 
     function onClick(e) {
@@ -533,13 +669,30 @@
       if (skipClick) {
         skipClick = false;
         var imgOnly = t.closest('img');
-        if (imgOnly) {
+        if (imgOnly && !skipPhoto(imgOnly)) {
           image = imgOnly;
           syncImageTools();
           highlight(unitOf(imgOnly));
           setNote(imgOnly);
         }
         return;
+      }
+      if (toggleNav(e)) return;
+      if (!t.closest('.nav__item--has-menu, .drawer')) {
+        doc.querySelectorAll('.nav__item.is-open').forEach(function (n) { n.classList.remove('is-open'); });
+        doc.querySelectorAll('.mega__fly.is-open').forEach(function (n) { n.classList.remove('is-open'); });
+      }
+      if (moveMode) {
+        var moving = photoFromEvent(e);
+        if (moving && moving.kind === 'img') {
+          e.preventDefault();
+          image = moving.el;
+          syncImageTools();
+          highlight(unitOf(moving.el) || moving.el.closest('figure, .hero, section'));
+          setNote(moving.el);
+          say('Drag the photo inside its frame. Click Move photo again to edit text.');
+          return;
+        }
       }
       var link = t.closest('a');
       if (link) e.preventDefault();
@@ -576,57 +729,185 @@
       setNote(t);
     }
 
-    function posOf(img) {
-      var s = (img.style && img.style.objectPosition) || '';
+    function posOf(el, prop) {
+      var s = (el.style && el.style[prop]) || '';
       var m = String(s).match(/([\d.]+)%\s+([\d.]+)%/);
       if (m) return [parseFloat(m[1]), parseFloat(m[2])];
       return [50, 50];
     }
 
-    function onPointerDown(e) {
+    function skipPhoto(img) {
+      if (!img || !img.closest) return true;
+      if (img.closest('.brand, .lang, .mega__ico, .ftr__social, .topbar, svg')) return true;
+      var r = img.getBoundingClientRect();
+      return r.width < 64 || r.height < 64;
+    }
+
+    function photoFromEvent(e) {
       var t = e.target;
-      if (!t || !t.closest) return;
-      var img = t.closest('img');
-      if (!img || e.button !== 0) return;
-      var pos = posOf(img);
-      drag = { img: img, x: e.clientX, y: e.clientY, ox: pos[0], oy: pos[1], moved: false };
+      if (!t || !t.closest) return null;
+      var direct = t.closest('img');
+      if (direct && !skipPhoto(direct)) return { kind: 'img', el: direct };
+      if (!moveMode) return null;
+      var frame = t.closest('.hero, figure, a.tile, .mach, .vcard, .area, .proof, .about-intro, .stud-stage, .showcase');
+      if (!frame) {
+        var bg = backgroundHost(t);
+        return bg ? { kind: 'bg', el: bg } : null;
+      }
+      var inner = frame.querySelector('.hero__bg img, .hero__emerge img, .hero__shot img, .hero__poster img, img');
+      if (inner && !skipPhoto(inner)) return { kind: 'img', el: inner };
+      var hostBg = backgroundHost(frame);
+      return hostBg ? { kind: 'bg', el: hostBg } : null;
+    }
+
+    function backgroundHost(el) {
+      var node = el;
+      var view = doc.defaultView;
+      if (!view || !node) return null;
+      while (node && node !== doc.body) {
+        if (node.nodeType === 1) {
+          var bg = '';
+          try { bg = view.getComputedStyle(node).backgroundImage || ''; } catch (err) { bg = ''; }
+          if (bg && bg !== 'none' && /url\(/i.test(bg)) return node;
+        }
+        node = node.parentElement;
+      }
+      return null;
+    }
+
+    function setMoveMode(on) {
+      moveMode = !!on;
+      if (doc && doc.documentElement) doc.documentElement.classList.toggle('stb-move', moveMode);
+      var b = host.querySelector('#stb-move');
+      if (b) {
+        b.classList.toggle('is-on', moveMode);
+        b.setAttribute('aria-pressed', moveMode ? 'true' : 'false');
+      }
+      var media = host.querySelector('[data-grp="media"]');
+      if (media) media.classList.toggle('is-hot', moveMode);
+      var textGrp = host.querySelector('[data-grp="text"]');
+      if (textGrp) textGrp.classList.toggle('is-dim', moveMode);
+      say(moveMode
+        ? 'Move photo is on. Drag a picture inside its frame. The hand cursor shows where it will move. Click Move photo again to edit text.'
+        : 'Move photo is off. Click text to edit it.');
+    }
+
+    function clampNum(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+    function readPhoto(el, kind) {
+      if (kind !== 'bg' && el.getAttribute) {
+        var raw = el.getAttribute('data-st-crop') || '';
+        var m = raw.match(/([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/);
+        if (m) return { x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) };
+      }
+      var pos = posOf(el, kind === 'bg' ? 'backgroundPosition' : 'objectPosition');
+      return { x: pos[0], y: pos[1], z: 1 };
+    }
+
+    function cropSlack(img) {
+      if (!img || !img.naturalWidth || !img.naturalHeight) return 0;
+      var r = img.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) return 0;
+      var scale = Math.max(r.width / img.naturalWidth, r.height / img.naturalHeight);
+      return Math.max(img.naturalWidth * scale - r.width, img.naturalHeight * scale - r.height);
+    }
+
+    function writePhoto(el, kind, x, y, z) {
+      x = clampNum(x, 0, 100);
+      y = clampNum(y, 0, 100);
+      z = clampNum(z || 1, 1, 2.5);
+      var value = x.toFixed(1) + '% ' + y.toFixed(1) + '%';
+      if (kind === 'bg') {
+        el.style.backgroundPosition = value;
+        return;
+      }
+      el.style.setProperty('--st-x', x.toFixed(1) + '%');
+      el.style.setProperty('--st-y', y.toFixed(1) + '%');
+      el.style.setProperty('--st-z', z.toFixed(3));
+      el.style.objectPosition = value;
+      el.setAttribute('data-st-crop', x.toFixed(1) + ',' + y.toFixed(1) + ',' + z.toFixed(3));
+    }
+
+    function onPointerDown(e) {
+      if (!e || e.button !== 0) return;
+      var hit = photoFromEvent(e);
+      if (!hit) return;
+      if (!moveMode && hit.kind !== 'img') return;
+      if (!moveMode && e.target && e.target.closest && !e.target.closest('img')) return;
+      var crop = readPhoto(hit.el, hit.kind);
+      drag = { kind: hit.kind, el: hit.el, x: e.clientX, y: e.clientY, ox: crop.x, oy: crop.y, oz: crop.z, moved: false };
+      var direct = e.target && e.target.closest && e.target.closest('img');
+      if (moveMode || (direct && hit.kind === 'img')) {
+        e.preventDefault();
+        try { hit.el.setPointerCapture(e.pointerId); } catch (err) { /* the picture can sit under the text */ }
+      }
     }
 
     function onPointerMove(e) {
       if (!drag) return;
       var dx = e.clientX - drag.x;
       var dy = e.clientY - drag.y;
-      if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
       if (!drag.moved) {
         drag.moved = true;
         beforeChange();
-        drag.img.classList.add('stb-dragging');
-        try { drag.img.setPointerCapture(e.pointerId); } catch (err) { /* optional */ }
+        clearEdit();
+        drag.el.classList.add('stb-dragging');
+        if (drag.kind === 'img' && drag.oz < 1.05 && cropSlack(drag.el) < 12) drag.oz = 1.2;
+        try { drag.el.setPointerCapture(e.pointerId); } catch (err2) { /* keep listening on the document */ }
       }
       e.preventDefault();
-      var rect = drag.img.getBoundingClientRect();
-      var nx = Math.max(0, Math.min(100, drag.ox - dx / Math.max(rect.width, 1) * 100));
-      var ny = Math.max(0, Math.min(100, drag.oy - dy / Math.max(rect.height, 1) * 100));
-      drag.img.style.objectPosition = nx.toFixed(1) + '% ' + ny.toFixed(1) + '%';
-      if (drag.img.hasAttribute('data-st-crop')) drag.img.removeAttribute('data-st-crop');
+      var rect = drag.el.getBoundingClientRect();
+      var nx = clampNum(drag.ox - dx / Math.max(rect.width, 1) * 100, 0, 100);
+      var ny = clampNum(drag.oy - dy / Math.max(rect.height, 1) * 100, 0, 100);
+      writePhoto(drag.el, drag.kind, nx, ny, drag.oz);
     }
 
     function onPointerUp(e) {
       if (!drag) return;
-      var img = drag.img;
+      var el = drag.el;
       var moved = drag.moved;
-      img.classList.remove('stb-dragging');
+      el.classList.remove('stb-dragging');
       drag = null;
-      if (!moved) return;
+      if (!moved) {
+        if (el.tagName === 'IMG') {
+          var now = Date.now();
+          var link = el.closest('a[href]');
+          if (photoTap && photoTap.el === el && now - photoTap.t < 500) {
+            photoTap = null;
+            if (link) openFromAnchor(link);
+          } else {
+            photoTap = { el: el, t: now };
+          }
+          image = el;
+          syncImageTools();
+          highlight(unitOf(el) || el);
+          setNote(el);
+        }
+        return;
+      }
       skipClick = true;
-      e.preventDefault();
-      e.stopPropagation();
-      image = img;
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      if (el.tagName === 'IMG') image = el;
       syncImageTools();
-      highlight(unitOf(img));
-      markDirty(whereOf(img));
-      setNote(img);
-      say('Crop updated. Save to publish it.');
+      highlight(unitOf(el) || el);
+      markDirty(whereOf(el));
+      setNote(el);
+      say('Photo position updated. Save to publish it.');
+    }
+
+    function resetPhoto() {
+      var el = image;
+      if (!el) { say('Click a photo first, or turn on Move photo and click the picture.', 'err'); return; }
+      beforeChange();
+      el.style.objectPosition = '';
+      el.style.removeProperty('--st-x');
+      el.style.removeProperty('--st-y');
+      el.style.removeProperty('--st-z');
+      if (el.hasAttribute('data-st-crop')) el.removeAttribute('data-st-crop');
+      if (!el.getAttribute('style')) el.removeAttribute('style');
+      markDirty(whereOf(el));
+      say('Photo position reset. Save to publish it.');
     }
 
     function stampTree(root) {
@@ -849,6 +1130,30 @@
       markDirty(whereOf((sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)) || hostEl));
     }
 
+    function applySize(size) {
+      if (!doc || !size) return;
+      if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
+      beforeChange();
+      var hostEl = doc.querySelector('[contenteditable="true"]') || selected;
+      var sel = doc.getSelection();
+      if (!hostEl && (!sel || sel.isCollapsed)) { say('Click the text first.', 'err'); return; }
+      if (!sel || sel.isCollapsed || !sel.rangeCount) {
+        if (size === 'inherit') hostEl.style.fontSize = '';
+        else hostEl.style.fontSize = size;
+        markDirty(whereOf(hostEl));
+        return;
+      }
+      doc.execCommand('styleWithCSS', false, true);
+      var range = sel.getRangeAt(0);
+      var span = doc.createElement('span');
+      if (size !== 'inherit') span.style.fontSize = size;
+      try { range.surroundContents(span); }
+      catch (err) {
+        if (hostEl) hostEl.style.fontSize = size === 'inherit' ? '' : size;
+      }
+      markDirty(whereOf(hostEl || span));
+    }
+
     function fmt(cmd) {
       if (!doc) return;
       beforeChange();
@@ -1039,6 +1344,11 @@
       });
       doc.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
+      });
+      if (doc.documentElement) doc.documentElement.classList.remove('stb-move');
+      doc.querySelectorAll('[draggable]').forEach(function (el) { el.removeAttribute('draggable'); });
+      doc.querySelectorAll('a[title]').forEach(function (a) {
+        if (a.getAttribute('title') === 'Double-click to open this page. Click once to edit the words.') a.removeAttribute('title');
       });
       var ui = doc.getElementById('stb-ui');
       if (ui) ui.remove();

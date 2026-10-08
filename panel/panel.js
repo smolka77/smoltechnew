@@ -668,7 +668,7 @@
   }
 
   function nestPages(pages) {
-    var skip = { '90-404': 1, '11-kompetentsiyi': 1 };
+    var skip = { '90-404': 1 };
     var list = pages.filter(function (p) { return !skip[p.id]; }).map(function (p) {
       return Object.assign({}, p, { children: [] });
     });
