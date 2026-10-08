@@ -1440,10 +1440,14 @@
       modal.id = 'stb-pages-dlg';
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-pages-title">' +
         '<h2 id="stb-pages-title">Add a page</h2>' +
-        '<p class="lead">Set the title, the address, which category it belongs to, and exactly where the link appears. After you create it, this editor opens that page.</p>' +
+        '<p class="lead">Set the title, the address, and where the link appears. Choose a template to start from a copy of a page that is already on the site, or leave it blank. After you create it, this editor opens that page.</p>' +
         '<div class="stb-form">' +
           '<label>Page title<input type="text" id="stb-np-title" placeholder="For example: Service"></label>' +
           '<label>URL slug<input type="text" id="stb-np-slug" placeholder="service"></label>' +
+          '<label class="wide">Template<input type="search" id="stb-np-find" placeholder="Search by name, category or address" autocomplete="off"></label>' +
+          '<div class="wide stb-tpl" id="stb-np-tpl" role="listbox" aria-label="Template"></div>' +
+          '<div class="wide stb-tpl-preview" id="stb-np-preview" hidden></div>' +
+          '<input type="hidden" id="stb-np-template" value="">' +
           '<label>Category<label class="vh"></label><select id="stb-np-parent"><option value="">None — top-level page</option></select></label>' +
           '<label>Show in the menu<select id="stb-np-menu">' + menuOptions('hidden') + '</select></label>' +
           '<label>Position (1 = first)<input type="number" id="stb-np-pos" min="1" max="40" value="1"></label>' +
@@ -1464,7 +1468,73 @@
         if (!slugTouched) slugInput.value = slugify(titleInput.value);
       });
       slugInput.addEventListener('input', function () { slugTouched = true; });
+      modal.querySelector('#stb-np-find').addEventListener('input', renderTemplates);
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      var templatePages = [];
+      function templateRows() {
+        var rows = [{
+          id: '',
+          name: 'Blank',
+          path: 'A short page with a heading, one text section and the quote form.',
+          url: '',
+          thumb: ''
+        }];
+        templatePages.forEach(function (p) {
+          var path = p.parentName
+            ? (p.parentName + ' → ' + (p.name || p.id))
+            : ((p.kindLabel ? p.kindLabel + ' · ' : '') + (p.name || p.id));
+          rows.push({ id: p.id, name: p.name || p.id, path: path, url: p.url || '', thumb: p.thumb || '' });
+        });
+        return rows;
+      }
+      function selectedTemplate() {
+        var id = modal.querySelector('#stb-np-template').value;
+        var rows = templateRows();
+        for (var i = 0; i < rows.length; i++) if (rows[i].id === id) return rows[i];
+        return rows[0];
+      }
+      function showPreview() {
+        var row = selectedTemplate();
+        var box = modal.querySelector('#stb-np-preview');
+        box.hidden = false;
+        var img = row.thumb ? '<img src="' + esc(row.thumb) + '" alt="">' : '<span class="stb-tpl-ph" aria-hidden="true"></span>';
+        box.innerHTML = img + '<div><strong>' + esc(row.name) + '</strong><p>' + esc(row.path) + '</p>' + (row.url ? '<code>' + esc(row.url) + '</code>' : '') + '</div>';
+      }
+      function renderTemplates() {
+        var q = modal.querySelector('#stb-np-find').value.trim().toLowerCase();
+        var current = modal.querySelector('#stb-np-template').value;
+        var box = modal.querySelector('#stb-np-tpl');
+        var rows = templateRows().filter(function (row) {
+          if (!q || row.id === '') return true;
+          return (row.name + ' ' + row.path + ' ' + row.url).toLowerCase().indexOf(q) !== -1;
+        });
+        if (!rows.length) {
+          box.innerHTML = '<p class="stb-tpl-empty">No pages match that search.</p>';
+          return;
+        }
+        box.innerHTML = rows.map(function (row) {
+          return '<button type="button" role="option" data-id="' + esc(row.id) + '"' + (row.id === current ? ' class="is-on" aria-selected="true"' : ' aria-selected="false"') + '><b>' + esc(row.name) + '</b><small>' + esc(row.path) + (row.url ? ' · ' + esc(row.url) : '') + '</small></button>';
+        }).join('');
+        box.querySelectorAll('button').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            modal.querySelector('#stb-np-template').value = btn.getAttribute('data-id') || '';
+            renderTemplates();
+            showPreview();
+          });
+        });
+      }
       function fill(cat) {
+        templatePages = (cat.pages || []).slice().sort(function (a, b) {
+          var ap = (a.parentName || '') + ' ' + (a.name || '');
+          var bp = (b.parentName || '') + ' ' + (b.name || '');
+          return ap.localeCompare(bp);
+        });
+        renderTemplates();
+        showPreview();
         var parent = modal.querySelector('#stb-np-parent');
         var cur = parent.value;
         parent.innerHTML = '<option value="">None — top-level page</option>' + (cat.parents || []).map(function (p) {
@@ -1516,7 +1586,8 @@
           slug: slugInput.value.trim(),
           parent: modal.querySelector('#stb-np-parent').value,
           menu: modal.querySelector('#stb-np-menu').value,
-          position: parseInt(modal.querySelector('#stb-np-pos').value, 10) || 1
+          position: parseInt(modal.querySelector('#stb-np-pos').value, 10) || 1,
+          template: modal.querySelector('#stb-np-template').value
         }).then(function (res) {
           if (!res || !res.ok) { status.textContent = (res && res.error) || 'The page was not created.'; return; }
           ctx.hello = res.where || 'The new page is open.';

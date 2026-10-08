@@ -307,8 +307,10 @@ function st_builder_catalog(): array
             'name' => (string) $p['name'],
             'url' => $url,
             'role' => (string) ($p['role'] ?? ''),
+            'kindLabel' => (string) ($p['kindLabel'] ?? ''),
             'parentName' => (string) ($p['parentName'] ?? ''),
             'parentUrl' => (string) ($p['parentUrl'] ?? ''),
+            'thumb' => (string) ($p['image'] ?? ''),
             'added' => !empty($p['added']),
             'canDelete' => !empty($p['canDelete']),
             'menu' => (string) $place['menu'],
@@ -408,6 +410,39 @@ function st_builder_write_layout(string $html): void
         throw new RuntimeException('The menu file no longer looks like the site layout. Nothing was saved.');
     }
     file_put_contents(ST_LAYOUT, $html);
+}
+
+function st_builder_clip(string $text, int $max): string
+{
+    $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($text) <= $max) return $text;
+        return rtrim(mb_substr($text, 0, max(1, $max - 1))) . '…';
+    }
+    if (strlen($text) <= $max) return $text;
+    return rtrim(substr($text, 0, max(1, $max - 1))) . '...';
+}
+
+function st_builder_set_h1(string $html, string $title): string
+{
+    $safe = htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $next = preg_replace('/<h1\b([^>]*)>.*?<\/h1>/is', '<h1$1>' . $safe . '</h1>', $html, 1);
+    return is_string($next) ? $next : $html;
+}
+
+/** Point links that targeted the template page itself at the new address. Child paths stay put. */
+function st_builder_retarget_links(string $html, string $oldUrl, string $newUrl): string
+{
+    $old = st_builder_norm_url($oldUrl);
+    $new = st_builder_norm_url($newUrl);
+    if ($old === '' || $old === '/' || $old === $new) return $html;
+    $oldPath = rtrim($old, '/');
+    $end = "[?#\"'\\s>]|\$";
+    $re = "~(?<=['\"=\\s])((?:https?://(?:www\\.)?smoltech\\.ua)?)" . preg_quote($oldPath, '~') . "(?:/(?=" . $end . ")|(?=" . $end . "))~i";
+    $next = preg_replace_callback($re, static function (array $m) use ($new): string {
+        return $m[1] . $new;
+    }, $html);
+    return is_string($next) ? $next : $html;
 }
 
 function st_builder_place(array $data): array
@@ -532,29 +567,56 @@ function st_builder_place(array $data): array
         ? ($parentCrumb . '>>' . (string) $parent['url'] . ' | ' . $titleUk)
         : $titleUk;
     $adminName = $titleEn !== '' ? $titleEn : $titleUk;
+    $desc = 'Короткий опис сторінки. Його можна змінити.';
+    $og = '';
+    $bodyHtml = st_builder_page_html($titleUk);
+    $tileImage = '/assets/img/company-hall-1.jpg';
+    $tileText = $desc;
+    $tileTag = 'SMOLTECH';
+    $fromNote = '';
+    $templateId = trim((string) ($data['template'] ?? ''));
+    if ($templateId !== '') {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $templateId)) throw new RuntimeException('Unknown template.');
+        $tpath = ST_PAGES . '/' . $templateId . '.html';
+        if (!is_file($tpath)) throw new RuntimeException('That template page was not found.');
+        [$tm, $tbody] = st_cms_parse((string) file_get_contents($tpath));
+        $bodyHtml = st_builder_retarget_links(st_builder_set_h1($tbody, $titleUk), (string) ($tm['url'] ?? ''), $url);
+        $og = trim((string) ($tm['og'] ?? ''));
+        $desc = $titleUk . '. Опис для пошуку можна змінити.';
+        $hero = st_cms_hero($bodyHtml);
+        if ($hero['image'] !== '') $tileImage = $hero['image'];
+        if ($hero['sub'] !== '') $tileText = st_builder_clip(st_cms_strip($hero['sub']), 180);
+        if ($hero['eyebrow'] !== '') $tileTag = st_builder_clip(st_cms_strip($hero['eyebrow']), 40);
+        $fromName = '';
+        foreach ($pages as $p) {
+            if ((string) ($p['id'] ?? '') === $templateId) { $fromName = (string) $p['name']; break; }
+        }
+        $fromNote = ' Based on "' . ($fromName !== '' ? $fromName : $templateId) . '".';
+    }
     $meta = [
         'out' => $out,
         'url' => $url,
         'nav' => $nav,
         'title' => $titleUk . ' | SMOLTECH',
-        'desc' => 'Короткий опис сторінки. Його можна змінити.',
+        'desc' => $desc,
         'ogtitle' => $titleUk,
         'crumbs' => $crumbs,
         'prio' => '0.6',
         'added' => '1',
         'label' => $adminName,
     ];
-    file_put_contents(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, st_builder_page_html($titleUk)));
+    if ($og !== '') $meta['og'] = $og;
+    file_put_contents(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, $bodyHtml));
     if ($parent) {
         $pp = ST_PAGES . '/' . $parent['id'] . '.html';
         [$pm, $pb] = st_cms_parse((string) file_get_contents($pp));
         $inserted = st_builder_insert_tile($pb, [
             'href' => $url,
             'title' => $titleUk,
-            'tag' => 'SMOLTECH',
-            'text' => 'Короткий опис сторінки. Його можна змінити.',
+            'tag' => $tileTag,
+            'text' => $tileText,
             'link' => $titleUk,
-            'image' => '/assets/img/company-hall-1.jpg',
+            'image' => $tileImage,
         ], $position);
         if ($inserted !== $pb) {
             file_put_contents($pp, st_cms_dump($pm, $inserted));
@@ -571,8 +633,11 @@ function st_builder_place(array $data): array
     }
     $place = st_builder_menu_find((string) file_get_contents(ST_LAYOUT), $url);
     st_cms_publish_page($newId, true);
-    $where = 'Created. It is in the ' . st_builder_menu_label((string) $place['menu'])
-        . ' at position ' . (int) $place['position'] . '. Address: ' . $url . '.' . $cardNote . ' It is open for editing.';
+    $slugNote = st_builder_norm_url($url) !== st_builder_norm_url($baseUrl)
+        ? ' That address was already used, so this page is at ' . $url . '.'
+        : '';
+    $where = 'Created.' . $fromNote . ' It is in the ' . st_builder_menu_label((string) $place['menu'])
+        . ' at position ' . (int) $place['position'] . '. Address: ' . $url . '.' . $slugNote . $cardNote . ' It is open for editing.';
     return [
         'ok' => true,
         'id' => $newId,
