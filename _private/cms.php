@@ -95,7 +95,7 @@ function st_cms_enrich_pages(array $rows): array
         $kind = (string) ($r['kind'] ?? '');
         $url = (string) ($r['url'] ?? '');
         $r['hasChildren'] = $url !== '' && !empty($childUrls[$url]);
-        $r['canDelete'] = in_array($kind, ['machines', 'studs'], true) && empty($childUrls[$url]);
+        $r['canDelete'] = empty($childUrls[$url]) && (in_array($kind, ['machines', 'studs'], true) || !empty($r['added']));
     }
     unset($r);
     return $rows;
@@ -1363,6 +1363,7 @@ function st_cms_pages(): array
                 'url' => $meta['url'] ?? '',
                 'parentUrl' => st_cms_parent_url((string) ($meta['url'] ?? ''), (string) ($meta['crumbs'] ?? '')),
                 'nav' => $meta['nav'] ?? '',
+                'added' => (($meta['added'] ?? '') === '1'),
                 'og' => $meta['og'] ?? '',
                 'image' => $img,
                 'mach' => count(st_cms_mach($body)),
@@ -2030,7 +2031,15 @@ function st_cms_handle(string $action, array $data): array
         if ($action === 'cms.page.get') return ['ok' => true, 'page' => st_cms_get_page((string) ($data['id'] ?? '')), 'stamp' => st_cms_page_stamp((string) ($data['id'] ?? ''))];
         if ($action === 'cms.page.stamp') return ['ok' => true, 'stamp' => st_cms_page_stamp((string) ($data['id'] ?? ''))];
         if ($action === 'cms.page.add-child') return st_cms_add_child_page($data);
-        if ($action === 'cms.page.delete') return st_cms_delete_page((string) ($data['id'] ?? ''));
+        if ($action === 'cms.page.delete') {
+            require_once __DIR__ . '/builder.php';
+            return st_builder_delete_page((string) ($data['id'] ?? ''));
+        }
+        if ($action === 'cms.page.catalog' || $action === 'cms.page.place') {
+            require_once __DIR__ . '/builder.php';
+            if ($action === 'cms.page.catalog') return st_builder_catalog();
+            return st_builder_place($data);
+        }
         if ($action === 'cms.page.preview') return ['ok' => true, 'html' => st_cms_preview((string) ($data['id'] ?? ''))];
         if ($action === 'cms.page.builder' || $action === 'cms.page.commit') {
             require_once __DIR__ . '/builder.php';

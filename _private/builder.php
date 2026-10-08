@@ -11,14 +11,16 @@ function st_builder_style(string $style): string
         [$prop, $val] = explode(':', $decl, 2);
         $prop = strtolower(trim($prop));
         $val = trim($val);
-        if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration'], true)) continue;
+        if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration', 'object-position'], true)) continue;
         if (preg_match('/url\s*\(|expression|javascript/i', $val)) continue;
+        $edge = '(?:left|center|right|top|bottom|(?:0|[1-9]\d?|100)(?:\.\d+)?%)';
         $ok = match ($prop) {
             'color' => (bool) preg_match('/^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?(?:\s*,\s*[\d.]+%?){2,3}\s*\)|[a-z]{3,20})$/i', $val),
             'text-align' => in_array(strtolower($val), ['left', 'right', 'center', 'justify', 'start', 'end'], true),
             'font-weight' => (bool) preg_match('/^(normal|bold|bolder|lighter|[1-9]00)$/i', $val),
             'font-style' => in_array(strtolower($val), ['normal', 'italic', 'oblique'], true),
             'text-decoration' => (bool) preg_match('/^(none|underline|line-through|overline)(?:\s+(?:none|underline|line-through|overline))*$/i', $val),
+            'object-position' => (bool) preg_match('/^' . $edge . '(?:\s+' . $edge . ')?$/i', $val),
             default => false,
         };
         if ($ok) $keep[] = $prop . ':' . $val;
@@ -198,6 +200,7 @@ function st_builder_preview(string $id): array
         'hasForm' => str_contains($body, '{{FORMULARZ}}'),
         'role' => $info['role'],
         'canDelete' => $info['canDelete'],
+        'pages' => st_builder_page_links(),
     ];
 }
 
@@ -288,11 +291,13 @@ function st_builder_commit(array $data): array
 
     $shared = false;
     $drop = !empty($data['dropForm']);
+    $formIncoming = isset($data['form']) && is_string($data['form']) && trim($data['form']) !== '';
+    $keepForm = $hadForm || $formIncoming || !empty($data['keepForm']);
     if ($drop) {
         $main = st_builder_swap_form($main);
         $main = str_replace('{{FORMULARZ}}', '', $main);
-    } elseif ($hadForm) {
-        if (isset($data['form']) && is_string($data['form']) && trim($data['form']) !== '') {
+    } elseif ($keepForm) {
+        if ($formIncoming) {
             $form = st_builder_clean($data['form']);
             if (!str_contains($form, 'id="zapyt"') || !str_contains($form, 'name="message"') || !str_contains($form, 'name="email"') || !str_contains($form, 'name="name"')) {
                 throw new RuntimeException('Formularz musi zachować pola imienia, e-maila i wiadomości.');
@@ -479,3 +484,5 @@ function st_builder_sync_catalog(): void
         if ($next !== $body) file_put_contents($file, st_cms_dump($pageMeta, $next));
     }
 }
+
+require_once __DIR__ . '/builder-menu.php';
