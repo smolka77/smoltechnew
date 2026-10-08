@@ -75,14 +75,14 @@ function st_cms_enrich_pages(array $rows): array
         $r['parentName'] = $parent['name'] ?? '';
         $role = st_cms_page_role((string) ($r['kind'] ?? ''), (string) ($r['parentUrl'] ?? ''));
         $r['role'] = $role;
-        if (($r['kind'] ?? '') === 'studs' && $role === 'group') $r['roleLabel'] = 'Grupa oferty';
-        elseif (($r['kind'] ?? '') === 'studs' && $role === 'profile') $r['roleLabel'] = 'Profil oferty';
-        else $r['roleLabel'] = ['home' => 'Strona główna', 'group' => 'Grupa maszyn', 'profile' => 'Profil maszyny', 'page' => 'Strona'][$role] ?? 'Strona';
+        if (($r['kind'] ?? '') === 'studs' && $role === 'group') $r['roleLabel'] = 'Offer group';
+        elseif (($r['kind'] ?? '') === 'studs' && $role === 'profile') $r['roleLabel'] = 'Offer profile';
+        else $r['roleLabel'] = ['home' => 'Home page', 'group' => 'Machine group', 'profile' => 'Machine profile', 'page' => 'Page'][$role] ?? 'Page';
         $r['roleHint'] = [
-            'home' => 'To, co widać zaraz po wejściu na witrynę',
-            'group' => 'Strona całej grupy. Profile tej grupy są niżej na liście.',
-            'profile' => 'Konkretny typ maszyny, który klient otwiera z grupy',
-            'page' => 'Treść tej podstrony',
+            'home' => 'What visitors see right after they open the site',
+            'group' => 'The page for the whole group. Profiles in this group are listed below.',
+            'profile' => 'A specific machine the visitor opens from the group',
+            'page' => 'The content of this subpage',
         ][$role] ?? '';
     }
     unset($r);
@@ -104,15 +104,15 @@ function st_cms_enrich_pages(array $rows): array
 function st_cms_kind_label(string $kind): string
 {
     return [
-        'home' => 'Strona główna',
-        'company' => 'O firmie',
-        'machines' => 'Maszyny',
-        'studs' => 'Szpilki',
-        'video' => 'Wideo',
-        'contact' => 'Kontakt',
-        'legal' => 'Prawne',
-        'other' => 'Strona',
-    ][$kind] ?? 'Strona';
+        'home' => 'Home page',
+        'company' => 'About',
+        'machines' => 'Machines',
+        'studs' => 'Stud welding',
+        'video' => 'Video',
+        'contact' => 'Contact',
+        'legal' => 'Legal',
+        'other' => 'Page',
+    ][$kind] ?? 'Page';
 }
 
 function st_cms_parse(string $text): array
@@ -630,34 +630,34 @@ function st_cms_clean_inline(string $raw): string
 function st_cms_page_names_pl(): array
 {
     return [
-        '00-strona-glowna' => 'Strona główna',
-        '10-pro-kompaniyu' => 'O firmie',
-        '11-kompetentsiyi' => 'Kompetencje',
-        '21-pidvisni' => 'Zgrzewarki kleszczowe podwieszane',
+        '00-strona-glowna' => 'Home',
+        '10-pro-kompaniyu' => 'About',
+        '11-kompetentsiyi' => 'Capabilities',
+        '21-pidvisni' => 'Suspended spot welders',
         '211-pidvisni-16-38' => '16–38 kVA',
         '212-pidvisni-56-90' => '56–90 kVA',
-        '22-statsionarni' => 'Zgrzewarki punktowe stacjonarne',
+        '22-statsionarni' => 'Stationary spot welders',
         '221-statsionarni-16-25' => '16–25 kVA',
-        '222-statsionarni-inv' => 'Inwertorowe 25 kVA',
-        '23-tochkovo-relyefni' => 'Zgrzewarki punktowo-garbowe',
+        '222-statsionarni-inv' => 'Inverter 25 kVA',
+        '23-tochkovo-relyefni' => 'Projection welders',
         '231-relyefni-35-80' => 'AC 35–80 kVA',
         '232-relyefni-56' => 'MFDC 56 kVA',
         '233-relyefni-90-200' => 'MFDC 90–200 kVA',
         '234-relyefni-63-163' => 'AC 63–163 kVA',
         '235-relyefni-80-315' => 'AC 80–315 kVA',
         '236-relyefni-100' => 'DC 100 kVA',
-        '24-bahatofunktsionalni' => 'Zgrzewarki inwertorowe do karoserii',
-        '25-mashyny-z-osnastkoyu' => 'Zgrzewarki z oprzyrządowaniem',
-        '30-avtomatyzovani-kompleksy' => 'Automaty i roboty',
-        '31-sitky' => 'Zgrzewarki do siatek',
-        '40-shpylky' => 'Zgrzewanie trzpieni',
-        '41-cdm' => 'CDM — zgrzewanie kondensatorowe',
-        '42-da' => 'DA — zgrzewanie inwertorowe',
-        '43-cnc' => 'Kompleksy CNC',
-        '50-video' => 'Wideo — automatyzacja zgrzewania',
-        '60-kontakty' => 'Kontakt',
-        '70-polityka' => 'Polityka prywatności',
-        '90-404' => 'Nie znaleziono strony (404)',
+        '24-bahatofunktsionalni' => 'Inverter welders for bodywork',
+        '25-mashyny-z-osnastkoyu' => 'Welders with tooling',
+        '30-avtomatyzovani-kompleksy' => 'Automation and robots',
+        '31-sitky' => 'Mesh welders',
+        '40-shpylky' => 'Stud welding',
+        '41-cdm' => 'CDM — capacitor discharge welding',
+        '42-da' => 'DA — inverter stud welding',
+        '43-cnc' => 'CNC systems',
+        '50-video' => 'Video — welding automation',
+        '60-kontakty' => 'Contact',
+        '70-polityka' => 'Privacy policy',
+        '90-404' => 'Page not found (404)',
     ];
 }
 
@@ -665,7 +665,9 @@ function st_cms_page_name(array $meta, string $kind, string $stem = ''): string
 {
     $map = st_cms_page_names_pl();
     if ($stem !== '' && isset($map[$stem])) return $map[$stem];
-    if ($kind === 'home') return 'Strona główna';
+    $label = trim((string) ($meta['label'] ?? ''));
+    if ($label !== '') return $label;
+    if ($kind === 'home') return 'Home';
     $crumbs = trim((string) ($meta['crumbs'] ?? ''));
     if ($crumbs !== '') {
         $parts = preg_split('/\s*\|\s*/', $crumbs) ?: [];

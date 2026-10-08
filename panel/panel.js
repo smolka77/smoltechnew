@@ -31,7 +31,7 @@
 
   function t(k) { return window.STAdmin ? STAdmin.t(k) : k; }
   function tf(k, v) { return window.STAdmin ? STAdmin.tf(k, v) : k; }
-  // Site content is edited in English (like the public site); only the panel UI is Polish.
+  // The panel and the editor open in English. The public site stays Ukrainian.
   var EDIT_LANG = 'en';
   function looksUk(s) {
     return /[А-Яа-яЁёІіЇїЄєҐґ]/.test(String(s || ''));
@@ -44,10 +44,9 @@
     if (window.ST && typeof ST.lookup === 'function') return ST.lookup(uk, EDIT_LANG);
     return uk;
   }
-  // Polish label for UI-level names (page names in the site tree).
   function ctUi(uk) {
     if (!uk) return uk;
-    if (window.ST && typeof ST.lookup === 'function') return ST.lookup(uk, 'pl');
+    if (window.ST && typeof ST.lookup === 'function') return ST.lookup(uk, 'en');
     return uk;
   }
   function ctField(s) {
@@ -62,9 +61,10 @@
     }
     return s;
   }
-  // UI name (Polish) of a page / group.
   function plLabel(s) {
-    return String(ctUi(s || '') || '').replace(/кВА/g, 'kVA');
+    s = String(s || '');
+    if (!looksUk(s)) return s.replace(/кВА/g, 'kVA');
+    return String(ctUi(s) || s).replace(/кВА/g, 'kVA');
   }
   // Content label (English) — headings of cards, captions, FAQ questions.
   function enLabel(s) {
@@ -103,7 +103,7 @@
       els.push(el);
     });
     if (!els.length) return;
-    api({ action: 'cms.translate', sl: 'uk', tl: 'pl', texts: els.map(function (el) { return el.textContent; }) }).then(function (res) {
+    api({ action: 'cms.translate', sl: 'uk', tl: 'en', texts: els.map(function (el) { return el.textContent; }) }).then(function (res) {
       var map = (res && res.map) || {};
       els.forEach(function (el) {
         var src = el.textContent;
@@ -113,9 +113,9 @@
     });
   }
   function normTxt(s) { return String(s || '').replace(/\s+/g, ' ').trim(); }
-  function loc() { return 'pl-PL'; }
+  function loc() { return 'en-GB'; }
   function unreadLabel(n) {
-    return n === 1 ? '1 nowe' : n + ' nowych';
+    return n === 1 ? '1 new' : n + ' new';
   }
   function mapHit(map, val) {
     if (!map) return val;
@@ -525,10 +525,13 @@
   }
 
   function pageRoleLabel(p) {
-    if (p.roleLabel) return p.roleLabel;
-    if (p.kind === 'home') return t('Strona główna');
-    if ((p.kind === 'machines' || p.kind === 'studs') && p.parentUrl) return t('Profil maszyny');
-    if (p.kind === 'machines' || p.kind === 'studs') return t('Grupa maszyn');
+    var role = p.role || '';
+    if (p.kind === 'studs' && role === 'group') return t('Grupa oferty');
+    if (p.kind === 'studs' && role === 'profile') return t('Profil oferty');
+    if (role === 'home' || p.kind === 'home') return t('Strona główna');
+    if (role === 'group') return t('Grupa maszyn');
+    if (role === 'profile') return t('Profil maszyny');
+    if (p.roleLabel && !/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(p.roleLabel)) return p.roleLabel;
     return t('Strona');
   }
 
@@ -612,7 +615,7 @@
       btn.querySelector('.page-card__name').textContent = plLabel(p.name || p.title);
       var path = btn.querySelector('.page-card__path');
       if (p.parentName) path.textContent = plLabel(p.parentName) + ' → ' + plLabel(p.name);
-      else if (p.roleHint) path.textContent = p.roleHint;
+      else if (p.roleHint) path.textContent = t(p.roleHint);
       else path.textContent = '';
       btn.addEventListener('click', function (e) {
         if (e.target.closest('[data-del]')) return;

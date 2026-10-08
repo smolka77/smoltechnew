@@ -515,9 +515,23 @@ function st_builder_place(array $data): array
         'studs' => 'studs',
         default => '',
     };
+    $parentCrumb = '';
+    if ($parent) {
+        $ppath = ST_PAGES . '/' . $parent['id'] . '.html';
+        if (is_file($ppath)) {
+            [$pm] = st_cms_parse((string) file_get_contents($ppath));
+            $parentCrumb = trim((string) ($pm['crumbs'] ?? ''));
+            if (str_contains($parentCrumb, '|')) {
+                $parentCrumb = trim((string) preg_replace('/^.*\|\s*/u', '', $parentCrumb));
+            }
+            if (str_contains($parentCrumb, '>>')) $parentCrumb = trim(explode('>>', $parentCrumb, 2)[0]);
+        }
+        if ($parentCrumb === '') $parentCrumb = $titleUk;
+    }
     $crumbs = $parent
-        ? ((string) $parent['name'] . '>>' . (string) $parent['url'] . ' | ' . $titleUk)
+        ? ($parentCrumb . '>>' . (string) $parent['url'] . ' | ' . $titleUk)
         : $titleUk;
+    $adminName = $titleEn !== '' ? $titleEn : $titleUk;
     $meta = [
         'out' => $out,
         'url' => $url,
@@ -528,6 +542,7 @@ function st_builder_place(array $data): array
         'crumbs' => $crumbs,
         'prio' => '0.6',
         'added' => '1',
+        'label' => $adminName,
     ];
     file_put_contents(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, st_builder_page_html($titleUk)));
     if ($parent) {
@@ -562,7 +577,7 @@ function st_builder_place(array $data): array
         'ok' => true,
         'id' => $newId,
         'url' => $url,
-        'name' => $titleUk,
+        'name' => $adminName,
         'menu' => $place['menu'],
         'position' => (int) $place['position'],
         'where' => $where,
