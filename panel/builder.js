@@ -891,7 +891,11 @@
     function unwrapLi(li) {
       var list = li.parentElement;
       if (!list) return;
-      var p = doc.createElement('p');
+      var tag = String(li.getAttribute('data-stb-back-tag') || 'p').toLowerCase();
+      if (!/^(p|h2|h3|h4|div)$/.test(tag)) tag = 'p';
+      var p = doc.createElement(tag);
+      var back = li.getAttribute('data-stb-back-class') || '';
+      if (back) p.setAttribute('class', back);
       while (li.firstChild) p.appendChild(li.firstChild);
       var before = [];
       var after = [];
@@ -939,6 +943,10 @@
       var made = doc.createElement('ul');
       made.className = 'ticks';
       var item = doc.createElement('li');
+      var backClass = (p.getAttribute('class') || '').replace(/\bstb-[\w-]+\b/g, '').replace(/\s+/g, ' ').trim();
+      var backTag = p.tagName.toLowerCase();
+      if (backClass) item.setAttribute('data-stb-back-class', backClass);
+      if (backTag && backTag !== 'p') item.setAttribute('data-stb-back-tag', backTag);
       while (p.firstChild) item.appendChild(p.firstChild);
       if (!item.textContent.trim()) item.textContent = 'Новий пункт';
       made.appendChild(item);
