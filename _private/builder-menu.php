@@ -956,55 +956,142 @@ function st_builder_remove_blocks(string $html, string $tag, string $class): str
     return $html;
 }
 
-/** Keep the hero and the specification table. Drop the sibling page’s own sales copy. */
+/** Keep every section from the sibling page. Replace its words and photos with empty slots. */
 function st_builder_neutral_body(string $html, string $title, string $text): string
 {
-    $safeTitle = htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $safeText = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    if (preg_match('/<p class="hero__sub">.*?<\/p>/s', $html)) {
-        if ($text !== '') $html = preg_replace('/(<p class="hero__sub">).*?(<\/p>)/s', '$1' . $safeText . '$2', $html, 1) ?? $html;
-        else $html = preg_replace('/\s*<p class="hero__sub">.*?<\/p>/s', '', $html, 1) ?? $html;
-    } elseif ($text !== '') {
-        $html = preg_replace('/<\/h1>/i', '</h1>' . "\n      " . '<p class="hero__sub">' . $safeText . '</p>', $html, 1) ?? $html;
+    $token = 'STFORMHOLD';
+    $html = str_replace('{{FORMULARZ}}', '<div id="' . $token . '"></div>', $html);
+    $html = str_replace('{{YT_PLAY}}', '', $html);
+    $prev = libxml_use_internal_errors(true);
+    $dom = new DOMDocument();
+    $wrapped = '<?xml encoding="UTF-8"><div id="st-blank-root">' . $html . '</div>';
+    $dom->loadHTML($wrapped, LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($prev);
+    $root = $dom->getElementById('st-blank-root');
+    if (!$root instanceof DOMElement) return str_replace('<div id="' . $token . '"></div>', '{{FORMULARZ}}', $html);
+    $xp = new DOMXPath($dom);
+    $slot = '/assets/img/slot.svg';
+    foreach ($xp->query('.//img', $root) ?: [] as $img) {
+        if (!$img instanceof DOMElement) continue;
+        $img->setAttribute('src', $slot);
+        $img->removeAttribute('srcset');
+        $img->setAttribute('alt', 'Фото');
+        $cls = trim($img->getAttribute('class') . ' is-slot');
+        $img->setAttribute('class', preg_replace('/\s+/', ' ', $cls) ?? $cls);
     }
-    $html = st_builder_remove_blocks($html, 'div', 'feature-rail');
+    $sources = [];
+    foreach ($xp->query('.//source', $root) ?: [] as $src) $sources[] = $src;
+    foreach ($sources as $src) {
+        if (!$src instanceof DOMElement || !$src->parentNode) continue;
+        $parent = $src->parentNode;
+        $lifted = [];
+        foreach (iterator_to_array($src->childNodes) as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'img') $lifted[] = $child;
+        }
+        foreach ($lifted as $img) $parent->insertBefore($img, $src);
+        $parent->removeChild($src);
+    }
+    foreach ($xp->query('.//a[@href]', $root) ?: [] as $a) {
+        if (!$a instanceof DOMElement) continue;
+        $href = $a->getAttribute('href');
+        if ($href === '' || str_starts_with($href, '#') || preg_match('/^(?:mailto:|tel:)/i', $href)) continue;
+        if (preg_match('#^(?:https?:)?//#i', $href)) continue;
+        $a->setAttribute('href', '#zapyt');
+    }
+    foreach ($xp->query('.//*[@data-vid]', $root) ?: [] as $btn) {
+        if (!$btn instanceof DOMElement) continue;
+        $btn->setAttribute('data-vid', '');
+        $btn->setAttribute('data-title', 'Нове відео');
+        if ($btn->hasAttribute('aria-label')) $btn->setAttribute('aria-label', 'Дивитись відео');
+    }
+    $nodes = [];
+    foreach ($xp->query('.//text()', $root) ?: [] as $node) $nodes[] = $node;
+    $filled = new SplObjectStorage();
+    foreach ($nodes as $node) {
+        if (!$node instanceof DOMText) continue;
+        $parent = $node->parentNode;
+        if (!$parent instanceof DOMElement) continue;
+        if (st_builder_blank_skip($parent)) continue;
+        $raw = trim(preg_replace('/\s+/u', ' ', $node->nodeValue) ?? '');
+        if ($raw === '') continue;
+        $host = st_builder_blank_host($parent);
+        if (!$host instanceof DOMElement) continue;
+        if ($filled->contains($host)) {
+            $node->nodeValue = '';
+            continue;
+        }
+        $label = st_builder_blank_label($host, $title, $text);
+        if ($label === null) continue;
+        $node->nodeValue = $label;
+        $filled->attach($host);
+    }
     $out = '';
-    $offset = 0;
-    $len = strlen($html);
-    while ($offset < $len) {
-        if (!preg_match('/<section\b/i', $html, $m, PREG_OFFSET_CAPTURE, $offset)) {
-            $out .= substr($html, $offset);
-            break;
-        }
-        $start = (int) $m[0][1];
-        $out .= substr($html, $offset, $start - $offset);
-        $gt = strpos($html, '>', $start);
-        if ($gt === false) {
-            $out .= substr($html, $start);
-            break;
-        }
-        $end = st_builder_el_end($html, 'section', $gt + 1);
-        if ($end === null) {
-            $out .= substr($html, $start);
-            break;
-        }
-        $section = substr($html, $start, $end - $start);
-        $hero = (bool) preg_match('/class="[^"]*\bhero\b/', $section);
-        $spec = str_contains($section, 'param-matrix') || str_contains($section, 'model-strip');
-        if ($hero || $spec || str_contains($section, '{{FORMULARZ}}')) {
-            if ($hero) {
-                $section = preg_replace('/(<img\b[^>]*\salt=")[^"]*(")/i', '$1' . $safeTitle . '$2', $section, 1) ?? $section;
-            }
-            if ($spec) {
-                $section = preg_replace('/(<h2\b[^>]*>).*?(<\/h2>)/s', '$1Специфікація$2', $section) ?? $section;
-                $section = preg_replace('/\s*<p class="lead">.*?<\/p>/s', '', $section) ?? $section;
-                $section = preg_replace('/aria-label="[^"]*"/', 'aria-label="' . $safeTitle . '"', $section) ?? $section;
-            }
-            $out .= $section;
-        }
-        $offset = $end;
-    }
+    foreach ($root->childNodes as $child) $out .= $dom->saveHTML($child);
+    $out = str_replace('<div id="' . $token . '"></div>', '{{FORMULARZ}}', $out);
     return $out;
+}
+
+function st_builder_blank_skip(DOMElement $el): bool
+{
+    for ($n = $el; $n instanceof DOMElement; $n = $n->parentNode instanceof DOMElement ? $n->parentNode : null) {
+        $tag = strtolower($n->tagName);
+        if ($tag === 'script' || $tag === 'style' || $tag === 'svg' || $tag === 'noscript') return true;
+    }
+    return false;
+}
+
+function st_builder_blank_host(DOMElement $el): ?DOMElement
+{
+    $n = $el;
+    while ($n instanceof DOMElement) {
+        $tag = strtolower($n->tagName);
+        $cls = ' ' . $n->getAttribute('class') . ' ';
+        if (str_contains($cls, ' model-strip__name ') || str_contains($cls, ' param-matrix__') || str_contains($cls, ' eyebrow ')
+            || str_contains($cls, ' hero__sub ') || str_contains($cls, ' tag ') || str_contains($cls, ' vcard__kind ')
+            || str_contains($cls, ' mach__idx ') || str_contains($cls, ' proof__n ') || str_contains($cls, ' proof__l ')) {
+            return $n;
+        }
+        if (in_array($tag, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'figcaption', 'button', 'summary', 'td', 'th', 'a'], true)) return $n;
+        if ($tag === 'div' && preg_match('/\bparam-matrix__/', $cls)) return $n;
+        $n = $n->parentNode instanceof DOMElement ? $n->parentNode : null;
+    }
+    return null;
+}
+
+function st_builder_blank_label(DOMElement $el, string $title, string $text): ?string
+{
+    $tag = strtolower($el->tagName);
+    $cls = ' ' . $el->getAttribute('class') . ' ';
+    if ($tag === 'h1') return null;
+    if (str_contains($cls, ' model-strip__name ')) return $title !== '' ? $title : 'Модель';
+    if (str_contains($cls, ' param-matrix__val ')) return '—';
+    if (str_contains($cls, ' param-matrix__label ')) return 'Параметр';
+    if (str_contains($cls, ' param-matrix__head ')) return $title !== '' ? $title : 'Модель';
+    if (str_contains($cls, ' eyebrow ')) return 'Розділ';
+    if (str_contains($cls, ' hero__sub ')) return $text !== '' ? $text : 'Короткий опис, який можна змінити.';
+    if (str_contains($cls, ' lead ')) return 'Короткий опис, який можна змінити.';
+    if (str_contains($cls, ' mach__idx ') || str_contains($cls, ' proof__n ')) return '—';
+    if (str_contains($cls, ' tag ') || str_contains($cls, ' vcard__kind ')) return 'Позначка';
+    if ($tag === 'h2' && st_builder_in_spec($el)) return 'Специфікація';
+    if (in_array($tag, ['h2', 'h3', 'h4', 'h5', 'h6', 'summary'], true)) return 'Заголовок';
+    if ($tag === 'figcaption') return 'Підпис';
+    if ($tag === 'li') return 'Пункт';
+    if ($tag === 'button' && str_contains($cls, ' yt ')) return 'Нове відео';
+    if ($tag === 'a' && str_contains($cls, ' btn ')) return 'Запросити пропозицію';
+    if ($tag === 'a') return 'Докладніше';
+    if (in_array($tag, ['p', 'td', 'th', 'div', 'span', 'strong'], true)) return 'Текст, який можна змінити.';
+    return null;
+}
+
+function st_builder_in_spec(DOMElement $el): bool
+{
+    for ($n = $el; $n instanceof DOMElement; $n = $n->parentNode instanceof DOMElement ? $n->parentNode : null) {
+        if (strtolower($n->tagName) !== 'section') continue;
+        $html = $n->ownerDocument ? $n->ownerDocument->saveHTML($n) : '';
+        return str_contains($html, 'param-matrix') || str_contains($html, 'model-strip');
+    }
+    return false;
 }
 
 function st_builder_set_hero_kicker(string $html, string $tag): string
@@ -1107,10 +1194,9 @@ function st_builder_add_machine(array $data): array
     if (mb_strlen($subUk) > 80) $subUk = mb_substr($subUk, 0, 80);
     if (mb_strlen($subEn) > 80) $subEn = mb_substr($subEn, 0, 80);
     $image = trim((string) ($data['image'] ?? ''));
-    if ($image !== '') {
-        if (!preg_match('#^/assets/img/[A-Za-z0-9_./-]+$#', $image) || str_contains($image, '..') || !is_file(ST_ROOT . $image)) {
-            throw new RuntimeException('Choose an image that was uploaded to the site.');
-        }
+    if ($image === '') $image = '/assets/img/slot.svg';
+    if (!preg_match('#^/assets/img/[A-Za-z0-9_./-]+$#', $image) || str_contains($image, '..') || !is_file(ST_ROOT . $image)) {
+        throw new RuntimeException('Choose an image that was uploaded to the site.');
     }
     $parentUrl = (string) ($parent['url'] ?? ($pmeta['url'] ?? ''));
     $children = st_builder_type_children($parentUrl);
@@ -1236,7 +1322,7 @@ function st_builder_add_machine(array $data): array
     $where = 'Added “' . $titleUk . '” as a new card. Its page is at ' . $url . '.';
     if ($slot === 'hidden') $where .= ' Sibling pages are not in the menu, so this one is in the sitemap only.';
     else $where .= ' It was added to the ' . st_builder_menu_label($slot) . '.';
-    $where .= ' Open it to edit variants.';
+    $where .= ' The new page has the same sections as the others in this category, with empty text and photo slots.';
     return $live + [
         'ok' => true,
         'id' => $newId,

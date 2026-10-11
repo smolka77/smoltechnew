@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-label="Photo">
+  <rect width="800" height="600" fill="#f4f4f5"/>
+  <rect x="18" y="18" width="764" height="564" fill="none" stroke="#8d1018" stroke-width="4" stroke-dasharray="16 12"/>
+  <text x="400" y="286" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="54" font-weight="700" fill="#8d1018">$"</text>
+  <text x="400" y="340" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600" fill="#5c616b">PHOTO</text>
+</svg>

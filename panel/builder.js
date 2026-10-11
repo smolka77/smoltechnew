@@ -92,6 +92,7 @@
     var level = 'text';
     var currentSection = null;
     var currentItem = null;
+    var currentField = null;
     var linkRange = null;
     var heldRange = null;
     var pickedEl = null;
@@ -132,7 +133,7 @@
             '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
             '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
             '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
-            '<button type="button" data-act="del" title="Delete the selected card. Delete a whole section only after choosing it in the bar">Delete</button>' +
+            '<button type="button" data-act="del" title="Delete the selected text or card. Delete a whole section only after choosing it in the bar">Delete</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="media">' +
             '<span class="stb__grp-h">Media</span>' +
@@ -149,6 +150,7 @@
             '<button type="button" id="stb-add-type" hidden title="Add a machine type: a card on this page and a new subpage">Add machine type</button>' +
             '<button type="button" id="stb-add-mach" hidden title="Add a product card on this page">Add product</button>' +
             '<button type="button" id="stb-add-var" hidden title="Add a variant column to the specification table">Add variant</button>' +
+            '<button type="button" id="stb-add-one" hidden title="Add another card, video, photo, partner, question or list row">Add another</button>' +
             '<button type="button" id="stb-pages" title="Add a page or change where a page sits in the menu">Add page</button>' +
             '<button type="button" id="stb-delpage" hidden title="Delete this page">Delete page</button>' +
             '<button type="button" id="stb-meta-btn" title="Google title and description">Page settings</button>' +
@@ -228,6 +230,7 @@
       level = 'text';
       currentSection = null;
       currentItem = null;
+      currentField = null;
       showMarkedHosts();
       renderPick();
       syncImageTools();
@@ -527,6 +530,7 @@
           }
           var phrase = t.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote');
           if (phrase && (phrase.stbUkSnap != null || phrase.stbUkFull)) phrase.stbEnEdited = true;
+          if (box) rawTextNodes(box).forEach(function (n) { if (n.stbEn != null) n.stbEn = n.nodeValue; });
         }
         var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
         if (!nameNode && t.closest) nameNode = t.closest('button.model-strip__btn');
@@ -629,7 +633,8 @@
       return null;
     }
 
-    var ITEM_SEL = 'a.tile, a.card, a.choice__card, a.area, article.area, article.vcard, article.mach, article.film-rail__i, li.proof__i, li.stats__i, ul.model-strip > li, .faq > details, ul.ticks > li, .grid > figure, .grid > article, .grid > a, .choice > a, .choice > .choice__card, .mach-list > article, .film-rail > article';
+    var ITEM_SEL = 'a.tile, a.card, a.choice__card, a.area, article.area, article.vcard, article.mach, article.film-rail__i, article.feature-rail__i, li.partners__card, li.proof__i, li.stats__i, figure.stud-svc__shot, ul.model-strip > li, .faq > details, ul.ticks > li, ol.ticks > li, section ul > li, .grid > figure, .grid > article, .grid > a, .choice > a, .choice > .choice__card, .mach-list > article, .film-rail > article';
+    var REPEAT_SEL = 'ul.model-strip > li, article.mach, a.tile, article.film-rail__i, article.vcard, figure.stud-svc__shot, li.partners__card, article.feature-rail__i, a.choice__card, .faq > details, ul.ticks > li, ol.ticks > li, li.proof__i, section ul > li';
 
     function itemOf(el) {
       if (!el || !el.closest) return null;
@@ -638,6 +643,20 @@
       if (!item || !main || !main.contains(item)) return null;
       if (item.matches && item.matches('[data-st-region]')) return null;
       return item;
+    }
+
+    function fieldOf(el) {
+      if (!el || !el.closest) return null;
+      var main = doc.getElementById('main');
+      var node = el.nodeType === 1 ? el : el.parentElement;
+      if (!node || !main || !main.contains(node)) return null;
+      if (node.closest('header, footer, nav, .nav, .drawer, .mbar, .topbar, ul.model-strip, .param-matrix')) return null;
+      if (itemOf(node)) return null;
+      var field = node.closest('p, h1, h2, h3, h4, h5, h6, li, figcaption, blockquote, summary');
+      if (!field || !main.contains(field)) return null;
+      if (field.closest('ul.model-strip, .param-matrix')) return null;
+      if (itemOf(field)) return null;
+      return field;
     }
 
     function sectionOf(el) {
@@ -671,31 +690,44 @@
     function setSelection(fromEl, force) {
       var item = fromEl ? itemOf(fromEl) : null;
       var section = fromEl ? sectionOf(fromEl) : currentSection;
+      var field = fromEl ? fieldOf(fromEl) : null;
       if (force === 'section' && section) {
         level = 'section';
         currentSection = section;
         currentItem = null;
+        currentField = null;
         highlight(section);
       } else if (force === 'item' && currentItem) {
         level = 'item';
+        currentField = null;
         highlight(currentItem);
       } else if (item && force !== 'section') {
         level = 'item';
         currentItem = item;
         currentSection = sectionOf(item);
+        currentField = null;
         highlight(item);
+      } else if (field && force !== 'section') {
+        level = 'text';
+        currentField = field;
+        currentSection = sectionOf(field);
+        currentItem = null;
+        highlight(field);
       } else if (section) {
         level = 'text';
         currentSection = section;
         currentItem = null;
+        currentField = null;
         highlight(section);
       } else {
         level = 'text';
         currentSection = null;
         currentItem = null;
+        currentField = null;
         highlight(null);
       }
       renderPick();
+      syncPageTools();
     }
 
     function renderPick() {
@@ -708,10 +740,13 @@
       if (currentItem) {
         var kind = pickKind(currentItem);
         html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="item"' + (level === 'item' ? ' class="is-on"' : '') + '>' + kind + ': ' + esc(labelOf(currentItem) || kind) + '</button>';
+      } else if (currentField) {
+        html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="text"' + (level === 'text' ? ' class="is-on"' : '') + '>Text: ' + esc(labelOf(currentField) || 'field') + '</button>';
       }
-      if (level === 'text') html += '<span class="stb__pick-note">Click a card to select just that card. Choose the section name to delete the whole block.</span>';
-      else if (level === 'item') html += '<span class="stb__pick-note">Delete removes only this. Up and Down move it.</span>';
-      else html += '<span class="stb__pick-note">The whole section is selected.</span>';
+      if (level === 'text' && currentField) html += '<span class="stb__pick-note">Delete removes only this text. Choose the section name to delete the whole block.</span>';
+      else if (level === 'text') html += '<span class="stb__pick-note">Click a text field or a card to delete only that. Choose the section name to delete the whole block.</span>';
+      else if (level === 'item') html += '<span class="stb__pick-note">Delete removes only this. Up and Down move it. Add another inserts one more.</span>';
+      else html += '<span class="stb__pick-note">The whole section is selected. Delete removes the whole block.</span>';
       bar.innerHTML = html;
     }
 
@@ -904,9 +939,15 @@
       }
       var link = t.closest('a');
       if (link) e.preventDefault();
-      if (t.closest('.yt')) {
+      if (t.closest('.yt') || t.closest('.film-rail__empty')) {
         e.preventDefault();
-        editVideo(t.closest('.yt'));
+        var play = t.closest('.yt');
+        if (!play) {
+          var film = t.closest('article');
+          play = film && film.querySelector('.yt');
+        }
+        if (play) editVideo(play);
+        setSelection(t);
         return;
       }
       var control = t.closest('input, textarea, select');
@@ -1217,6 +1258,7 @@
           var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
           var en = win.ST.lookup(uk, 'en');
           if (en && en !== uk) node.nodeValue = pad(node.stbUk, en);
+          else if (node.stbEn) node.nodeValue = pad(node.stbUk, node.stbEn);
         });
         doc.querySelectorAll('[placeholder]').forEach(function (el) {
           if (el.stbUk == null) el.stbUk = el.getAttribute('placeholder') || '';
@@ -1294,8 +1336,23 @@
         confirmRemoveItem(currentItem);
         return;
       }
+      if (level === 'text' && currentField && currentField.isConnected) {
+        var fname = labelOf(currentField) || 'this text';
+        if (!window.confirm('Delete this text “' + fname + '”? The rest of the section stays.')) return;
+        beforeChange();
+        var fieldWhere = whereOf(currentField);
+        currentField.remove();
+        currentField = null;
+        level = 'text';
+        selected = null;
+        highlight(currentSection);
+        renderPick();
+        markDirty(fieldWhere);
+        say('Text removed. The rest of the section stays. Save to publish.');
+        return;
+      }
       if (level !== 'section' || !currentSection) {
-        say('Click a card to delete only that card. To delete a whole section, click its name in the bar above, then Delete.', 'err');
+        say('Click a text field or a card to delete only that. To delete a whole section, click its name in the bar above, then Delete.', 'err');
         return;
       }
       var form = currentSection.id === 'zapyt' || (currentSection.querySelector && currentSection.querySelector('#zapyt') && currentSection.querySelector('#zapyt').parentElement === currentSection);
@@ -1340,25 +1397,41 @@
 
     function blockTemplates() {
       var arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      var slot = '<img class="is-slot" src="/assets/img/slot.svg" alt="Фото" width="800" height="600" loading="lazy" decoding="async">';
+      var emptyVid = '<button class="yt" type="button" data-vid="" data-title="Нове відео" aria-label="Дивитись відео"><span class="film-rail__empty">Відео</span></button>';
       return [
-        { id: 'text', name: 'Heading and text', blurb: 'Eyebrow, title and a paragraph', thumb: 'text', html:
-          '<section class="sec"><div class="wrap"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий вступ, який можна змінити.</p><p>Текст, який можна змінити.</p></div></section>' },
-        { id: 'split', name: 'Text and photo', blurb: 'Copy beside a photograph', thumb: 'split', html:
-          '<section class="sec sec-paper"><div class="wrap"><div class="stud-stage"><div class="stud-stage__copy"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок поруч із фото</h2><p class="lead">Короткий опис, який можна змінити.</p></div><figure class="stud-stage__media"><img src="/assets/img/company-hall-1.jpg" alt="" width="1600" height="869" loading="lazy" decoding="async"><figcaption>Підпис до фото</figcaption></figure></div></div></section>' },
-        { id: 'list', name: 'Bullet list', blurb: 'A heading and tick bullets', thumb: 'list', html:
-          '<section class="sec"><div class="wrap"><p class="eyebrow">Перелік</p><h2 class="h-lg">Заголовок списку</h2><ul class="ticks"><li>Перший пункт</li><li>Другий пункт</li><li>Третій пункт</li></ul></div></section>' },
-        { id: 'stats', name: 'Numbers', blurb: 'Four figures in a row', thumb: 'stats', html:
-          '<section class="proof" aria-label="Цифри"><div class="wrap proof__in"><div class="proof__copy"><p class="eyebrow proof__eyebrow">Цифри</p><p class="proof__lead">Короткий підпис до цифр.</p></div><ul class="proof__stats"><li class="proof__i"><strong class="proof__n">10<span>+</span></strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">100<span>%</span></strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">24</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">1</strong><span class="proof__l">Підпис</span></li></ul></div></section>' },
+        { id: 'text', name: 'Heading and text', blurb: 'Section title and paragraphs', thumb: 'text', html:
+          '<section class="sec sec-paper"><div class="wrap"><div class="sec-head"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><p>Текст, який можна змінити.</p></div></section>' },
+        { id: 'split', name: 'Text and photo', blurb: 'Copy beside a photo, as on machine pages', thumb: 'split', html:
+          '<section class="sec sec-paper"><div class="wrap"><div class="stud-stage"><div class="stud-stage__copy"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><figure class="stud-stage__media">' + slot + '<figcaption>Підпис</figcaption></figure></div></div></section>' },
+        { id: 'list', name: 'Tick list', blurb: 'A heading and tick bullets', thumb: 'list', html:
+          '<section class="sec"><div class="wrap"><p class="eyebrow">Перелік</p><h2 class="h-lg">Заголовок</h2><ul class="ticks"><li>Пункт</li><li>Пункт</li><li>Пункт</li></ul></div></section>' },
+        { id: 'spec', name: 'Specification', blurb: 'One model and a parameter table', thumb: 'stats', html:
+          '<section class="sec sec-paper-2"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Специфікація</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div data-param-matrix><ul class="model-strip model-strip--shots model-strip--1" style="--ms-cols:1" role="tablist"><li><button class="model-strip__btn is-active" type="button" data-model="1" aria-pressed="true"><span class="model-strip__shot">' + slot + '</span><span class="model-strip__name">Модель</span></button></li></ul><div class="param-matrix param-matrix--1 is-hl-1" style="--pm-cols:1"><div class="param-matrix__scroll"><div class="param-matrix__table" role="table"><div class="param-matrix__cell param-matrix__head param-matrix__label" role="columnheader">Параметр</div><div class="param-matrix__cell param-matrix__head" role="columnheader" data-col="1">Модель</div><div class="param-matrix__cell param-matrix__label" role="rowheader">Параметр</div><div class="param-matrix__cell param-matrix__val" data-col="1">—</div><div class="param-matrix__cell param-matrix__label" role="rowheader">Параметр</div><div class="param-matrix__cell param-matrix__val" data-col="1">—</div></div></div></div></div></div></section>' },
+        { id: 'features', name: 'Feature notes', blurb: 'Three short notes under a specification', thumb: 'list', html:
+          '<section class="sec"><div class="wrap"><div class="feature-rail"><article class="feature-rail__i"><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="feature-rail__i"><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="feature-rail__i"><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article></div></div></section>' },
+        { id: 'films', name: 'Videos', blurb: 'A film row. Add another video in the same section', thumb: 'video', html:
+          '<section class="sec sec-paper-2"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Відео</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="film-rail film-rail--2" style="--film-cols:2"><article class="film-rail__i">' + emptyVid + '<h3>Заголовок</h3></article><article class="film-rail__i">' + emptyVid + '<h3>Заголовок</h3></article></div></div></section>' },
+        { id: 'vcards', name: 'Video cards', blurb: 'Video cards, as on the video page', thumb: 'video', html:
+          '<section class="sec sec-dark-2"><div class="wrap"><div class="sec-head"><p class="eyebrow">Відео</p><h2 class="h-lg">Заголовок</h2></div><div class="grid g-2"><article class="vcard">' + emptyVid + '<div class="vcard__body"><span class="vcard__kind">Відео</span><h3>Заголовок</h3></div></article><article class="vcard">' + emptyVid + '<div class="vcard__body"><span class="vcard__kind">Відео</span><h3>Заголовок</h3></div></article></div></div></section>' },
+        { id: 'gallery', name: 'Gallery', blurb: 'Grey gallery band with photo slots', thumb: 'cards', html:
+          '<section class="stud-svc"><div class="wrap stud-svc__in"><div class="stud-svc__copy"><p class="eyebrow">Галерея</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p><p><a class="btn" href="#zapyt">Запросити пропозицію ' + arrow + '</a></p></div><div class="stud-svc__gallery"><figure class="stud-svc__shot stud-svc__shot--tall">' + slot + '<figcaption>Підпис</figcaption></figure><figure class="stud-svc__shot">' + slot + '<figcaption>Підпис</figcaption></figure><figure class="stud-svc__shot">' + slot + '<figcaption>Підпис</figcaption></figure></div></div></section>' },
+        { id: 'choice', name: 'Choices', blurb: 'Two linked choice cards', thumb: 'cards', html:
+          '<section class="sec sec-paper"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Підбір</p><h2 class="h-lg">Заголовок</h2></div><div class="choice"><a class="choice__card choice__card--link" href="#zapyt"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></a><a class="choice__card choice__card--link" href="#zapyt"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></a></div></div></section>' },
         { id: 'faq', name: 'Questions', blurb: 'Expanding questions and answers', thumb: 'faq', html:
-          '<section class="sec sec-paper-2"><div class="wrap wrap-tight"><div class="sec-head"><p class="eyebrow">Питання</p><h2 class="h-lg">Поширені питання</h2></div><div class="faq"><details><summary>Перше питання</summary><div class="faq__a"><p>Відповідь, яку можна змінити.</p></div></details><details><summary>Друге питання</summary><div class="faq__a"><p>Відповідь, яку можна змінити.</p></div></details></div></div></section>' },
-        { id: 'cards', name: 'Cards', blurb: 'Three linked cards with photos', thumb: 'cards', html:
-          '<section class="sec sec-paper"><div class="wrap"><div class="sec-head"><p class="eyebrow">Пропозиція</p><h2 class="h-lg">Три картки</h2></div><div class="grid g-3"><a class="tile" href="/kontakty/"><div class="tile__media"><span class="tile__no">01</span><img src="/assets/img/company-hall-1.jpg" alt="" width="400" height="300" loading="lazy"></div><div class="tile__body"><span class="tag">SMOLTECH</span><h3>Назва картки</h3><p>Короткий опис.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a><a class="tile" href="/kontakty/"><div class="tile__media"><span class="tile__no">02</span><img src="/assets/img/prod-suspended-16-38.jpg" alt="" width="376" height="282" loading="lazy"></div><div class="tile__body"><span class="tag">SMOLTECH</span><h3>Назва картки</h3><p>Короткий опис.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a><a class="tile" href="/kontakty/"><div class="tile__media"><span class="tile__no">03</span><img src="/assets/img/stud-cnc-1.jpg" alt="" width="709" height="1080" loading="lazy"></div><div class="tile__body"><span class="tag">SMOLTECH</span><h3>Назва картки</h3><p>Короткий опис.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a></div></div></section>' },
-        { id: 'video', name: 'Video', blurb: 'A YouTube card', thumb: 'video', html:
-          '<section class="sec sec-dark-2"><div class="wrap"><div class="sec-head"><p class="eyebrow">Відео</p><h2 class="h-lg">Фільм</h2></div><div class="grid g-3"><article class="vcard" data-cat="spot"><button class="yt" type="button" data-vid="AFjrgjZMeXo" data-title="Відео SMOLTECH" aria-label="Дивитись відео"><img src="/assets/img/yt/AFjrgjZMeXo.jpg" alt="Відео SMOLTECH" width="640" height="360" loading="lazy"></button><div class="vcard__body"><span class="vcard__kind">Відео</span><h3>Назва відео</h3></div></article></div></div></section>' },
-        { id: 'gallery', name: 'Photo row', blurb: 'Three photographs', thumb: 'split', html:
-          '<section class="sec"><div class="wrap"><p class="eyebrow">Галерея</p><h2 class="h-lg">Фотографії</h2><div class="grid g-3"><figure><img src="/assets/img/company-hall-1.jpg" alt="" width="1600" height="869" loading="lazy"></figure><figure><img src="/assets/img/prod-suspended-16-38.jpg" alt="" width="376" height="282" loading="lazy"></figure><figure><img src="/assets/img/stud-cnc-1.jpg" alt="" width="709" height="1080" loading="lazy"></figure></div></div></section>' },
+          '<section class="sec sec-paper-2"><div class="wrap wrap-tight"><div class="sec-head"><p class="eyebrow">Питання</p><h2 class="h-lg">Заголовок</h2></div><div class="faq"><details><summary>Питання</summary><div class="faq__a"><p>Текст, який можна змінити.</p></div></details><details><summary>Питання</summary><div class="faq__a"><p>Текст, який можна змінити.</p></div></details></div></div></section>' },
+        { id: 'stats', name: 'Numbers', blurb: 'Figures in a row, as on About', thumb: 'stats', html:
+          '<section class="proof" aria-label="Цифри"><div class="wrap proof__in"><div class="proof__copy"><p class="eyebrow proof__eyebrow">Цифри</p><p class="proof__lead">Короткий опис, який можна змінити.</p></div><ul class="proof__stats"><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li></ul></div></section>' },
+        { id: 'partners', name: 'Partners', blurb: 'Centered partner logos', thumb: 'cards', html:
+          '<section class="about-partners"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Партнери</p><h2 class="h-lg">Заголовок</h2></div><ul class="partners partners--rich"><li class="partners__card">' + slot + '<p>Текст, який можна змінити.</p></li><li class="partners__card">' + slot + '<p>Текст, який можна змінити.</p></li></ul></div></section>' },
+        { id: 'tiles', name: 'Machine cards', blurb: 'Category cards with photo slots', thumb: 'cards', html:
+          '<section class="sec sec-paper-2"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="grid g-2"><a class="tile" href="#zapyt"><div class="tile__media"><span class="tile__no">01</span>' + slot + '</div><div class="tile__body"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a><a class="tile" href="#zapyt"><div class="tile__media"><span class="tile__no">02</span>' + slot + '</div><div class="tile__body"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a></div></div></section>' },
+        { id: 'products', name: 'Products', blurb: 'A product row with an empty video', thumb: 'video', html:
+          '<section class="sec"><div class="wrap"><div class="mach-list"><article class="mach mach--clip mach--prod"><div class="mach__side"><p class="mach__idx">01</p><h3>Заголовок</h3><div class="mach__film">' + emptyVid + '</div></div><div class="mach__text"><p>Текст, який можна змінити.</p></div></article></div></div></section>' },
+        { id: 'dark', name: 'Dark introduction', blurb: 'Dark band with text and photos, as on the homepage', thumb: 'split', html:
+          '<section class="sec sec-dark"><div class="wrap"><div class="split split--top split--media-mid"><div class="split__intro"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2></div><div class="frame-stack"><figure class="frame frame--wide" style="margin:0">' + slot + '</figure><figure class="frame" style="margin:0">' + slot + '</figure></div><div class="split__body"><p class="lead">Короткий опис, який можна змінити.</p><ul class="ticks ticks--2"><li>Пункт</li><li>Пункт</li></ul></div></div></div></section>' },
         { id: 'cta', name: 'Call to action', blurb: 'A short pitch and a button', thumb: 'text', html:
-          '<section class="sec sec-dark"><div class="wrap"><p class="eyebrow">Наступний крок</p><h2 class="h-lg">Поговорімо про вашу деталь</h2><p class="lead">Короткий заклик, який можна змінити.</p><div class="hero__btns"><a class="btn" href="/kontakty/#zapyt">Отримати пропозицію</a></div></div></section>' },
+          '<section class="sec sec-dark"><div class="wrap"><p class="eyebrow">Наступний крок</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p><div class="hero__btns"><a class="btn" href="#zapyt">Запросити пропозицію</a></div></div></section>' },
         { id: 'form', name: 'Quote form', blurb: 'The shared inquiry form', thumb: 'faq', html: quoteForm() }
       ];
     }
@@ -2403,15 +2476,27 @@
     function editVideo(btn) {
       var cur = btn.getAttribute('data-vid') || '';
       var next = window.prompt('YouTube link or video ID', cur);
-      if (!next) return;
+      if (next == null || !String(next).trim()) return;
       var m = String(next).match(/(?:v=|\/embed\/|\/shorts\/|youtu\.be\/)([\w-]{11})/);
       var vid = m ? m[1] : (/^[\w-]{11}$/.test(next.trim()) ? next.trim() : '');
       if (!vid) { say('That does not look like a YouTube link.', 'err'); return; }
       beforeChange();
       btn.setAttribute('data-vid', vid);
+      if (!btn.getAttribute('data-title')) btn.setAttribute('data-title', 'Нове відео');
       var img = btn.querySelector('img');
-      if (img) img.setAttribute('src', 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg');
+      if (!img) {
+        img = doc.createElement('img');
+        img.setAttribute('width', '640');
+        img.setAttribute('height', '360');
+        img.setAttribute('alt', 'Відео');
+        btn.insertBefore(img, btn.firstChild);
+      }
+      img.setAttribute('src', 'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg');
+      img.classList.remove('is-slot');
+      var empty = btn.querySelector('.film-rail__empty');
+      if (empty) empty.remove();
       markDirty(whereOf(btn));
+      say('Video set. Save to publish it.');
     }
 
     function collectPairs() {
@@ -2735,10 +2820,194 @@
       var addType = host.querySelector('#stb-add-type');
       var addMach = host.querySelector('#stb-add-mach');
       var addVar = host.querySelector('#stb-add-var');
+      var addOne = host.querySelector('#stb-add-one');
       var main = doc && doc.getElementById('main');
       if (addType) addType.hidden = !(page && page.role === 'group' && main && main.querySelector('a.tile'));
       if (addMach) addMach.hidden = !(main && main.querySelector('.mach-list > article.mach'));
-      if (addVar) addVar.hidden = !(main && main.querySelector('ul.model-strip > li'));
+      if (addVar) addVar.hidden = !(main && (main.querySelector('ul.model-strip > li') || main.querySelector('.param-matrix')));
+      if (addOne) {
+        var scope = (currentSection && currentSection.querySelector && currentSection.querySelector(REPEAT_SEL)) ? currentSection : main;
+        addOne.hidden = !(scope && scope.querySelector && scope.querySelector(REPEAT_SEL));
+      }
+    }
+
+    function fillText(el, uk, en) {
+      if (!el) return;
+      var shown = mode === 'en' ? (en || uk) : uk;
+      el.textContent = shown;
+      if (el.firstChild && el.firstChild.nodeType === 3) {
+        el.firstChild.stbUk = uk;
+        el.stbUkLeaf = uk;
+        if (en && en !== uk) el.firstChild.stbEn = en;
+      }
+    }
+
+    function ukOf(el) {
+      if (!el) return '';
+      var parts = [];
+      rawTextNodes(el).forEach(function (t) {
+        parts.push(t.stbUk != null ? t.stbUk : (t.nodeValue || ''));
+      });
+      return plainLabel(parts.join(' '));
+    }
+
+    function withUkClone(src) {
+      var saved = [];
+      rawTextNodes(src).forEach(function (n) {
+        saved.push([n, n.nodeValue]);
+        if (n.stbUk != null) n.nodeValue = n.stbUk;
+      });
+      var copy = src.cloneNode(true);
+      saved.forEach(function (row) { if (row[0].parentNode) row[0].nodeValue = row[1]; });
+      return copy;
+    }
+
+    function reflowFilms(rail) {
+      if (!rail || !rail.classList) return;
+      var n = rail.querySelectorAll(':scope > article').length;
+      rail.style.setProperty('--film-cols', String(n || 1));
+      Array.prototype.slice.call(rail.classList).forEach(function (c) {
+        if (/^film-rail--\d+$/.test(c)) rail.classList.remove(c);
+      });
+      if (n >= 1 && n <= 6) rail.classList.add('film-rail--' + n);
+    }
+
+    function blankItem(copy) {
+      copy.querySelectorAll('.partners__badge').forEach(function (n) { n.remove(); });
+      copy.classList.remove('stud-svc__shot--tall');
+      copy.querySelectorAll('picture source').forEach(function (s) { s.remove(); });
+      copy.querySelectorAll('img').forEach(function (img) {
+        img.setAttribute('src', '/assets/img/slot.svg');
+        img.removeAttribute('srcset');
+        img.setAttribute('alt', 'Фото');
+        img.classList.add('is-slot');
+      });
+      var links = copy.matches && copy.matches('a[href]') ? [copy] : [];
+      copy.querySelectorAll('a[href]').forEach(function (a) { links.push(a); });
+      links.forEach(function (a) {
+        var h = a.getAttribute('href') || '';
+        if (!h || h.charAt(0) === '#' || /^(?:mailto:|tel:)/i.test(h)) return;
+        a.setAttribute('href', '#zapyt');
+      });
+      if (copy.matches && copy.matches('article.film-rail__i, article.vcard, article.mach')) {
+        var yt = copy.querySelector('.yt');
+        if (yt) {
+          yt.setAttribute('data-vid', '');
+          yt.setAttribute('data-title', 'Нове відео');
+          yt.setAttribute('aria-label', 'Дивитись відео');
+          yt.innerHTML = '<span class="film-rail__empty">Відео</span>';
+        }
+      }
+      var rules = [
+        ['.model-strip__name', 'Нова модель', 'New model'],
+        ['.eyebrow', 'Розділ', 'Section'],
+        ['.tag', 'Позначка', 'Label'],
+        ['.vcard__kind', 'Відео', 'Video'],
+        ['.mach__idx, .proof__n', '—', '—'],
+        ['.proof__l', 'Підпис', 'Label'],
+        ['summary', 'Питання', 'Question'],
+        ['h1, h2, h3, h4, h5, h6', 'Заголовок', 'Heading'],
+        ['figcaption', 'Підпис', 'Caption'],
+        ['p', 'Текст, який можна змінити.', 'Text you can change.'],
+        ['ul.ticks > li, ol.ticks > li', 'Пункт', 'Item']
+      ];
+      rules.forEach(function (rule) {
+        var list = [];
+        if (copy.matches && copy.matches(rule[0])) list.push(copy);
+        copy.querySelectorAll(rule[0]).forEach(function (el) { list.push(el); });
+        list.forEach(function (el) {
+          if (el.closest && el.closest('svg')) return;
+          if (el.querySelector && el.querySelector('p, div, ul, ol, figure, article, h1, h2, h3')) return;
+          fillText(el, rule[1], rule[2]);
+        });
+      });
+      copy.querySelectorAll('a.btn, a.arrow-link').forEach(function (a) {
+        var uk = a.classList.contains('btn') ? 'Запросити пропозицію' : 'Докладніше';
+        var en = a.classList.contains('btn') ? 'Request a quote' : 'Read more';
+        var text = null;
+        var i;
+        for (i = 0; i < a.childNodes.length; i++) {
+          if (a.childNodes[i].nodeType === 3 && String(a.childNodes[i].nodeValue || '').trim()) { text = a.childNodes[i]; break; }
+        }
+        var shown = mode === 'en' ? en : uk;
+        if (!text) {
+          text = doc.createTextNode(shown);
+          a.insertBefore(text, a.firstChild);
+        } else text.nodeValue = shown;
+        text.stbUk = uk;
+        if (en !== uk) text.stbEn = en;
+      });
+    }
+
+    function repeatableNow() {
+      if (currentItem && currentItem.matches && currentItem.matches(REPEAT_SEL)) return currentItem;
+      var scope = currentSection && currentSection.querySelector ? currentSection : (doc && doc.getElementById('main'));
+      if (!scope || !scope.querySelector) return null;
+      var all = scope.querySelectorAll(REPEAT_SEL);
+      return all.length ? all[all.length - 1] : null;
+    }
+
+    function addAnother() {
+      var src = repeatableNow();
+      if (!src) { say('Click a card, video, photo or list item first.', 'err'); return; }
+      if (src.matches('ul.model-strip > li')) { addVariant(); return; }
+      if (src.matches('article.mach')) { openAddMach(); return; }
+      if (src.matches('a.tile') && childPage(src.getAttribute('href'))) { openAddType(); return; }
+      beforeChange();
+      var copy = withUkClone(src);
+      copy.classList.remove('stb-on', 'is-active');
+      if (copy.id) copy.removeAttribute('id');
+      copy.querySelectorAll('[id]').forEach(function (n) { n.removeAttribute('id'); });
+      blankItem(copy);
+      src.after(copy);
+      if (copy.matches('a.tile') && copy.parentElement) reflowTiles(copy.parentElement);
+      if (copy.matches('article.film-rail__i')) reflowFilms(copy.parentElement && copy.parentElement.classList.contains('film-rail') ? copy.parentElement : copy.closest('.film-rail'));
+      stampTree(copy);
+      setSelection(copy);
+      markDirty(whereOf(copy));
+      say('Added a placeholder. Edit it, then Save.');
+    }
+
+    function specRoot(from) {
+      if (!from || !from.querySelector) from = doc && doc.getElementById('main');
+      if (!from) return null;
+      var marked = from.closest ? from.closest('[data-param-matrix]') : null;
+      if (!marked && from.hasAttribute && from.hasAttribute('data-param-matrix')) marked = from;
+      if (!marked && from.querySelector) marked = from.querySelector('[data-param-matrix]');
+      if (marked) return marked;
+      var pm = from.closest ? from.closest('.param-matrix') : null;
+      if (!pm && from.classList && from.classList.contains('param-matrix')) pm = from;
+      if (!pm && from.querySelector) pm = from.querySelector('.param-matrix');
+      if (!pm || !pm.parentElement) return null;
+      pm.parentElement.setAttribute('data-param-matrix', '');
+      return pm.parentElement;
+    }
+
+    function ensureVariantShape(root) {
+      if (!root) return;
+      var table = root.querySelector('.param-matrix__table');
+      if (!table) return;
+      var cells = Array.prototype.slice.call(table.children);
+      var hasCol = cells.some(function (cell) { return cell.getAttribute && cell.getAttribute('data-col'); });
+      if (!hasCol) {
+        cells.forEach(function (cell) {
+          if (!cell.classList || cell.classList.contains('param-matrix__label')) return;
+          cell.setAttribute('data-col', '1');
+        });
+      }
+      if (root.querySelector('ul.model-strip > li')) return;
+      var head = table.querySelector('.param-matrix__head[data-col]') || table.querySelector('.param-matrix__head:not(.param-matrix__label)');
+      var ukName = (head && ukOf(head)) || 'Модель';
+      var enName = (head && plainLabel(head.textContent)) || ukName;
+      var strip = doc.createElement('ul');
+      strip.className = 'model-strip model-strip--shots model-strip--1';
+      strip.setAttribute('role', 'tablist');
+      strip.style.setProperty('--ms-cols', '1');
+      strip.innerHTML = '<li><button class="model-strip__btn is-active" type="button" data-model="1" aria-pressed="true"><span class="model-strip__shot"><img class="is-slot" src="/assets/img/slot.svg" alt="Фото" width="311" height="262"></span><span class="model-strip__name"></span></button></li>';
+      fillText(strip.querySelector('.model-strip__name'), ukName, enName);
+      var pm = root.querySelector('.param-matrix');
+      if (pm && pm.parentElement) pm.parentElement.insertBefore(strip, pm);
+      if (head && !head.getAttribute('data-col')) head.setAttribute('data-col', '1');
     }
 
     function plainLabel(s) {
@@ -2918,6 +3187,7 @@
       li.remove();
       reorderMatrix(root);
       currentItem = null;
+      currentField = null;
       level = 'text';
       selected = null;
       if (root) setSelection(root);
@@ -2927,11 +3197,10 @@
     }
 
     function addVariant() {
-      if (!requireUk()) return;
-      var root = (currentItem && matrixRoot(currentItem))
-        || (currentSection && currentSection.querySelector && currentSection.querySelector('[data-param-matrix]'))
-        || (doc && doc.querySelector('#main [data-param-matrix]'));
-      if (!root) { say('This page has no specification table.', 'err'); return; }
+      var root = specRoot(currentItem) || specRoot(currentSection) || specRoot(doc && doc.getElementById('main'));
+      if (!root || !root.querySelector('.param-matrix')) { say('This page has no specification table.', 'err'); return; }
+      beforeChange();
+      ensureVariantShape(root);
       var strip = root.querySelector('ul.model-strip');
       var table = root.querySelector('.param-matrix__table');
       if (!strip || !table) { say('This specification has no variant list to extend.', 'err'); return; }
@@ -2940,8 +3209,7 @@
       var btn0 = lastLi.querySelector('[data-model]');
       var oldId = btn0 ? btn0.getAttribute('data-model') : '';
       if (!oldId) { say('This specification has no variant list to extend.', 'err'); return; }
-      beforeChange();
-      var copy = lastLi.cloneNode(true);
+      var copy = withUkClone(lastLi);
       copy.classList.remove('stb-on');
       var btn = copy.querySelector('[data-model]');
       if (btn) {
@@ -2950,13 +3218,20 @@
         btn.setAttribute('data-model', 'new');
       }
       var nameEl = copy.querySelector('.model-strip__name');
-      if (nameEl) nameEl.textContent = 'Нова модель';
+      fillText(nameEl, 'Нова модель', 'New model');
+      copy.querySelectorAll('picture source').forEach(function (s) { s.remove(); });
+      copy.querySelectorAll('img').forEach(function (img) {
+        img.setAttribute('src', '/assets/img/slot.svg');
+        img.removeAttribute('srcset');
+        img.setAttribute('alt', 'Фото');
+        img.classList.add('is-slot');
+      });
       lastLi.after(copy);
       Array.prototype.slice.call(table.querySelectorAll('[data-col="' + oldId + '"]')).forEach(function (cell) {
-        var c = cell.cloneNode(true);
+        var c = withUkClone(cell);
         c.setAttribute('data-col', 'new');
-        if (c.classList.contains('param-matrix__head')) c.textContent = 'Нова модель';
-        else c.innerHTML = '—';
+        if (c.classList.contains('param-matrix__head')) fillText(c, 'Нова модель', 'New model');
+        else fillText(c, '—', '—');
         cell.after(c);
       });
       reorderMatrix(root);
@@ -2976,7 +3251,9 @@
       el.remove();
       if (tile && grid && grid.isConnected) reflowTiles(grid);
       if (mach && grid && grid.isConnected) renumberMach(grid);
+      if (el.matches('article.film-rail__i') && grid && grid.isConnected) reflowFilms(grid.classList.contains('film-rail') ? grid : grid.closest('.film-rail'));
       currentItem = null;
+      currentField = null;
       level = 'text';
       selected = null;
       image = null;
@@ -2992,6 +3269,9 @@
       if (el.matches('a.tile, a.card, a.choice__card, a.area, article.area')) return 'card';
       if (el.matches('article.mach')) return 'product';
       if (el.matches('article.vcard, article.film-rail__i')) return 'video';
+      if (el.matches('li.partners__card')) return 'partner';
+      if (el.matches('article.feature-rail__i')) return 'note';
+      if (el.matches('figure.stud-svc__shot')) return 'photo';
       if (el.matches('.faq > details')) return 'question';
       if (el.matches('ul.ticks > li, ol.ticks > li')) return 'bullet';
       if (el.matches('figure')) return 'photo';
@@ -3007,6 +3287,8 @@
       if (noun === 'product') return 'Product';
       if (noun === 'photo') return 'Photo';
       if (noun === 'video') return 'Video';
+      if (noun === 'partner') return 'Partner';
+      if (noun === 'note') return 'Note';
       if (noun === 'item') return 'Item';
       return 'Card';
     }
@@ -3088,7 +3370,7 @@
       modal.id = 'stb-type-dlg';
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-type-title">' +
         '<h2 id="stb-type-title">Add a machine type</h2>' +
-        '<p class="lead">A new card is added to this category, and a subpage starts from a blank specification (one empty variant, no text copied from a sibling). English fields are optional: leave one empty and the English site keeps the Ukrainian wording. An empty description stays hidden on the live page.</p>' +
+        '<p class="lead">A new card is added to this category. Its page keeps every section the other machines use, with empty text and photo slots. English fields are optional: leave one empty and the English site keeps the Ukrainian wording.</p>' +
         '<div class="stb-form">' +
           '<label class="wide">Name (Ukrainian)<input type="text" id="stb-type-name" placeholder="Наприклад: Машини 40 кВА"></label>' +
           '<label class="wide">English name (optional)<input type="text" id="stb-type-name-en" placeholder="Mesh line LS-3000"></label>' +
@@ -3098,7 +3380,7 @@
           '<label class="wide">English menu subtitle (optional)<input type="text" id="stb-type-sub-en" maxlength="80" placeholder="Short menu line"></label>' +
           '<label class="wide">Short description<textarea id="stb-type-text" rows="3" maxlength="400" placeholder="Потужність, процес і типові деталі."></textarea></label>' +
           '<label class="wide">English short description (optional)<textarea id="stb-type-text-en" rows="2" maxlength="400" placeholder="Used on the English site when the Ukrainian description is filled in."></textarea></label>' +
-          '<div class="wide stb-actions" style="margin-top:0"><button type="button" class="btn btn-ghost" id="stb-type-img">Upload card image</button><span id="stb-type-img-name">Uses the last card’s photo if you skip this.</span></div>' +
+          '<div class="wide stb-actions" style="margin-top:0"><button type="button" class="btn btn-ghost" id="stb-type-img">Upload card image</button><span id="stb-type-img-name">Empty photo slot if you skip this.</span></div>' +
           '<p class="wide" id="stb-type-status"></p>' +
         '</div>' +
         '<div class="stb-actions"><button type="button" class="btn" id="stb-type-ok">Add machine type</button><button type="button" class="btn btn-ghost" id="stb-type-x">Cancel</button></div></div>';
@@ -3117,7 +3399,7 @@
       modal.querySelector('#stb-type-img').addEventListener('click', function () {
         uploadFile(function (url) {
           imageUrl = url || '';
-          modal.querySelector('#stb-type-img-name').textContent = imageUrl || 'Uses the last card’s photo if you skip this.';
+          modal.querySelector('#stb-type-img-name').textContent = imageUrl || 'Empty photo slot if you skip this.';
         });
       });
       modal.querySelector('#stb-type-ok').addEventListener('click', function () {
@@ -3219,11 +3501,13 @@
       var btn = e.target.closest('[data-pick]');
       if (!btn) return;
       if (btn.getAttribute('data-pick') === 'section' && currentSection) setSelection(currentSection, 'section');
+      else if (btn.getAttribute('data-pick') === 'text' && currentField) setSelection(currentField);
       else if (currentItem) setSelection(currentItem, 'item');
     });
     host.querySelector('#stb-add-type').addEventListener('click', openAddType);
     host.querySelector('#stb-add-mach').addEventListener('click', openAddMach);
     host.querySelector('#stb-add-var').addEventListener('click', addVariant);
+    host.querySelector('#stb-add-one').addEventListener('click', addAnother);
     host.querySelector('#stb-save').addEventListener('click', save);
     host.querySelector('#stb-pages').addEventListener('click', openPages);
     host.querySelector('#stb-delpage').addEventListener('click', function () {
