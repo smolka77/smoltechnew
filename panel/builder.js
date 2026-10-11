@@ -1239,6 +1239,7 @@
       });
       showMarkedHosts();
       paintAllEnMarks();
+      showUaOnlyHosts();
       repairPlainHosts();
       heldRange = null;
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
@@ -2014,6 +2015,40 @@
         host.stbUkSnap = null;
         host.stbUkFull = '';
         host.stbEnEdited = false;
+      });
+    }
+
+    function showUaOnlyHosts() {
+      if (mode !== 'en' || !doc) return;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (host.closest('[data-st-region="header"], [data-st-region="footer"], [data-st-region="drawer"], [data-st-region="mbar"], [data-st-region="topbar"], .nav, .mega')) return;
+        if (host.querySelector('[data-st-en]')) return;
+        var els = host.querySelectorAll('*');
+        if (!els.length || !host.querySelector('a.st-link, a[data-st-link]')) return;
+        var i, el, tag, ok = true;
+        for (i = 0; i < els.length; i++) {
+          el = els[i];
+          tag = el.tagName;
+          if (el.hasAttribute('data-st-en')) { ok = false; break; }
+          if (tag === 'A') {
+            if (!(el.classList && el.classList.contains('st-link')) && !el.hasAttribute('data-st-link')) { ok = false; break; }
+            continue;
+          }
+          if (tag !== 'STRONG' && tag !== 'EM' && tag !== 'U' && tag !== 'B' && tag !== 'I') { ok = false; break; }
+        }
+        if (!ok) return;
+        revealUk(host);
+        var plain = hostPlain(host);
+        if (!plain.en || plain.en === plain.uk) return;
+        if (host.stbUkSnap == null) {
+          host.stbUkSnap = host.innerHTML;
+          host.stbUkFull = rawUk(host);
+        }
+        host.textContent = pad(host.stbUkFull, plain.en);
+        if (host.firstChild && host.firstChild.nodeType === 3) {
+          host.firstChild.stbUk = host.stbUkFull;
+          host.stbUkLeaf = host.stbUkFull;
+        }
       });
     }
 

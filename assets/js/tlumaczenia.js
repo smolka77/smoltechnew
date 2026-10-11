@@ -2962,11 +2962,17 @@
 
   function onlyOwnInline(node) {
     var els = node.querySelectorAll('*');
-    var i, tag;
+    var i, el, tag;
+    if (!els.length) return true;
     for (i = 0; i < els.length; i++) {
-      tag = els[i].tagName;
-      if (tag !== 'A' && tag !== 'STRONG' && tag !== 'EM' && tag !== 'U' && tag !== 'B' && tag !== 'I') return false;
-      if (els[i].hasAttribute('data-st-en')) return false;
+      el = els[i];
+      tag = el.tagName;
+      if (el.hasAttribute('data-st-en')) return false;
+      if (tag === 'A') {
+        if (!(el.classList && el.classList.contains('st-link')) && !el.hasAttribute('data-st-link')) return false;
+        continue;
+      }
+      if (tag !== 'STRONG' && tag !== 'EM' && tag !== 'U' && tag !== 'B' && tag !== 'I') return false;
     }
     return true;
   }
