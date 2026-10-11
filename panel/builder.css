@@ -211,6 +211,15 @@
   color: #161616;
 }
 .stb-dialog label.stb-check input { width: auto; margin-top: .15rem; }
+.stb-pick-text {
+  border: 1px solid rgba(22, 22, 22, .18);
+  border-radius: 8px;
+  padding: .7rem .8rem;
+  line-height: 1.55;
+  background: #fff;
+  cursor: text;
+  user-select: text;
+}
 .stb-form { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem .8rem; }
 .stb-form .wide { grid-column: 1 / -1; }
 .stb-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .85rem; }

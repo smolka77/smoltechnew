@@ -2833,6 +2833,68 @@
     return true;
   }
 
+  function placeMarked(root, en) {
+    en = String(en || '');
+    var nodes = [];
+    var walker = document.createTreeWalker(root, 4, {
+      acceptNode: function (node) {
+        var p = node.parentElement;
+        if (!p || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(p.tagName)) return 2;
+        return 1;
+      }
+    });
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    if (!nodes.length) return false;
+    var runs = [];
+    nodes.forEach(function (node) {
+      var mark = node.parentElement && node.parentElement.closest('[data-st-en]');
+      if (!mark || mark === root || !root.contains(mark)) mark = null;
+      var prev = runs[runs.length - 1];
+      if (prev && prev.mark === mark) prev.nodes.push(node);
+      else runs.push({ mark: mark, nodes: [node], filled: false });
+    });
+    function fill(list, text) {
+      if (!list.length) return;
+      list[0].nodeValue = text;
+      var i;
+      for (i = 1; i < list.length; i++) list[i].nodeValue = '';
+    }
+    var cursor = 0;
+    var i, run, phrase, at, idx, prev;
+    for (i = 0; i < runs.length; i++) {
+      run = runs[i];
+      if (!run.mark) continue;
+      phrase = run.mark.getAttribute('data-st-en') || '';
+      if (!phrase) return false;
+      at = run.mark.getAttribute('data-st-at');
+      idx = -1;
+      if (at != null && at !== '' && Number(at) >= cursor && en.slice(Number(at), Number(at) + phrase.length) === phrase) idx = Number(at);
+      if (idx < 0) idx = en.indexOf(phrase, cursor);
+      if (idx < 0) return false;
+      prev = i > 0 ? runs[i - 1] : null;
+      if (idx > cursor) {
+        if (!prev || prev.mark) return false;
+        fill(prev.nodes, en.slice(cursor, idx));
+        prev.filled = true;
+      }
+      fill(run.nodes, phrase);
+      run.filled = true;
+      cursor = idx + phrase.length;
+    }
+    var last = runs[runs.length - 1];
+    if (cursor < en.length) {
+      if (!last || last.mark) return false;
+      fill(last.nodes, en.slice(cursor));
+      last.filled = true;
+      cursor = en.length;
+    }
+    runs.forEach(function (item) {
+      if (!item.mark && !item.filled) fill(item.nodes, '');
+    });
+    return cursor === en.length;
+  }
+
   function spreadTextNodes(el, en) {
     en = String(en || '');
     var nodes = [];
@@ -2914,6 +2976,10 @@
         if (lang === 'uk') return;
         var whole = lookup(node.stOrigPlain, lang);
         if (whole !== node.stOrigPlain) {
+          if (node.querySelector('[data-st-en]')) {
+            if (!placeMarked(node, whole)) node.innerHTML = node.stOrigHTML;
+            return;
+          }
           if (node.firstElementChild) spreadTextNodes(node, whole);
           else node.textContent = whole;
           return;
