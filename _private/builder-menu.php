@@ -688,6 +688,21 @@ function st_builder_footer_remove(string $html, string $url): string
     return st_builder_splice_children($html, $region, $kept);
 }
 
+/** Footer line is "tag — title". The English title needs its own pair or the tag stays glued to the Ukrainian name. */
+function st_builder_footer_labels(string $tag, string $titleUk, string $titleEn): array
+{
+    $tag = trim($tag);
+    $titleUk = trim($titleUk);
+    $titleEn = trim($titleEn);
+    $uk = $tag !== '' ? st_builder_clip($tag . ' — ' . $titleUk, 48) : st_builder_clip($titleUk, 48);
+    $en = '';
+    if ($titleEn !== '' && $titleEn !== $titleUk) {
+        $en = $tag !== '' ? st_builder_clip($tag . ' — ' . $titleEn, 48) : st_builder_clip($titleEn, 48);
+        if ($en === $uk) $en = '';
+    }
+    return [$uk, $en];
+}
+
 function st_builder_footer_insert(string $html, string $url, string $label, array $siblingUrls): string
 {
     $region = st_builder_footer_region($html);
@@ -1196,14 +1211,15 @@ function st_builder_add_machine(array $data): array
             }
         }
         if ($slot !== 'hidden') $layout = st_builder_menu_apply($layout, $url, $slot, $position, $titleUk, $subUk);
-        $footLabel = $tagUk !== '' ? st_builder_clip($tagUk . ' — ' . $titleUk, 48) : st_builder_clip($titleUk, 48);
-        $layout = st_builder_footer_insert($layout, $url, $footLabel, $sibUrls);
+        [$footUk, $footEn] = st_builder_footer_labels($tagUk, $titleUk, $titleEn);
+        $layout = st_builder_footer_insert($layout, $url, $footUk, $sibUrls);
         if ($layout !== $layoutOrig) st_builder_write_layout($layout);
         $pairs = [];
         if ($titleEn !== '' && $titleEn !== $titleUk) $pairs[] = ['uk' => $titleUk, 'en' => $titleEn];
         if ($textUk !== '' && $textEn !== '' && $textEn !== $textUk) $pairs[] = ['uk' => $textUk, 'en' => $textEn];
         if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) $pairs[] = ['uk' => $subUk, 'en' => $subEn];
         if ($titleEn !== '') $pairs[] = ['uk' => $linkUk, 'en' => st_builder_clip('See ' . $titleEn, 48)];
+        if ($footEn !== '') $pairs[] = ['uk' => $footUk, 'en' => $footEn];
         if ($pairs !== []) {
             require_once __DIR__ . '/tlumacz.php';
             st_i18n_author_pairs($pairs);

@@ -440,6 +440,58 @@
         if (k === 'k') makeLink();
         else fmt(k === 'b' ? 'bold' : (k === 'i' ? 'italic' : 'underline'));
       }, true);
+      function editableInButton(e) {
+        var t = e.target && e.target.nodeType === 1 ? e.target : (e.target && e.target.parentElement);
+        var fromTarget = t && t.closest && t.closest('[contenteditable="true"]');
+        if (fromTarget && fromTarget.closest('button')) return fromTarget;
+        var sel = d.getSelection();
+        var node = sel && sel.anchorNode;
+        var fromSel = node && (node.nodeType === 1 ? node : node.parentElement);
+        var editable = fromSel && fromSel.closest && fromSel.closest('[contenteditable="true"]');
+        if (editable && editable.closest('button')) return editable;
+        return null;
+      }
+      d.addEventListener('keydown', function (e) {
+        if (e.key !== ' ' && e.code !== 'Space') return;
+        var editable = editableInButton(e);
+        if (!editable) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var sel = d.getSelection();
+        var range = null;
+        if (sel && sel.rangeCount && editable.contains(sel.anchorNode)) {
+          try { range = sel.getRangeAt(0); } catch (err) { range = null; }
+        }
+        if (!range) {
+          range = d.createRange();
+          range.selectNodeContents(editable);
+          range.collapse(false);
+        }
+        var node = range.startContainer;
+        var off = range.startOffset;
+        if (!range.collapsed) range.deleteContents();
+        if (node.nodeType !== 3) {
+          var created = d.createTextNode('');
+          node.insertBefore(created, node.childNodes[off] || null);
+          node = created;
+          off = 0;
+        }
+        node.nodeValue = node.nodeValue.slice(0, off) + '\u00a0' + node.nodeValue.slice(off);
+        range.setStart(node, off + 1);
+        range.collapse(true);
+        sel = d.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        try { editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ' ' })); }
+        catch (err2) { editable.dispatchEvent(new Event('input', { bubbles: true })); }
+      }, true);
+      d.addEventListener('keyup', function (e) {
+        if ((e.key !== ' ' && e.code !== 'Space') || !editableInButton(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
       d.addEventListener('selectionchange', function () {
         var live = d.getSelection();
         if (live && live.rangeCount && !live.isCollapsed) {
@@ -476,7 +528,21 @@
         }
         var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
         if (!nameNode && t.closest) nameNode = t.closest('button.model-strip__btn');
-        if (nameNode) syncVariantName(nameNode);
+        if (nameNode) {
+          if (nameNode.textContent.indexOf('\u00a0') >= 0) {
+            var keepTrail = nameNode.textContent.charAt(nameNode.textContent.length - 1) === '\u00a0';
+            var spaceNodes = [];
+            var spaceWalk = d.createTreeWalker(nameNode, NodeFilter.SHOW_TEXT);
+            var spaceNode;
+            while ((spaceNode = spaceWalk.nextNode())) spaceNodes.push(spaceNode);
+            spaceNodes.forEach(function (n, i) {
+              var raw = n.nodeValue.replace(/\u00a0/g, ' ');
+              if (keepTrail && i === spaceNodes.length - 1 && n.nodeValue.charAt(n.nodeValue.length - 1) === '\u00a0') raw = raw.slice(0, -1) + '\u00a0';
+              if (raw !== n.nodeValue) n.nodeValue = raw;
+            });
+          }
+          syncVariantName(nameNode);
+        }
         markDirty(where);
       });
       d.addEventListener('focusout', function (e) {
@@ -1169,6 +1235,7 @@
         btn.classList.toggle('is-on', btn.getAttribute('data-lang') === mode);
       });
       showMarkedHosts();
+      repairPlainHosts();
       heldRange = null;
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
     }
@@ -1807,12 +1874,39 @@
       return cursor === en.length;
     }
 
+    function showWholeEn(host, en) {
+      if (!host || host.querySelector('*')) return;
+      var raw = '';
+      rawTextNodes(host).forEach(function (n) { raw += n.stbUk != null ? n.stbUk : (n.nodeValue || ''); });
+      if (!String(raw).trim()) return;
+      host.textContent = pad(raw, en);
+      if (host.firstChild && host.firstChild.nodeType === 3) {
+        host.firstChild.stbUk = raw;
+        host.stbUkLeaf = raw;
+      }
+    }
+
+    function repairPlainHosts() {
+      if (mode !== 'en' || !doc) return;
+      doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote').forEach(function (host) {
+        if (host.querySelector('*')) return;
+        if (rawTextNodes(host).length < 2) return;
+        var plain = hostPlain(host);
+        if (!plain.en || plain.en === plain.uk) return;
+        showWholeEn(host, plain.en);
+      });
+    }
+
     function showHost(host) {
       if (!host) return;
       revealUk(host);
       if (mode !== 'en') return;
       var plain = hostPlain(host);
-      if (!plain.en || plain.en === plain.uk || !host.querySelector('[data-st-en]')) return;
+      if (!plain.en || plain.en === plain.uk) return;
+      if (!host.querySelector('[data-st-en]')) {
+        showWholeEn(host, plain.en);
+        return;
+      }
       if (!placeMarked(host, plain.en)) {
         revealUk(host);
         return;
@@ -2185,7 +2279,11 @@
       if (mode !== 'en' || !win.ST || typeof win.ST.lookup !== 'function') return pairs;
       walkText(doc, function (node) {
         if (node.stbUk == null) return;
-        if (node.stbPlaced) { node.nodeValue = node.stbUk; return; }
+        if (node.stbPlaced) {
+          var marked = node.parentElement && node.parentElement.closest('[data-st-en]');
+          if (marked) { node.nodeValue = node.stbUk; return; }
+          node.stbPlaced = false;
+        }
         var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
         var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
         var known = String(win.ST.lookup(uk, 'en') || '').trim();
