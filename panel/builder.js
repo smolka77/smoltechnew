@@ -93,6 +93,7 @@
     var currentSection = null;
     var currentItem = null;
     var linkRange = null;
+    var pickedEl = null;
 
     var oldBlocks = document.getElementById('stb-blocks');
     if (oldBlocks) oldBlocks.remove();
@@ -370,6 +371,8 @@
         }
         host.querySelector('#stb-delpage').hidden = !res.canDelete;
         mode = 'en';
+        pickedEl = null;
+        linkRange = null;
         dirty = false;
         formDirty = false;
         chromeDirty = false;
@@ -426,6 +429,15 @@
     }
 
     function bindFrame(d) {
+      d.addEventListener('keydown', function (e) {
+        if (mode !== 'en' || !(e.ctrlKey || e.metaKey)) return;
+        var k = String(e.key || '').toLowerCase();
+        if (k === 'b' || k === 'i' || k === 'u' || k === 'k') {
+          e.preventDefault();
+          e.stopPropagation();
+          requireUk();
+        }
+      }, true);
       d.addEventListener('click', onClick, true);
       d.addEventListener('dblclick', onDblClick, true);
       d.addEventListener('keydown', onKey, true);
@@ -452,6 +464,7 @@
           }
         }
         var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
+        if (!nameNode && t.closest) nameNode = t.closest('button.model-strip__btn');
         if (nameNode) syncVariantName(nameNode);
         markDirty(where);
       });
@@ -462,6 +475,16 @@
         if (t.matches && t.matches('.stats__v')) {
           var n = String(t.textContent || '').replace(/[^\d]/g, '');
           if (n) t.setAttribute('data-count', n);
+        }
+        var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]') || t.closest('button.model-strip__btn'));
+        if (nameNode) {
+          syncVariantName(nameNode);
+          var held = nameNode.matches && nameNode.matches('.model-strip__name, .param-matrix__head[data-col]') ? nameNode : nameNode.querySelector('.model-strip__name');
+          if (held) {
+            var clean = plainLabel(held.textContent);
+            if (clean && held.textContent !== clean) held.textContent = clean;
+            syncVariantName(held);
+          }
         }
       });
       d.addEventListener('pointerdown', onPointerDown, true);
@@ -495,6 +518,17 @@
     }
 
     function textHost(el) {
+      if (el && el.closest) {
+        var variantName = el.closest('.model-strip__name');
+        if (variantName) return variantName;
+        var variantBtn = el.closest('button.model-strip__btn');
+        if (variantBtn) {
+          var innerName = variantBtn.querySelector('.model-strip__name');
+          if (innerName) return innerName;
+        }
+        var head = el.closest('.param-matrix__head[data-col]');
+        if (head && !head.classList.contains('param-matrix__label')) return head;
+      }
       var n = el;
       while (n && n !== doc.body) {
         if (n.matches && n.matches(SKIP_HOST)) { n = n.parentElement; continue; }
@@ -548,7 +582,7 @@
 
     function labelOf(el) {
       if (!el) return '';
-      var h = el.querySelector('h1, h2, h3, .model-strip__name');
+      var h = el.matches && el.matches('.faq > details') ? el.querySelector('summary') : el.querySelector('h1, h2, h3, .model-strip__name');
       var t = (h ? h.textContent : el.textContent) || '';
       t = t.replace(/\s+/g, ' ').trim();
       if (t.length > 72) t = t.slice(0, 72) + '…';
@@ -593,7 +627,7 @@
       var sName = labelOf(currentSection) || 'This section';
       var html = '<button type="button" data-pick="section"' + (level === 'section' ? ' class="is-on"' : '') + '>Section: ' + esc(sName) + '</button>';
       if (currentItem) {
-        var kind = currentItem.matches('ul.model-strip > li') ? 'Variant' : 'Card';
+        var kind = pickKind(currentItem);
         html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="item"' + (level === 'item' ? ' class="is-on"' : '') + '>' + kind + ': ' + esc(labelOf(currentItem) || kind) + '</button>';
       }
       if (level === 'text') html += '<span class="stb__pick-note">Click a card to select just that card. Choose the section name to delete the whole block.</span>';
@@ -817,12 +851,31 @@
       image = img || null;
       syncImageTools();
       setSelection(t);
+      pickedEl = t;
       var hostEl = textHost(t);
       if (hostEl && hostEl.matches && hostEl.matches('a.tile, a.card, a.choice__card, a.btn, a.nav__link, a.area')) {
         hostEl = hostEl.querySelector('h3, h2, p');
       }
       if (hostEl && !hostEl.matches('img')) startEdit(hostEl);
+      var clickedLink = textLinkFrom(t);
+      if (clickedLink) selectInside(clickedLink);
       setNote(t);
+    }
+
+    function selectInside(el) {
+      try {
+        var sel = doc.getSelection();
+        var range = doc.createRange();
+        range.selectNodeContents(el);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (err) { /* the click still records pickedEl */ }
+    }
+
+    function requireUk() {
+      if (mode !== 'en') return true;
+      say('Switch to Українська first. English only changes the translation — links, formatting and new blocks are saved into the Ukrainian page.', 'err');
+      return false;
     }
 
     function posOf(el, prop) {
@@ -1006,6 +1059,43 @@
       say('Photo position reset. Save to publish it.');
     }
 
+    function textNodes(root) {
+      var bag = [];
+      if (!root || !doc) return bag;
+      var tw = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          var p = node.parentElement;
+          if (!p || p.closest('script, style, noscript')) return NodeFilter.FILTER_REJECT;
+          if (!node.nodeValue || !String(node.nodeValue).trim()) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var n;
+      while ((n = tw.nextNode())) bag.push(n);
+      return bag;
+    }
+
+    function copyUkFrom(source, copy) {
+      var src = textNodes(source);
+      var dst = textNodes(copy);
+      var i;
+      for (i = 0; i < dst.length && i < src.length; i++) {
+        var uk = src[i].stbUk != null ? src[i].stbUk : src[i].nodeValue;
+        dst[i].stbUk = uk;
+        dst[i].nodeValue = uk;
+        var parent = dst[i].parentElement;
+        if (parent && parent.childNodes.length === 1) parent.stbUkLeaf = uk;
+      }
+    }
+
+    function writeUk(el, value) {
+      el.textContent = value;
+      if (el.firstChild && el.firstChild.nodeType === 3) {
+        el.firstChild.stbUk = value;
+        el.stbUkLeaf = value;
+      }
+    }
+
     function stampTree(root) {
       if (!root || !doc) return;
       var win = frame.contentWindow;
@@ -1089,6 +1179,7 @@
     }
 
     function duplicate() {
+      if (!requireUk()) return;
       var node = level === 'item' ? currentItem : selected;
       if (!node || !node.parentElement) { say('Click the block you want to copy.', 'err'); return; }
       if (node.id === 'zapyt' || node.querySelector('#zapyt')) {
@@ -1238,6 +1329,7 @@
     }
 
     function align(dir) {
+      if (!requireUk()) return;
       if (!doc) return;
       beforeChange();
       try { frame.contentWindow.focus(); } catch (err) { /* optional */ }
@@ -1257,6 +1349,7 @@
     }
 
     function applySize(size) {
+      if (!requireUk()) return;
       if (!doc || !size) return;
       if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
       beforeChange();
@@ -1281,6 +1374,7 @@
     }
 
     function fmt(cmd) {
+      if (!requireUk()) return;
       if (!doc) return;
       beforeChange();
       doc.execCommand('styleWithCSS', false, true);
@@ -1290,6 +1384,7 @@
     }
 
     function paint(color) {
+      if (!requireUk()) return;
       if (!doc) return;
       beforeChange();
       doc.execCommand('styleWithCSS', false, true);
@@ -1321,21 +1416,38 @@
     function normalizeHref(v) {
       v = String(v || '').trim();
       if (!v) return '';
-      if (/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(v)) return v;
+      if (/^(mailto:|tel:|#)/i.test(v)) return v;
+      if (/^https?:\/\//i.test(v)) return v;
       if (/^[^\s@\/]+@[^\s@\/]+\.[a-z]{2,}$/i.test(v)) return 'mailto:' + v;
       if (/^\+?[\d\s().-]{7,}$/.test(v)) return 'tel:' + v.replace(/[^\d+]/g, '');
       if (/^(www\.)?[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(v)) return 'https://' + v;
-      if (/^[a-z0-9][a-z0-9\-./]*\/?$/i.test(v)) return '/' + v.replace(/^\/+/, '');
-      return '';
+      var path = '';
+      if (v.charAt(0) === '/') path = v;
+      else if (/^[a-z0-9][a-z0-9\-./]*\/?$/i.test(v)) path = '/' + v.replace(/^\/+/, '');
+      else return '';
+      return slashInternal(path);
+    }
+
+    function slashInternal(v) {
+      var hash = '';
+      var query = '';
+      var path = v;
+      var hi = path.indexOf('#');
+      if (hi >= 0) { hash = path.slice(hi); path = path.slice(0, hi); }
+      var qi = path.indexOf('?');
+      if (qi >= 0) { query = path.slice(qi); path = path.slice(0, qi); }
+      if (!/^\/[^\s]*\.[a-z0-9]{1,8}$/i.test(path) && path.length > 1 && path.charAt(path.length - 1) !== '/') path += '/';
+      return path + query + hash;
     }
 
     function styleLink(a, url, blank) {
       a.setAttribute('href', url);
       a.classList.add('st-link');
       a.setAttribute('data-st-link', '');
-      a.style.color = '#d10a11';
-      a.style.fontWeight = '700';
-      a.style.textDecoration = 'underline';
+      ['color', 'font-weight', 'font-style', 'text-decoration', 'text-decoration-line', '-webkit-text-fill-color'].forEach(function (prop) {
+        a.style.removeProperty(prop);
+      });
+      if (!String(a.getAttribute('style') || '').trim()) a.removeAttribute('style');
       var external = /^https?:/i.test(url);
       var openBlank = blank == null ? external : !!blank;
       if (openBlank) {
@@ -1370,19 +1482,28 @@
     }
 
     function makeLink() {
+      if (!requireUk()) return;
       if (!doc) return;
+      var clickLink = textLinkFrom(pickedEl);
+      if (clickLink && !clickLink.isConnected) clickLink = null;
       var sel = doc.getSelection();
-      var node = sel && sel.rangeCount ? sel.anchorNode : null;
-      var existing = textLinkFrom(node);
-      if (!existing && sel && sel.rangeCount) existing = textLinkFrom(sel.focusNode);
+      var selLink = null;
+      if (sel && sel.rangeCount) selLink = textLinkFrom(sel.anchorNode) || textLinkFrom(sel.focusNode);
+      if (selLink && !selLink.isConnected) selLink = null;
+      var existing = selLink;
+      if (clickLink && clickLink !== selLink) existing = clickLink;
       var hostEl = doc.querySelector('[contenteditable="true"]');
-      if (!existing && hostEl) existing = textLinkFrom(hostEl);
-      if (hostEl && structuralLink(hostEl)) {
+      if (hostEl && structuralLink(hostEl) && !existing) {
         say('That card is already a link. Select ordinary text to add a link inside a paragraph.', 'err');
         return;
       }
       linkRange = savedRange();
-      if (linkRange && hostEl && !hostEl.contains(linkRange.commonAncestorContainer)) linkRange = null;
+      if (existing) {
+        try {
+          linkRange = doc.createRange();
+          linkRange.selectNodeContents(existing);
+        } catch (err) { linkRange = savedRange(); }
+      } else if (linkRange && hostEl && !hostEl.contains(linkRange.commonAncestorContainer)) linkRange = null;
       var chosen = linkRange && !linkRange.collapsed && String(linkRange.toString() || '').trim();
       if (!existing && !chosen) { say('Select the words you want to link.', 'err'); return; }
       openLinkDialog(existing, chosen);
@@ -1403,7 +1524,7 @@
       }).join('');
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-link-title">' +
         '<h2 id="stb-link-title">' + (existing ? 'Edit link' : 'Add a link') + '</h2>' +
-        '<p class="lead">The linked words are shown bold, red and underlined. An external address opens in a new tab. A page on this site stays in the same tab.</p>' +
+        '<p class="lead">The linked words are shown bold, red and underlined. An external address opens in a new tab unless you untick the box. A page on this site stays in the same tab.</p>' +
         '<div class="stb-form">' +
           '<label class="wide">Address<input type="text" id="stb-link-url" placeholder="https://…, /kontakty/ or email" autocomplete="off"></label>' +
           '<label class="wide">Page on this site<select id="stb-link-page">' + opts + '</select></label>' +
@@ -1418,11 +1539,19 @@
       var pageSel = modal.querySelector('#stb-link-page');
       var blank = modal.querySelector('#stb-link-blank');
       urlInput.value = existing ? (existing.getAttribute('href') || '') : '';
-      blank.checked = existing ? existing.getAttribute('target') === '_blank' : false;
+      var blankTouched = false;
+      function syncBlank() {
+        if (blankTouched) return;
+        blank.checked = /^https?:/i.test(normalizeHref(urlInput.value));
+      }
+      syncBlank();
+      urlInput.addEventListener('input', syncBlank);
+      blank.addEventListener('change', function () { blankTouched = true; });
       pageSel.addEventListener('change', function () {
         if (!pageSel.value) return;
         urlInput.value = pageSel.value;
-        blank.checked = false;
+        blankTouched = false;
+        syncBlank();
       });
       function close() { modal.remove(); }
       modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
@@ -1503,6 +1632,7 @@
     }
 
     function toggleBullet() {
+      if (!requireUk()) return;
       if (!doc) return;
       try { frame.contentWindow.focus(); } catch (err) { /* optional */ }
       var el = currentEl();
@@ -1896,23 +2026,45 @@
       if (addVar) addVar.hidden = !(main && main.querySelector('ul.model-strip > li'));
     }
 
+    function plainLabel(s) {
+      return String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function absorbVariantText(name) {
+      var btn = name && name.closest && name.closest('button.model-strip__btn');
+      if (!btn) return;
+      var extra = '';
+      Array.prototype.slice.call(btn.childNodes).forEach(function (n) {
+        if (n === name || n.nodeType !== 3) return;
+        extra += n.nodeValue || '';
+        n.remove();
+      });
+      if (!plainLabel(extra)) return;
+      name.textContent = plainLabel(name.textContent + ' ' + extra);
+    }
+
     function syncVariantName(el) {
       if (!el || !el.closest) return;
       var root = el.closest('[data-param-matrix]') || el.closest('section') || doc;
-      var name = el.matches('.model-strip__name') ? el : el.closest('.model-strip__name');
-      if (name) {
+      var name = el.matches && el.matches('.model-strip__name') ? el : el.closest('.model-strip__name');
+      if (!name && el.matches && el.matches('button.model-strip__btn')) name = el.querySelector('.model-strip__name');
+      if (name) absorbVariantText(name);
+      var headEl = el.matches && el.matches('.param-matrix__head[data-col]') ? el : el.closest('.param-matrix__head[data-col]');
+      var src = name && (el === name || (name.contains && name.contains(el)) || (el.closest && el.closest('button.model-strip__btn'))) ? name : headEl;
+      if (!src) return;
+      var label = plainLabel(src.textContent);
+      if (!label) return;
+      if (src === name) {
         var btn = name.closest('[data-model]');
         var mid = btn && btn.getAttribute('data-model');
         if (!mid) return;
         var head = root.querySelector('.param-matrix__head[data-col="' + mid + '"]');
-        if (head && head.textContent !== name.textContent) head.textContent = name.textContent;
+        if (head && plainLabel(head.textContent) !== label) head.textContent = label;
         return;
       }
-      var headEl = el.matches('.param-matrix__head[data-col]') ? el : el.closest('.param-matrix__head[data-col]');
-      if (!headEl) return;
       var col = headEl.getAttribute('data-col');
-      var label = root.querySelector('.model-strip [data-model="' + col + '"] .model-strip__name');
-      if (label && label.textContent !== headEl.textContent) label.textContent = headEl.textContent;
+      var stripName = root.querySelector('.model-strip [data-model="' + col + '"] .model-strip__name');
+      if (stripName && plainLabel(stripName.textContent) !== label) stripName.textContent = label;
     }
 
     function reflowTiles(grid) {
@@ -1928,7 +2080,7 @@
         no.textContent = num;
       });
       var n = tiles.length;
-      var g = n <= 1 ? 'g-1' : (n === 2 ? 'g-2' : 'g-3');
+      var g = n <= 1 ? 'g-1' : (n === 2 ? 'g-2' : (n === 4 ? 'g-4' : 'g-3'));
       var cls = grid.getAttribute('class') || '';
       if (/\bg-\d+\b/.test(cls)) cls = cls.replace(/\bg-\d+\b/, g);
       else cls = (cls + ' ' + g).trim();
@@ -2060,6 +2212,7 @@
     }
 
     function addVariant() {
+      if (!requireUk()) return;
       var root = (currentItem && matrixRoot(currentItem))
         || (currentSection && currentSection.querySelector && currentSection.querySelector('[data-param-matrix]'))
         || (doc && doc.querySelector('#main [data-param-matrix]'));
@@ -2125,8 +2278,22 @@
       if (el.matches('article.mach')) return 'product';
       if (el.matches('article.vcard, article.film-rail__i')) return 'video';
       if (el.matches('.faq > details')) return 'question';
+      if (el.matches('ul.ticks > li, ol.ticks > li')) return 'bullet';
       if (el.matches('figure')) return 'photo';
+      if (el.matches('ul.model-strip > li')) return 'variant';
       return 'item';
+    }
+
+    function pickKind(el) {
+      var noun = itemKind(el);
+      if (noun === 'variant') return 'Variant';
+      if (noun === 'question') return 'Question';
+      if (noun === 'bullet') return 'Bullet';
+      if (noun === 'product') return 'Product';
+      if (noun === 'photo') return 'Photo';
+      if (noun === 'video') return 'Video';
+      if (noun === 'item') return 'Item';
+      return 'Card';
     }
 
     function confirmRemoveItem(el) {
@@ -2139,12 +2306,15 @@
       var modal = document.createElement('div');
       modal.className = 'stb-modal';
       modal.id = 'stb-del-dlg';
-      var title = name ? ('Delete the ' + kind + ' “' + name + '”?') : ('Delete this ' + kind + '?');
+      var short = name;
+      if (short.length > 42) short = short.slice(0, 42) + '…';
+      var title = short ? ('Delete this ' + kind + ' “' + short + '”?') : ('Delete this ' + kind + '?');
+      if (title.length > 90) title = 'Delete this ' + kind + '?';
       var lead = 'Only this ' + kind + ' is removed. The rest of the section stays.';
       if (kind === 'card') lead = 'Only this card is removed. The other cards stay, and the grid closes up.';
       var pageBox = '';
       if (offerPage) {
-        pageBox = '<label class="wide stb-check"><input type="checkbox" id="stb-del-page" checked> Also delete its page' +
+        pageBox = '<label class="wide stb-check"><input type="checkbox" id="stb-del-page"> Also delete its page' +
           (child.url ? ' (' + esc(child.url) + ')' : '') +
           '. A backup is kept, and the page leaves the menu and the sitemap.</label>';
       } else if (child) {
@@ -2203,12 +2373,16 @@
       modal.id = 'stb-type-dlg';
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-type-title">' +
         '<h2 id="stb-type-title">Add a machine type</h2>' +
-        '<p class="lead">A new card is added to this category, and a subpage is copied from a sibling machine page with one empty variant. The menu and sitemap follow the existing machine types in this category.</p>' +
+        '<p class="lead">A new card is added to this category, and a subpage starts from a blank specification (one empty variant, no text copied from a sibling). English fields are optional: leave one empty and the English site keeps the Ukrainian wording. An empty description stays hidden on the live page.</p>' +
         '<div class="stb-form">' +
           '<label class="wide">Name (Ukrainian)<input type="text" id="stb-type-name" placeholder="Наприклад: Машини 40 кВА"></label>' +
+          '<label class="wide">English name (optional)<input type="text" id="stb-type-name-en" placeholder="Mesh line LS-3000"></label>' +
           '<label>Address slug<input type="text" id="stb-type-slug" placeholder="mashyny-40-kva"></label>' +
           '<label>Short tag<input type="text" id="stb-type-tag" maxlength="60" placeholder="TECNA"></label>' +
+          '<label class="wide">Menu subtitle (Ukrainian, optional)<input type="text" id="stb-type-sub" maxlength="80" placeholder="Короткий рядок у меню"></label>' +
+          '<label class="wide">English menu subtitle (optional)<input type="text" id="stb-type-sub-en" maxlength="80" placeholder="Short menu line"></label>' +
           '<label class="wide">Short description<textarea id="stb-type-text" rows="3" maxlength="400" placeholder="Потужність, процес і типові деталі."></textarea></label>' +
+          '<label class="wide">English short description (optional)<textarea id="stb-type-text-en" rows="2" maxlength="400" placeholder="Used on the English site when the Ukrainian description is filled in."></textarea></label>' +
           '<div class="wide stb-actions" style="margin-top:0"><button type="button" class="btn btn-ghost" id="stb-type-img">Upload card image</button><span id="stb-type-img-name">Uses the last card’s photo if you skip this.</span></div>' +
           '<p class="wide" id="stb-type-status"></p>' +
         '</div>' +
@@ -2235,15 +2409,26 @@
         var status = modal.querySelector('#stb-type-status');
         var title = nameInput.value.trim();
         if (title.length < 2) { status.textContent = 'Enter the machine type name.'; return; }
+        var titleEn = modal.querySelector('#stb-type-name-en').value.trim();
+        var taken = false;
+        doc.querySelectorAll('#main a.tile h3').forEach(function (h) {
+          var have = String(h.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          if (have && (have === title.toLowerCase() || (titleEn && have === titleEn.toLowerCase()))) taken = true;
+        });
+        if (taken) { status.textContent = 'A machine type with this name is already on the page. Choose a different name.'; return; }
         status.textContent = 'Creating the card and its page…';
         modal.querySelector('#stb-type-ok').disabled = true;
         api({
           action: 'cms.page.add-machine',
           parent: id,
           title: title,
+          titleEn: titleEn,
           slug: slugInput.value.trim(),
           tag: modal.querySelector('#stb-type-tag').value.trim(),
+          subtitle: modal.querySelector('#stb-type-sub').value.trim(),
+          subtitleEn: modal.querySelector('#stb-type-sub-en').value.trim(),
           text: modal.querySelector('#stb-type-text').value.trim(),
+          textEn: modal.querySelector('#stb-type-text-en').value.trim(),
           image: imageUrl
         }).then(function (res) {
           modal.querySelector('#stb-type-ok').disabled = false;
@@ -2289,6 +2474,7 @@
         if (title.length < 2) { modal.querySelector('#stb-mach-status').textContent = 'Enter the product name.'; return; }
         beforeChange();
         var copy = last.cloneNode(true);
+        copyUkFrom(last, copy);
         copy.classList.remove('stb-on', 'rv-d1', 'rv-d2', 'rv-d3');
         var slug = slugify(title) || 'produkt';
         var base = slug;
@@ -2297,9 +2483,11 @@
         copy.id = base;
         if (copy.hasAttribute('data-ask-topic')) copy.setAttribute('data-ask-topic', title);
         var h = copy.querySelector('h3');
-        if (h) h.textContent = title;
-        var p = copy.querySelector('.mach__text p');
-        if (p) p.textContent = text || 'Короткий опис.';
+        if (h) writeUk(h, title);
+        var textBox = copy.querySelector('.mach__text');
+        var p = textBox && textBox.querySelector('p');
+        if (text && p) writeUk(p, text);
+        else if (textBox) textBox.remove();
         last.after(copy);
         renumberMach(list);
         stampTree(copy);

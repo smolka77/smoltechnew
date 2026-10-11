@@ -111,7 +111,27 @@ function st_builder_clean(string $html): string
         $cls = trim((string) preg_replace('/\s+/', ' ', $cls));
         return $cls === '' ? '' : ' class="' . $cls . '"';
     }, $html) ?? $html;
-    return $html;
+    return st_builder_strip_link_paint($html);
+}
+
+/** Linked words take their colour from CSS. Drop the editor’s inline paint on those anchors. */
+function st_builder_strip_link_paint(string $html): string
+{
+    return preg_replace_callback('/<a\b[^>]*>/i', static function (array $m): string {
+        $tag = $m[0];
+        if (!preg_match('/\b(?:data-st-link\b|class="[^"]*\bst-link\b)/i', $tag)) return $tag;
+        if (!preg_match('/\sstyle="([^"]*)"/i', $tag, $sm)) return $tag;
+        $keep = [];
+        foreach (explode(';', html_entity_decode($sm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')) as $decl) {
+            if (!str_contains($decl, ':')) continue;
+            $prop = strtolower(trim(explode(':', $decl, 2)[0]));
+            if (in_array($prop, ['color', 'font-weight', 'font-style', 'text-decoration', 'text-decoration-line', '-webkit-text-fill-color'], true)) continue;
+            $keep[] = trim($decl);
+        }
+        $style = st_builder_style(implode(';', $keep));
+        if ($style === '') return preg_replace('/\sstyle="[^"]*"/i', '', $tag, 1) ?? $tag;
+        return preg_replace('/\sstyle="[^"]*"/i', ' style="' . htmlspecialchars($style, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"', $tag, 1) ?? $tag;
+    }, $html) ?? $html;
 }
 
 function st_builder_el_end(string $html, string $tag, int $innerStart): ?int

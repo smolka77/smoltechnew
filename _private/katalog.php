@@ -288,7 +288,7 @@ function st_cms_renumber_tiles(string $body): string
 
 function st_cms_set_tile_grid(string $body, int $n): string
 {
-    $g = $n <= 1 ? 'g-1' : ($n === 2 ? 'g-2' : 'g-3');
+    $g = $n <= 1 ? 'g-1' : ($n === 2 ? 'g-2' : ($n === 4 ? 'g-4' : 'g-3'));
     $tile = strpos($body, '<a class="tile');
     if ($tile === false) return $body;
     $grid = strrpos(substr($body, 0, $tile), '<div class="grid ');
@@ -308,9 +308,18 @@ function st_cms_fill_tile(string $tpl, array $it, int $idx): string
 {
     $inner = $tpl;
     $inner = preg_replace('/(href=")[^"]*/', '$1' . ($it['href'] ?? '#'), $inner, 1) ?? $inner;
-    if (array_key_exists('title', $it)) $inner = preg_replace('/(<h3>)(.*?)(<\/h3>)/s', '$1' . st_cms_esc((string) $it['title']) . '$3', $inner, 1) ?? $inner;
-    if (array_key_exists('tag', $it)) $inner = preg_replace('/(<span class="tag">)(.*?)(<\/span>)/s', '$1' . st_cms_esc((string) $it['tag']) . '$3', $inner, 1) ?? $inner;
-    if (array_key_exists('text', $it)) $inner = preg_replace('/(<p>)(.*?)(<\/p>)/s', '$1' . st_cms_esc((string) $it['text']) . '$3', $inner, 1) ?? $inner;
+    if (array_key_exists('title', $it)) {
+        $inner = preg_replace('/(<h3>)(.*?)(<\/h3>)/s', '$1' . st_cms_esc((string) $it['title']) . '$3', $inner, 1) ?? $inner;
+        $inner = preg_replace('/(<img\b[^>]*\salt=")[^"]*(")/i', '$1' . st_cms_esc((string) $it['title']) . '$2', $inner, 1) ?? $inner;
+    }
+    if (array_key_exists('tag', $it)) {
+        if (trim((string) $it['tag']) === '') $inner = preg_replace('/\s*<span class="tag">.*?<\/span>/s', '', $inner, 1) ?? $inner;
+        else $inner = preg_replace('/(<span class="tag">)(.*?)(<\/span>)/s', '$1' . st_cms_esc((string) $it['tag']) . '$3', $inner, 1) ?? $inner;
+    }
+    if (array_key_exists('text', $it)) {
+        if (trim((string) $it['text']) === '') $inner = preg_replace('/\s*<p>.*?<\/p>/s', '', $inner, 1) ?? $inner;
+        else $inner = preg_replace('/(<p>)(.*?)(<\/p>)/s', '$1' . st_cms_esc((string) $it['text']) . '$3', $inner, 1) ?? $inner;
+    }
     if (array_key_exists('link', $it)) $inner = preg_replace('/(<(?:span|a) class="arrow-link"[^>]*>)([^<]+)/', '$1' . st_cms_esc((string) $it['link']), $inner, 1) ?? $inner;
     if (!empty($it['image'])) {
         if (preg_match('/<img src="([^"]+)"/', $inner, $img)) $inner = st_cms_replace_src($inner, $img[1], (string) $it['image']);
@@ -369,13 +378,13 @@ function st_cms_add_child_page(array $data): array
     if (preg_match('/\p{Cyrillic}/u', $titleRaw)) {
         $titleUk = $titleRaw;
         $tagUk = $tagRaw !== '' ? $tagRaw : $titleUk;
-        $textUk = $textRaw !== '' ? $textRaw : 'Опишіть цю машину — потужність, процес і типові деталі.';
+        $textUk = $textRaw;
         $linkUk = $linkRaw !== '' ? $linkRaw : $titleUk;
         $slug = st_cms_slugify(st_cms_lat($titleUk));
     } else {
         $titleEn = $titleRaw !== '' ? $titleRaw : 'New product group';
         $tagEn = $tagRaw !== '' ? $tagRaw : $titleEn;
-        $textEn = $textRaw !== '' ? $textRaw : 'Describe this machine group — power, process and typical parts.';
+        $textEn = $textRaw;
         $linkEn = $linkRaw !== '' ? $linkRaw : ('See ' . $titleEn);
         $uk = [$titleEn => $titleEn, $tagEn => $tagEn, $textEn => $textEn, $linkEn => $linkEn];
         if (function_exists('st_i18n_many')) {

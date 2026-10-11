@@ -154,14 +154,16 @@ function st_builder_with_hidden(string $el, bool $on): string
     return preg_replace('/^<li\b[^>]*>/i', $open, $el, 1) ?? $el;
 }
 
-function st_builder_menu_li(string $kind, string $url, string $label): string
+function st_builder_menu_li(string $kind, string $url, string $label, string $subtitle = ''): string
 {
     $u = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $t = htmlspecialchars($label, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $ico = '<span class="mega__ico mega__ico--mark"><img src="/assets/img/mark-nav.png?v=20260914c" alt="" width="34" height="34" decoding="async"></span>';
+    $sub = trim($subtitle);
+    $ds = $sub !== '' ? '<span class="mega__ds">' . htmlspecialchars($sub, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '</span>' : '';
     return match ($kind) {
         'top' => '<li class="nav__item"><a class="nav__link" href="' . $u . '">' . $t . '</a></li>',
-        'mega' => '<li><a href="' . $u . '">' . $ico . '<span><span class="mega__tt">' . $t . '</span><span class="mega__ds">Сторінка SMOLTECH</span></span></a></li>',
+        'mega' => '<li><a href="' . $u . '">' . $ico . '<span><span class="mega__tt">' . $t . '</span>' . $ds . '</span></a></li>',
         'drawer' => '<li><a class="drawer__link" href="' . $u . '">' . $t . '</a></li>',
         default => '<li><a href="' . $u . '">' . $t . '</a></li>',
     };
@@ -196,7 +198,7 @@ function st_builder_desired_items(array $children, bool $active, string $url, in
     return $rest;
 }
 
-function st_builder_menu_apply(string $html, string $url, string $slot, int $position, string $label): string
+function st_builder_menu_apply(string $html, string $url, string $slot, int $position, string $label, string $subtitle = ''): string
 {
     $url = st_builder_norm_url($url);
     if ($url === '') throw new RuntimeException('This page has no address to put in the menu.');
@@ -212,7 +214,7 @@ function st_builder_menu_apply(string $html, string $url, string $slot, int $pos
             $def['slot'] === $slot,
             $url,
             $position,
-            st_builder_menu_li((string) $def['kind'], $url, $label)
+            st_builder_menu_li((string) $def['kind'], $url, $label, $subtitle)
         );
         if ($desired === $children) continue;
         $html = st_builder_splice_children($html, $region, $desired);
@@ -903,6 +905,108 @@ function st_builder_one_variant(string $body, string $name, string $image = ''):
     return $body;
 }
 
+function st_builder_norm_name(string $text): string
+{
+    $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+    return function_exists('mb_strtolower') ? mb_strtolower($text) : strtolower($text);
+}
+
+function st_builder_title_taken(string $title, array $tiles, array $children): bool
+{
+    $want = st_builder_norm_name($title);
+    if ($want === '') return false;
+    foreach ($tiles as $tile) {
+        if (st_builder_norm_name((string) ($tile['title'] ?? '')) === $want) return true;
+    }
+    foreach ($children as $ch) {
+        foreach (['name', 'title', 'label'] as $key) {
+            $have = st_builder_norm_name((string) ($ch[$key] ?? ''));
+            if ($have !== '' && $have === $want) return true;
+        }
+    }
+    return false;
+}
+
+function st_builder_remove_blocks(string $html, string $tag, string $class): string
+{
+    $re = '/<' . preg_quote($tag, '/') . '\b[^>]*class="[^"]*\b' . preg_quote($class, '/') . '\b[^"]*"[^>]*>/i';
+    $offset = 0;
+    while (preg_match($re, $html, $m, PREG_OFFSET_CAPTURE, $offset)) {
+        $start = (int) $m[0][1];
+        $end = st_builder_el_end($html, $tag, $start + strlen($m[0][0]));
+        if ($end === null) break;
+        $html = substr($html, 0, $start) . substr($html, $end);
+        $offset = $start;
+    }
+    return $html;
+}
+
+/** Keep the hero and the specification table. Drop the sibling page’s own sales copy. */
+function st_builder_neutral_body(string $html, string $title, string $text): string
+{
+    $safeTitle = htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $safeText = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if (preg_match('/<p class="hero__sub">.*?<\/p>/s', $html)) {
+        if ($text !== '') $html = preg_replace('/(<p class="hero__sub">).*?(<\/p>)/s', '$1' . $safeText . '$2', $html, 1) ?? $html;
+        else $html = preg_replace('/\s*<p class="hero__sub">.*?<\/p>/s', '', $html, 1) ?? $html;
+    } elseif ($text !== '') {
+        $html = preg_replace('/<\/h1>/i', '</h1>' . "\n      " . '<p class="hero__sub">' . $safeText . '</p>', $html, 1) ?? $html;
+    }
+    $html = st_builder_remove_blocks($html, 'div', 'feature-rail');
+    $out = '';
+    $offset = 0;
+    $len = strlen($html);
+    while ($offset < $len) {
+        if (!preg_match('/<section\b/i', $html, $m, PREG_OFFSET_CAPTURE, $offset)) {
+            $out .= substr($html, $offset);
+            break;
+        }
+        $start = (int) $m[0][1];
+        $out .= substr($html, $offset, $start - $offset);
+        $gt = strpos($html, '>', $start);
+        if ($gt === false) {
+            $out .= substr($html, $start);
+            break;
+        }
+        $end = st_builder_el_end($html, 'section', $gt + 1);
+        if ($end === null) {
+            $out .= substr($html, $start);
+            break;
+        }
+        $section = substr($html, $start, $end - $start);
+        $hero = (bool) preg_match('/class="[^"]*\bhero\b/', $section);
+        $spec = str_contains($section, 'param-matrix') || str_contains($section, 'model-strip');
+        if ($hero || $spec || str_contains($section, '{{FORMULARZ}}')) {
+            if ($hero) {
+                $section = preg_replace('/(<img\b[^>]*\salt=")[^"]*(")/i', '$1' . $safeTitle . '$2', $section, 1) ?? $section;
+            }
+            if ($spec) {
+                $section = preg_replace('/(<h2\b[^>]*>).*?(<\/h2>)/s', '$1Специфікація$2', $section) ?? $section;
+                $section = preg_replace('/\s*<p class="lead">.*?<\/p>/s', '', $section) ?? $section;
+                $section = preg_replace('/aria-label="[^"]*"/', 'aria-label="' . $safeTitle . '"', $section) ?? $section;
+            }
+            $out .= $section;
+        }
+        $offset = $end;
+    }
+    return $out;
+}
+
+function st_builder_set_hero_kicker(string $html, string $tag): string
+{
+    if (!preg_match('/<section class="hero\b.*?<\/section>/s', $html, $m, PREG_OFFSET_CAPTURE)) return $html;
+    $hero = $m[0][0];
+    if ($tag !== '') {
+        $safe = htmlspecialchars($tag, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('/<p class="eyebrow">/', $hero)) {
+            $hero = preg_replace('/(<p class="eyebrow">).*?(<\/p>)/s', '$1' . $safe . '$2', $hero, 1) ?? $hero;
+        }
+    } else {
+        $hero = preg_replace('/\s*<p class="eyebrow">.*?<\/p>/s', '', $hero, 1) ?? $hero;
+    }
+    return substr($html, 0, (int) $m[0][1]) . $hero . substr($html, (int) $m[0][1] + strlen($m[0][0]));
+}
+
 function st_builder_swap_hero_image(string $html, string $image): string
 {
     if ($image === '' || !preg_match('/<section class="hero\b.*?<\/section>/s', $html, $m, PREG_OFFSET_CAPTURE)) return $html;
@@ -974,10 +1078,19 @@ function st_builder_add_machine(array $data): array
     if ($tiles === []) throw new RuntimeException('This page has no machine-type cards. Open a category such as Stationary spot welders or Stud welding.');
     [$titleUk, $titleEn] = st_builder_uk_title((string) ($data['title'] ?? ''));
     if (mb_strlen($titleUk) < 2) throw new RuntimeException('Enter the machine type name.');
+    $givenEn = trim((string) ($data['titleEn'] ?? ''));
+    if ($givenEn !== '') $titleEn = $givenEn;
     $tagRaw = trim((string) ($data['tag'] ?? ''));
     $textRaw = trim((string) ($data['text'] ?? ''));
+    $subUk = trim((string) ($data['subtitle'] ?? ''));
+    $subEn = trim((string) ($data['subtitleEn'] ?? ''));
+    $textEn = trim((string) ($data['textEn'] ?? ''));
+    if (mb_strlen($titleEn) > 140) $titleEn = mb_substr($titleEn, 0, 140);
     if (mb_strlen($tagRaw) > 60) $tagRaw = mb_substr($tagRaw, 0, 60);
     if (mb_strlen($textRaw) > 400) $textRaw = mb_substr($textRaw, 0, 400);
+    if (mb_strlen($textEn) > 400) $textEn = mb_substr($textEn, 0, 400);
+    if (mb_strlen($subUk) > 80) $subUk = mb_substr($subUk, 0, 80);
+    if (mb_strlen($subEn) > 80) $subEn = mb_substr($subEn, 0, 80);
     $image = trim((string) ($data['image'] ?? ''));
     if ($image !== '') {
         if (!preg_match('#^/assets/img/[A-Za-z0-9_./-]+$#', $image) || str_contains($image, '..') || !is_file(ST_ROOT . $image)) {
@@ -986,6 +1099,9 @@ function st_builder_add_machine(array $data): array
     }
     $parentUrl = (string) ($parent['url'] ?? ($pmeta['url'] ?? ''));
     $children = st_builder_type_children($parentUrl);
+    if (st_builder_title_taken($titleUk, $tiles, $children) || ($titleEn !== '' && st_builder_title_taken($titleEn, $tiles, $children))) {
+        throw new RuntimeException('A machine type with this name is already in the category. Choose a different name.');
+    }
     $srcPath = st_builder_type_template($children);
     if ($srcPath === null) throw new RuntimeException('This category has no machine page to copy. Add the first subpage from Add page, then new types can copy it.');
     $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleEn !== '' ? $titleEn : $titleUk);
@@ -1022,20 +1138,16 @@ function st_builder_add_machine(array $data): array
         if ($extra > 30) throw new RuntimeException('Could not find a free page id.');
     } while (true);
     [$tm, $tbody] = st_cms_parse((string) file_get_contents($srcPath));
-    $tagUk = $tagRaw !== '' ? $tagRaw : st_builder_clip(st_cms_strip((string) (st_cms_hero($tbody)['eyebrow'] ?? 'SMOLTECH')), 40);
-    if ($tagUk === '') $tagUk = 'SMOLTECH';
-    $textUk = $textRaw !== '' ? $textRaw : 'Опишіть цю машину — потужність, процес і типові деталі.';
+    $tagUk = $tagRaw;
+    $textUk = $textRaw;
     $linkUk = st_builder_clip('Дивитись ' . $titleUk, 48);
     if ($image === '') {
         $image = (string) ($tiles[array_key_last($tiles)]['image'] ?? '');
         if ($image === '') $image = (string) (st_cms_hero($tbody)['image'] ?? '/assets/img/company-hall-1.jpg');
     }
     $bodyHtml = st_builder_retarget_links(st_builder_set_h1($tbody, $titleUk), (string) ($tm['url'] ?? ''), $url);
-    $bodyHtml = preg_replace('/(<p class="hero__sub">).*?(<\/p>)/s', '$1' . htmlspecialchars($textUk, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '$2', $bodyHtml, 1) ?? $bodyHtml;
-    if (preg_match('/<section class="hero\b.*?<\/section>/s', $bodyHtml, $hero, PREG_OFFSET_CAPTURE)) {
-        $chunk = preg_replace('/(<p class="eyebrow">).*?(<\/p>)/s', '$1' . htmlspecialchars($tagUk, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '$2', $hero[0][0], 1) ?? $hero[0][0];
-        $bodyHtml = substr($bodyHtml, 0, (int) $hero[0][1]) . $chunk . substr($bodyHtml, (int) $hero[0][1] + strlen($hero[0][0]));
-    }
+    $bodyHtml = st_builder_neutral_body($bodyHtml, $titleUk, $textUk);
+    $bodyHtml = st_builder_set_hero_kicker($bodyHtml, $tagUk);
     $bodyHtml = st_builder_swap_hero_image($bodyHtml, $image);
     $bodyHtml = st_builder_one_variant($bodyHtml, $titleUk, $image);
     $parentCrumb = trim((string) ($pmeta['crumbs'] ?? ''));
@@ -1047,7 +1159,7 @@ function st_builder_add_machine(array $data): array
         'url' => $url,
         'nav' => (string) ($parent['nav'] ?? ($pmeta['nav'] ?? '')),
         'title' => $titleUk . ' | SMOLTECH',
-        'desc' => $textUk,
+        'desc' => $textUk !== '' ? $textUk : $titleUk,
         'ogtitle' => $titleUk,
         'crumbs' => $parentCrumb . '>>' . $parentUrl . ' | ' . $titleUk,
         'prio' => '0.75',
@@ -1083,15 +1195,18 @@ function st_builder_add_machine(array $data): array
                 $position = (int) $place['position'] + 1;
             }
         }
-        if ($slot !== 'hidden') $layout = st_builder_menu_apply($layout, $url, $slot, $position, $titleUk);
-        $footLabel = $tagUk !== '' && $tagUk !== 'SMOLTECH' ? st_builder_clip($tagUk . ' — ' . $titleUk, 48) : st_builder_clip($titleUk, 48);
+        if ($slot !== 'hidden') $layout = st_builder_menu_apply($layout, $url, $slot, $position, $titleUk, $subUk);
+        $footLabel = $tagUk !== '' ? st_builder_clip($tagUk . ' — ' . $titleUk, 48) : st_builder_clip($titleUk, 48);
         $layout = st_builder_footer_insert($layout, $url, $footLabel, $sibUrls);
         if ($layout !== $layoutOrig) st_builder_write_layout($layout);
-        if ($titleEn !== '' && $titleEn !== $titleUk) {
+        $pairs = [];
+        if ($titleEn !== '' && $titleEn !== $titleUk) $pairs[] = ['uk' => $titleUk, 'en' => $titleEn];
+        if ($textUk !== '' && $textEn !== '' && $textEn !== $textUk) $pairs[] = ['uk' => $textUk, 'en' => $textEn];
+        if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) $pairs[] = ['uk' => $subUk, 'en' => $subEn];
+        if ($titleEn !== '') $pairs[] = ['uk' => $linkUk, 'en' => st_builder_clip('See ' . $titleEn, 48)];
+        if ($pairs !== []) {
             require_once __DIR__ . '/tlumacz.php';
-            st_i18n_author_pairs([
-                ['uk' => $titleUk, 'en' => $titleEn],
-            ]);
+            st_i18n_author_pairs($pairs);
         }
     } catch (Throwable $e) {
         if (is_file($newPath)) @unlink($newPath);
