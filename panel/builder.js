@@ -93,6 +93,7 @@
     var currentSection = null;
     var currentItem = null;
     var linkRange = null;
+    var heldRange = null;
     var pickedEl = null;
 
     var oldBlocks = document.getElementById('stb-blocks');
@@ -439,6 +440,15 @@
         if (k === 'k') makeLink();
         else fmt(k === 'b' ? 'bold' : (k === 'i' ? 'italic' : 'underline'));
       }, true);
+      d.addEventListener('selectionchange', function () {
+        var live = d.getSelection();
+        if (live && live.rangeCount && !live.isCollapsed) {
+          try { heldRange = live.getRangeAt(0).cloneRange(); } catch (err) { heldRange = null; }
+        }
+        if (!pickedEl || !pickedEl.isConnected) { pickedEl = null; return; }
+        if (!live || !live.rangeCount || live.isCollapsed) return;
+        if (live.anchorNode && !pickedEl.contains(live.anchorNode)) pickedEl = null;
+      });
       d.addEventListener('click', onClick, true);
       d.addEventListener('dblclick', onDblClick, true);
       d.addEventListener('keydown', onKey, true);
@@ -1159,6 +1169,7 @@
         btn.classList.toggle('is-on', btn.getAttribute('data-lang') === mode);
       });
       showMarkedHosts();
+      heldRange = null;
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
     }
 
@@ -1890,12 +1901,20 @@
         return;
       }
       linkRange = savedRange();
+      if ((!linkRange || linkRange.collapsed || !flat(linkRange.toString())) && heldRange) {
+        try {
+          if (heldRange.startContainer.isConnected && flat(heldRange.toString())) linkRange = heldRange.cloneRange();
+        } catch (err) { /* the live selection is the one that counts */ }
+      }
       if (existing) {
         try {
           linkRange = doc.createRange();
           linkRange.selectNodeContents(existing);
         } catch (err) { linkRange = savedRange(); }
-      } else if (linkRange && hostEl && !hostEl.contains(linkRange.commonAncestorContainer)) linkRange = null;
+      } else if (linkRange && hostEl && !hostEl.contains(linkRange.commonAncestorContainer)) {
+        var main = doc.getElementById('main');
+        if (!main || !main.contains(linkRange.commonAncestorContainer)) linkRange = null;
+      }
       var chosen = linkRange && !linkRange.collapsed && flat(linkRange.toString());
       if (!existing && !chosen) { say('Select the words you want to link.', 'err'); return; }
       var plan = !existing && linkRange ? planPhrase(linkRange) : null;
