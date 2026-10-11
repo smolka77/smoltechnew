@@ -2018,11 +2018,20 @@
       });
     }
 
+    function pinEnFragments(host) {
+      if (!host || host.querySelector('[data-st-en]')) return;
+      var full = host.stbUkFull || '';
+      if (!full) return;
+      rawTextNodes(host).forEach(function (n) {
+        if (n.stbUk === full && n.nodeValue !== n.stbUk) n.stbUk = n.nodeValue;
+      });
+    }
+
     function showUaOnlyHosts() {
       if (mode !== 'en' || !doc) return;
       doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
         if (host.closest('[data-st-region="header"], [data-st-region="footer"], [data-st-region="drawer"], [data-st-region="mbar"], [data-st-region="topbar"], .nav, .mega')) return;
-        if (host.querySelector('[data-st-en]')) return;
+        if (host.hasAttribute('data-st-enmark') || host.querySelector('[data-st-en], [data-st-en-only]')) return;
         var els = host.querySelectorAll('*');
         if (!els.length || !host.querySelector('a.st-link, a[data-st-link]')) return;
         var i, el, tag, ok = true;
@@ -2098,12 +2107,14 @@
       var plain = hostPlain(host);
       if (!plain.en || plain.en === plain.uk) {
         if (marks.length) paintMarks(host, marks);
+        pinEnFragments(host);
         return;
       }
       if (!host.querySelector('[data-st-en]')) {
         if (!host.querySelector('*')) showWholeEn(host, plain.en);
         else showEnIgnoringInline(host, plain.en);
         if (marks.length) paintMarks(host, marks);
+        pinEnFragments(host);
         return;
       }
       if (!placeMarked(host, plain.en)) {
@@ -2112,6 +2123,7 @@
       }
       rawTextNodes(host).forEach(function (n) { n.stbPlaced = true; });
       if (marks.length) paintMarks(host, marks);
+      pinEnFragments(host);
     }
 
     function showMarkedHosts() {
