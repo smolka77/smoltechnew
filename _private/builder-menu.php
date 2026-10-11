@@ -1066,7 +1066,7 @@ function st_builder_blank_label(DOMElement $el, string $title, string $text): ?s
     if ($tag === 'h1') return null;
     if (str_contains($cls, ' model-strip__name ')) return $title !== '' ? $title : 'Модель';
     if (str_contains($cls, ' param-matrix__val ')) return '—';
-    if (str_contains($cls, ' param-matrix__label ')) return 'Параметр';
+    if (str_contains($cls, ' param-matrix__label ')) return null;
     if (str_contains($cls, ' param-matrix__head ')) return $title !== '' ? $title : 'Модель';
     if (str_contains($cls, ' eyebrow ')) return 'Розділ';
     if (str_contains($cls, ' hero__sub ')) return $text !== '' ? $text : 'Короткий опис, який можна змінити.';
@@ -1082,6 +1082,101 @@ function st_builder_blank_label(DOMElement $el, string $title, string $text): ?s
     if ($tag === 'a') return 'Докладніше';
     if (in_array($tag, ['p', 'td', 'th', 'div', 'span', 'strong'], true)) return 'Текст, який можна змінити.';
     return null;
+}
+
+/** Placeholder wording, and the English the public site should show for that wording. */
+function st_builder_slot_dict(): array
+{
+    return [
+        'Розділ' => 'Section',
+        'Заголовок' => 'Heading',
+        'Специфікація' => 'Specification',
+        'Короткий опис, який можна змінити.' => 'Short description you can change.',
+        'Текст, який можна змінити.' => 'Text you can change.',
+        'Пункт' => 'Item',
+        'Позначка' => 'Label',
+        'Підпис' => 'Caption',
+        'Нове відео' => 'New video',
+        'Запросити пропозицію' => 'Request a quote',
+        'Докладніше' => 'Read more',
+        'Питання' => 'Question',
+        'Нова модель' => 'New model',
+        'Модель' => 'Model',
+        'Відео' => 'Video',
+        'Дивитись відео' => 'Watch the video',
+        'Партнери' => 'Partners',
+        'Галерея' => 'Gallery',
+        'Перелік' => 'List',
+        'Цифри' => 'Figures',
+        'Підбір' => 'Selection',
+        'Наступний крок' => 'Next step',
+        'Фото' => 'Photo',
+    ];
+}
+
+/** Invisible per-instance mark so each placeholder has its own translation key. */
+function st_builder_slot_mark(): string
+{
+    static $n = 0;
+    $n++;
+    $id = dechex($n) . bin2hex(random_bytes(4));
+    $out = '';
+    $len = strlen($id);
+    for ($i = 0; $i < $len; $i++) {
+        $c = ord($id[$i]);
+        for ($b = 7; $b >= 0; $b--) $out .= (($c >> $b) & 1) ? "\u{200D}" : "\u{200C}";
+    }
+    return $out;
+}
+
+/**
+ * Give every generic placeholder its own key and an English pair.
+ * Real specification row names are left as written.
+ *
+ * @return array{0:string,1:list<array{uk:string,en:string}>}
+ */
+function st_builder_personal_slots(string $html): array
+{
+    $dict = st_builder_slot_dict();
+    $token = 'STFORMHOLD';
+    $html = str_replace('{{FORMULARZ}}', '<div id="' . $token . '"></div>', $html);
+    $prev = libxml_use_internal_errors(true);
+    $dom = new DOMDocument();
+    $dom->loadHTML('<?xml encoding="UTF-8"><div id="st-slot-root">' . $html . '</div>', LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($prev);
+    $root = $dom->getElementById('st-slot-root');
+    if (!$root instanceof DOMElement) {
+        return [str_replace('<div id="' . $token . '"></div>', '{{FORMULARZ}}', $html), []];
+    }
+    $xp = new DOMXPath($dom);
+    $pairs = [];
+    foreach ($xp->query('.//text()', $root) ?: [] as $node) {
+        if (!$node instanceof DOMText) continue;
+        $parent = $node->parentNode;
+        if ($parent instanceof DOMElement && in_array(strtolower($parent->tagName), ['script', 'style', 'svg'], true)) continue;
+        $trim = trim(preg_replace('/\s+/u', ' ', $node->nodeValue) ?? '');
+        $base = str_replace(["\u{200C}", "\u{200D}"], '', $trim);
+        if (!isset($dict[$base])) continue;
+        $key = $base . st_builder_slot_mark();
+        $node->nodeValue = preg_replace('/' . preg_quote($trim, '/') . '/u', $key, $node->nodeValue, 1) ?? $key;
+        $pairs[] = ['uk' => $key, 'en' => $dict[$base]];
+    }
+    foreach (['alt', 'aria-label', 'data-title', 'title'] as $attr) {
+        foreach ($xp->query('.//*[@' . $attr . ']', $root) ?: [] as $el) {
+            if (!$el instanceof DOMElement) continue;
+            $trim = trim(preg_replace('/\s+/u', ' ', $el->getAttribute($attr)) ?? '');
+            $base = str_replace(["\u{200C}", "\u{200D}"], '', $trim);
+            if (!isset($dict[$base])) continue;
+            $key = $base . st_builder_slot_mark();
+            $el->setAttribute($attr, $key);
+            $pairs[] = ['uk' => $key, 'en' => $dict[$base]];
+        }
+    }
+    $out = '';
+    foreach ($root->childNodes as $child) $out .= $dom->saveHTML($child);
+    $out = str_replace('<div id="' . $token . '"></div>', '{{FORMULARZ}}', $out);
+    return [$out, $pairs];
 }
 
 function st_builder_in_spec(DOMElement $el): bool
@@ -1251,6 +1346,7 @@ function st_builder_add_machine(array $data): array
     $bodyHtml = st_builder_set_hero_kicker($bodyHtml, $tagUk);
     $bodyHtml = st_builder_swap_hero_image($bodyHtml, $image);
     $bodyHtml = st_builder_one_variant($bodyHtml, $titleUk, $image);
+    [$bodyHtml, $slotPairs] = st_builder_personal_slots($bodyHtml);
     $parentCrumb = trim((string) ($pmeta['crumbs'] ?? ''));
     if (str_contains($parentCrumb, '|')) $parentCrumb = trim((string) preg_replace('/^.*\|\s*/u', '', $parentCrumb));
     if (str_contains($parentCrumb, '>>')) $parentCrumb = trim(explode('>>', $parentCrumb, 2)[0]);
@@ -1306,6 +1402,7 @@ function st_builder_add_machine(array $data): array
         if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) $pairs[] = ['uk' => $subUk, 'en' => $subEn];
         if ($titleEn !== '') $pairs[] = ['uk' => $linkUk, 'en' => st_builder_clip('See ' . $titleEn, 48)];
         if ($footEn !== '') $pairs[] = ['uk' => $footUk, 'en' => $footEn];
+        foreach ($slotPairs as $row) $pairs[] = $row;
         if ($pairs !== []) {
             require_once __DIR__ . '/tlumacz.php';
             st_i18n_author_pairs($pairs);

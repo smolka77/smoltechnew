@@ -2299,6 +2299,11 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
   grid-template-columns: repeat(var(--ms-cols, 3), minmax(0, 1fr));
   gap: clamp(.7rem, 1.6vw, 1.1rem);
 }
+.model-strip--shots.model-strip--1 {
+  --ms-cols: 1;
+  grid-template-columns: minmax(0, 1fr);
+  width: calc((100% - 2 * clamp(.7rem, 1.6vw, 1.1rem)) / 3);
+}
 .model-strip--shots.model-strip--2 { --ms-cols: 2; }
 .model-strip--shots.model-strip--4 { --ms-cols: 4; }
 .model-strip--shots.model-strip--5 { --ms-cols: 5; }
@@ -2516,6 +2521,7 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
   }
   .model-strip--shots,
   .model-strip--shots.model-strip--2 { grid-template-columns: 1fr 1fr; }
+  .model-strip--shots.model-strip--1 { width: calc((100% - clamp(.7rem, 1.6vw, 1.1rem)) / 2); }
 }
 @media (max-width: 560px) {
   .feature-rail,
@@ -2524,6 +2530,7 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
   .film-rail--1,
   .model-strip--shots,
   .model-strip--shots.model-strip--2 { grid-template-columns: 1fr; }
+  .model-strip--shots.model-strip--1 { width: 100%; }
   .param-matrix__label { min-width: 9.5rem; }
 }
 

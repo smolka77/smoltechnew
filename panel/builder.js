@@ -530,7 +530,10 @@
           }
           var phrase = t.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote');
           if (phrase && (phrase.stbUkSnap != null || phrase.stbUkFull)) phrase.stbEnEdited = true;
-          if (box) rawTextNodes(box).forEach(function (n) { if (n.stbEn != null) n.stbEn = n.nodeValue; });
+          if (box) rawTextNodes(box).forEach(function (n) {
+            if (n.stbEn != null) n.stbEn = n.nodeValue;
+            else if (n.stbUk && (String(n.stbUk).indexOf('\u200C') >= 0 || String(n.stbUk).indexOf('\u200D') >= 0)) n.stbEn = n.nodeValue;
+          });
         }
         var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
         if (!nameNode && t.closest) nameNode = t.closest('button.model-strip__btn');
@@ -1388,6 +1391,7 @@
       } else if (formEl) formEl.before(sec);
       else main.appendChild(sec);
       stampTree(sec);
+      uniquifySlots(sec);
       setSelection(sec, 'section');
       var h = sec.querySelector('h1, h2, h3');
       if (h) startEdit(h);
@@ -2501,6 +2505,7 @@
 
     function collectPairs() {
       var pairs = [];
+      pushMarkedSlots(pairs);
       var win = frame.contentWindow;
       if (mode !== 'en' || !win.ST || typeof win.ST.lookup !== 'function') return pairs;
       doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
@@ -2831,15 +2836,120 @@
       }
     }
 
+    var SLOT_EN = {
+      'Розділ': 'Section',
+      'Заголовок': 'Heading',
+      'Специфікація': 'Specification',
+      'Короткий опис, який можна змінити.': 'Short description you can change.',
+      'Текст, який можна змінити.': 'Text you can change.',
+      'Пункт': 'Item',
+      'Позначка': 'Label',
+      'Підпис': 'Caption',
+      'Нове відео': 'New video',
+      'Запросити пропозицію': 'Request a quote',
+      'Докладніше': 'Read more',
+      'Питання': 'Question',
+      'Нова модель': 'New model',
+      'Модель': 'Model',
+      'Відео': 'Video',
+      'Дивитись відео': 'Watch the video',
+      'Партнери': 'Partners',
+      'Галерея': 'Gallery',
+      'Перелік': 'List',
+      'Цифри': 'Figures',
+      'Підбір': 'Selection',
+      'Наступний крок': 'Next step',
+      'Фото': 'Photo'
+    };
+
+    function slotBase(s) {
+      return String(s || '').replace(/[\u200C\u200D]/g, '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function slotMark() {
+      slotMark.n = (slotMark.n || 0) + 1;
+      var id = slotMark.n.toString(16) + Math.random().toString(16).slice(2, 10);
+      var out = '';
+      var i, b, c;
+      for (i = 0; i < id.length; i++) {
+        c = id.charCodeAt(i);
+        for (b = 7; b >= 0; b--) out += ((c >> b) & 1) ? '\u200D' : '\u200C';
+      }
+      return out;
+    }
+
+    function slotKey(uk) {
+      var base = slotBase(uk);
+      if (!SLOT_EN[base]) return uk;
+      if (String(uk).indexOf('\u200C') >= 0 || String(uk).indexOf('\u200D') >= 0) return String(uk);
+      return base + slotMark();
+    }
+
     function fillText(el, uk, en) {
       if (!el) return;
-      var shown = mode === 'en' ? (en || uk) : uk;
+      var key = slotKey(uk);
+      var shown = mode === 'en' ? (en || uk) : key;
       el.textContent = shown;
       if (el.firstChild && el.firstChild.nodeType === 3) {
-        el.firstChild.stbUk = uk;
-        el.stbUkLeaf = uk;
+        el.firstChild.stbUk = key;
+        el.stbUkLeaf = key;
         if (en && en !== uk) el.firstChild.stbEn = en;
       }
+    }
+
+    function uniquifySlots(root) {
+      if (!root || !doc) return;
+      var tw = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          var p = node.parentElement;
+          if (!p || p.closest('script, style, noscript, svg')) return NodeFilter.FILTER_REJECT;
+          if (!node.nodeValue || !String(node.nodeValue).trim()) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var nodes = [];
+      var n;
+      while ((n = tw.nextNode())) nodes.push(n);
+      nodes.forEach(function (node) {
+        var raw = node.stbUk != null ? node.stbUk : node.nodeValue;
+        var base = slotBase(raw);
+        if (!SLOT_EN[base]) return;
+        if (String(raw).indexOf('\u200C') >= 0 || String(raw).indexOf('\u200D') >= 0) return;
+        var key = base + slotMark();
+        var en = SLOT_EN[base];
+        node.stbUk = key;
+        node.stbEn = en;
+        var parent = node.parentElement;
+        if (parent && parent.childNodes.length === 1) parent.stbUkLeaf = key;
+        node.nodeValue = mode === 'en' ? pad(key, en) : key;
+      });
+    }
+
+    function pushMarkedSlots(pairs) {
+      if (!doc) return;
+      walkText(doc, function (node) {
+        if (node.stbUk == null) return;
+        var uk = String(node.stbUk);
+        if (uk.indexOf('\u200C') < 0 && uk.indexOf('\u200D') < 0) return;
+        var base = slotBase(uk);
+        var en = node.stbEn != null ? slotBase(node.stbEn) : '';
+        if (mode === 'en') {
+          var cur = slotBase(node.nodeValue);
+          if (looksEn(cur)) en = cur;
+        }
+        if (!en || !looksEn(en)) en = SLOT_EN[base] || '';
+        var key = uk.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!key || !en || !looksEn(en)) return;
+        pairs.push({ uk: key, en: en });
+      });
+      doc.querySelectorAll('[data-title], [aria-label], img[alt]').forEach(function (el) {
+        if (!el.stbAttrs) return;
+        Object.keys(el.stbAttrs).forEach(function (name) {
+          var row = el.stbAttrs[name];
+          if (!row || !row.uk || !row.en || !looksEn(row.en)) return;
+          pairs.push({ uk: row.uk, en: row.en });
+        });
+      });
     }
 
     function ukOf(el) {
@@ -2879,7 +2989,9 @@
       copy.querySelectorAll('img').forEach(function (img) {
         img.setAttribute('src', '/assets/img/slot.svg');
         img.removeAttribute('srcset');
-        img.setAttribute('alt', 'Фото');
+        var altKey = slotKey('Фото');
+        img.setAttribute('alt', altKey);
+        img.stbAttrs = { alt: { uk: altKey, en: 'Photo' } };
         img.classList.add('is-slot');
       });
       var links = copy.matches && copy.matches('a[href]') ? [copy] : [];
@@ -2892,10 +3004,17 @@
       if (copy.matches && copy.matches('article.film-rail__i, article.vcard, article.mach')) {
         var yt = copy.querySelector('.yt');
         if (yt) {
+          var titleKey = slotKey('Нове відео');
+          var watchKey = slotKey('Дивитись відео');
           yt.setAttribute('data-vid', '');
-          yt.setAttribute('data-title', 'Нове відео');
-          yt.setAttribute('aria-label', 'Дивитись відео');
-          yt.innerHTML = '<span class="film-rail__empty">Відео</span>';
+          yt.setAttribute('data-title', titleKey);
+          yt.setAttribute('aria-label', watchKey);
+          yt.stbAttrs = {
+            'data-title': { uk: titleKey, en: 'New video' },
+            'aria-label': { uk: watchKey, en: 'Watch the video' }
+          };
+          yt.innerHTML = '<span class="film-rail__empty"></span>';
+          fillText(yt.querySelector('.film-rail__empty'), 'Нове відео', 'New video');
         }
       }
       var rules = [
@@ -2924,17 +3043,18 @@
       copy.querySelectorAll('a.btn, a.arrow-link').forEach(function (a) {
         var uk = a.classList.contains('btn') ? 'Запросити пропозицію' : 'Докладніше';
         var en = a.classList.contains('btn') ? 'Request a quote' : 'Read more';
+        var key = slotKey(uk);
         var text = null;
         var i;
         for (i = 0; i < a.childNodes.length; i++) {
           if (a.childNodes[i].nodeType === 3 && String(a.childNodes[i].nodeValue || '').trim()) { text = a.childNodes[i]; break; }
         }
-        var shown = mode === 'en' ? en : uk;
+        var shown = mode === 'en' ? en : key;
         if (!text) {
           text = doc.createTextNode(shown);
           a.insertBefore(text, a.firstChild);
         } else text.nodeValue = shown;
-        text.stbUk = uk;
+        text.stbUk = key;
         if (en !== uk) text.stbEn = en;
       });
     }
@@ -2958,11 +3078,12 @@
       copy.classList.remove('stb-on', 'is-active');
       if (copy.id) copy.removeAttribute('id');
       copy.querySelectorAll('[id]').forEach(function (n) { n.removeAttribute('id'); });
-      blankItem(copy);
       src.after(copy);
+      blankItem(copy);
       if (copy.matches('a.tile') && copy.parentElement) reflowTiles(copy.parentElement);
       if (copy.matches('article.film-rail__i')) reflowFilms(copy.parentElement && copy.parentElement.classList.contains('film-rail') ? copy.parentElement : copy.closest('.film-rail'));
       stampTree(copy);
+      uniquifySlots(copy);
       setSelection(copy);
       markDirty(whereOf(copy));
       say('Added a placeholder. Edit it, then Save.');
@@ -3223,7 +3344,9 @@
       copy.querySelectorAll('img').forEach(function (img) {
         img.setAttribute('src', '/assets/img/slot.svg');
         img.removeAttribute('srcset');
-        img.setAttribute('alt', 'Фото');
+        var altKey = slotKey('Фото');
+        img.setAttribute('alt', altKey);
+        img.stbAttrs = { alt: { uk: altKey, en: 'Photo' } };
         img.classList.add('is-slot');
       });
       lastLi.after(copy);

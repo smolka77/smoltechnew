@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-label="Photo">
-  <rect width="800" height="600" fill="#f4f4f5"/>
-  <rect x="18" y="18" width="764" height="564" fill="none" stroke="#8d1018" stroke-width="4" stroke-dasharray="16 12"/>
-  <text x="400" y="286" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="54" font-weight="700" fill="#8d1018">$"</text>
-  <text x="400" y="340" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600" fill="#5c616b">PHOTO</text>
+  <rect width="800" height="600" fill="#eceef1"/>
+  <rect x="28" y="28" width="744" height="544" rx="18" fill="#f7f8f9" stroke="#c5c8ce" stroke-width="3" stroke-dasharray="14 12"/>
+  <g fill="none" stroke="#8a9099" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M318 214h36l18-28h56l18 28h36"/>
+    <rect x="286" y="214" width="228" height="168" rx="22"/>
+    <circle cx="400" cy="292" r="40"/>
+  </g>
+  <circle cx="400" cy="292" r="16" fill="#8d1018" stroke="none"/>
+  <text x="400" y="444" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="40" font-weight="700" fill="#3a3f46">PHOTO</text>
+  <text x="400" y="488" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="600" fill="#8d1018">&#1060;&#1054;&#1058;&#1054;</text>
 </svg>
