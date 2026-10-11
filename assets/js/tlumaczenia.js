@@ -2960,6 +2960,91 @@
     });
   }
 
+  function onlyOwnInline(node) {
+    var els = node.querySelectorAll('*');
+    var i, tag;
+    for (i = 0; i < els.length; i++) {
+      tag = els[i].tagName;
+      if (tag !== 'A' && tag !== 'STRONG' && tag !== 'EM' && tag !== 'U' && tag !== 'B' && tag !== 'I') return false;
+      if (els[i].hasAttribute('data-st-en')) return false;
+    }
+    return true;
+  }
+
+  function dropBlankUnmarkedLinks(node) {
+    var links = node.querySelectorAll('a[href]');
+    var i, a;
+    for (i = 0; i < links.length; i++) {
+      a = links[i];
+      if (a.hasAttribute('data-st-en')) continue;
+      if ((a.textContent || '').replace(/\s/g, '')) continue;
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }
+  }
+
+  function applyEnMarks(el) {
+    var raw = el.getAttribute('data-st-enmark');
+    if (!raw) return;
+    var items;
+    try { items = JSON.parse(raw); } catch (e) { return; }
+    if (!items || !items.length) return;
+    items.forEach(function (item) {
+      if (!item || !item.t) return;
+      var tag = item.tag || 'a';
+      if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
+      if (tag === 'a' && !/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(item.h || '')) return;
+      var made = wrapPlainPhrase(el, item.t, tag);
+      if (!made || tag !== 'a') return;
+      made.setAttribute('href', item.h);
+      made.className = 'st-link';
+      made.setAttribute('data-st-link', '');
+      if (item.b) {
+        made.setAttribute('target', '_blank');
+        made.setAttribute('rel', 'noopener');
+      }
+    });
+  }
+
+  function wrapPlainPhrase(el, phrase, tag) {
+    var nodes = [];
+    var walker = document.createTreeWalker(el, 4, {
+      acceptNode: function (node) {
+        var p = node.parentElement;
+        if (!p || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(p.tagName)) return 2;
+        if (p.closest('a[href], strong, em, u')) return 2;
+        return 1;
+      }
+    });
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    var full = '';
+    var spans = [];
+    nodes.forEach(function (node) {
+      spans.push({ n: node, a: full.length });
+      full += node.nodeValue || '';
+    });
+    var at = full.indexOf(phrase);
+    if (at < 0) return null;
+    var end = at + phrase.length;
+    var startNode = null;
+    var startOff = 0;
+    var endNode = null;
+    var endOff = 0;
+    spans.forEach(function (s) {
+      var b = s.a + s.n.nodeValue.length;
+      if (!startNode && at >= s.a && at <= b) { startNode = s.n; startOff = at - s.a; }
+      if (end >= s.a && end <= b) { endNode = s.n; endOff = end - s.a; }
+    });
+    if (!startNode || startNode !== endNode || startOff === endOff) return null;
+    var range = document.createRange();
+    range.setStart(startNode, startOff);
+    range.setEnd(endNode, endOff);
+    var made = document.createElement(tag);
+    try { range.surroundContents(made); }
+    catch (err) { return null; }
+    return made;
+  }
+
   function walkText(node, lang) {
     if (node.nodeType === 1) {
       if (SKIP.test(node.tagName)) return;
@@ -2977,13 +3062,17 @@
         var whole = lookup(node.stOrigPlain, lang);
         if (whole !== node.stOrigPlain) {
           if (node.querySelector('[data-st-en]')) {
-            if (!placeMarked(node, whole)) node.innerHTML = node.stOrigHTML;
-            return;
-          }
-          if (node.firstElementChild) spreadTextNodes(node, whole);
+            if (!placeMarked(node, whole)) {
+              node.innerHTML = node.stOrigHTML;
+              return;
+            }
+            dropBlankUnmarkedLinks(node);
+          } else if (node.firstElementChild && !onlyOwnInline(node)) spreadTextNodes(node, whole);
           else node.textContent = whole;
+          applyEnMarks(node);
           return;
         }
+        if (node.hasAttribute('data-st-enmark')) applyEnMarks(node);
       }
       var ch = node.childNodes;
       var i;

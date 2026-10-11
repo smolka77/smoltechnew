@@ -1,4 +1,4 @@
-/* Visual editor. Ukrainian HTML is what gets saved. A link or inline format stores the English words in data-st-en so both languages show the link on the matching phrase. */
+/* Visual editor. Ukrainian HTML is what gets saved. A link is applied to the words the user selected. The other language gets the same link only when the phrase matches on its own. */
 (function () {
   var HOSTS = 'h1,h2,h3,h4,h5,h6,p,li,a,button,span,dt,dd,strong,em,b,i,u,figcaption,summary,td,th,div';
   var SKIP_HOST = 'li.proof__i, li.stats__i, section, article.vcard, article.mach, [data-st-region], button.yt, button.lang__btn, button.chip, a.skip, label';
@@ -525,6 +525,8 @@
           if (box && box.stbUkLeaf && box.childNodes.length === 1 && box.firstChild && box.firstChild.nodeType === 3 && box.firstChild.stbUk == null) {
             box.firstChild.stbUk = box.stbUkLeaf;
           }
+          var phrase = t.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote');
+          if (phrase && (phrase.stbUkSnap != null || phrase.stbUkFull)) phrase.stbEnEdited = true;
         }
         var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
         if (!nameNode && t.closest) nameNode = t.closest('button.model-strip__btn');
@@ -1197,6 +1199,7 @@
 
     function applyLang(lang) {
       if (!doc) return;
+      restoreMarkSnaps();
       var win = frame.contentWindow;
       if (lang === 'en') {
         if (!win.ST || typeof win.ST.lookup !== 'function') {
@@ -1235,6 +1238,7 @@
         btn.classList.toggle('is-on', btn.getAttribute('data-lang') === mode);
       });
       showMarkedHosts();
+      paintAllEnMarks();
       repairPlainHosts();
       heldRange = null;
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
@@ -1461,30 +1465,37 @@
       if (!range || range.collapsed || !flat(range.toString())) { say('Select the words you want to format.', 'err'); return; }
       var node = range.commonAncestorContainer;
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
-      var on = el && el.closest && el.closest(tag + '[data-st-en]');
-      if (on) {
+      var on = el && el.closest && el.closest(tag);
+      if (on && phraseHost(on)) {
         beforeChange();
         var host = phraseHost(on);
-        unwrapEl(on);
+        if (on.hasAttribute('data-st-en-only')) dropMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
+        else unwrapEl(on);
         showHost(host);
         markDirty(whereOf(host));
-        say('Formatting removed in both languages. Save to publish.');
+        say('Formatting removed. Save to publish.');
         return;
       }
       var plan = planPhrase(range);
       if (!plan) { say('Select words inside a single sentence.', 'err'); return; }
-      function apply(enPhrase, enStart, ukPhrase, ukStart) {
-        beforeChange();
-        var made = wrapPhrase(plan.host, ukPhrase, ukStart, tag);
-        if (!made) { say('Those words could not be matched in the Ukrainian sentence.', 'err'); return; }
-        made.setAttribute('data-st-en', enPhrase);
-        if (enStart != null && enStart >= 0) made.setAttribute('data-st-at', String(enStart));
-        showHost(plan.host);
-        markDirty(whereOf(made));
-        say('Formatting applied in both languages. Save to publish.');
+      beforeChange();
+      var made = null;
+      if (plan.auto) {
+        made = wrapPhrase(plan.host, plan.ukPhrase, plan.ukStart, tag);
+        if (made) {
+          made.setAttribute('data-st-en', plan.enPhrase);
+          if (plan.enStart != null && plan.enStart >= 0) made.setAttribute('data-st-at', String(plan.enStart));
+          showHost(plan.host);
+        }
       }
-      if (plan.auto) apply(plan.enPhrase, plan.enStart, plan.ukPhrase, plan.ukStart);
-      else openMatchDialog(plan, apply);
+      if (!made && mode !== 'en') made = wrapCurrentUk(plan, tag);
+      if (!made && mode === 'en') {
+        addEnMark(plan.host, plan.selected, plan.enStart, tag, '', false);
+        made = plan.host;
+      }
+      if (!made) { say('Those words could not be formatted.', 'err'); return; }
+      markDirty(whereOf(made));
+      say('Formatting applied. Save to publish.');
     }
 
     function paint(color) {
@@ -1874,6 +1885,148 @@
       return cursor === en.length;
     }
 
+    var PHRASE_SEL = 'p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote';
+
+    function rawUk(host) {
+      var raw = '';
+      rawTextNodes(host).forEach(function (n) { raw += n.stbUk != null ? n.stbUk : (n.nodeValue || ''); });
+      return raw;
+    }
+
+    function readMarks(host) {
+      var raw = host && host.getAttribute ? (host.getAttribute('data-st-enmark') || '') : '';
+      if (!raw) return [];
+      try {
+        var data = JSON.parse(raw);
+        return Array.isArray(data) ? data : [];
+      } catch (err) { return []; }
+    }
+
+    function writeMarks(host, items) {
+      if (!host) return;
+      if (!items || !items.length) host.removeAttribute('data-st-enmark');
+      else host.setAttribute('data-st-enmark', JSON.stringify(items));
+    }
+
+    function dropMark(host, phrase, at, tag) {
+      var want = String(tag || 'a');
+      var items = readMarks(host).filter(function (it) {
+        if ((it.tag || 'a') !== want) return true;
+        if (it.t !== phrase) return true;
+        if (at != null && at !== '' && it.at != null && String(it.at) !== String(at)) return true;
+        return false;
+      });
+      writeMarks(host, items);
+    }
+
+    function addEnMark(host, phrase, at, tag, href, blank) {
+      var tagName = tag || 'a';
+      var items = readMarks(host).filter(function (it) {
+        return !((it.tag || 'a') === tagName && it.t === phrase && String(it.at == null ? '' : it.at) === String(at == null ? '' : at));
+      });
+      var next = { t: phrase, at: at, tag: tagName };
+      if (tagName === 'a') { next.h = href; next.b = blank ? 1 : 0; }
+      items.push(next);
+      writeMarks(host, items);
+      showHost(host);
+    }
+
+    function wrapCurrentUk(plan, tag) {
+      var phrase = plan.ukPhrase || plan.selected;
+      var start = plan.ukStart >= 0 ? plan.ukStart : 0;
+      var made = wrapPhrase(plan.host, phrase, start, tag);
+      if (!made) return null;
+      showHost(plan.host);
+      return made;
+    }
+
+    function wrapDisplayed(host, phrase, at, tag) {
+      var nodes = rawTextNodes(host).filter(function (n) {
+        var p = n.parentElement;
+        return p && !p.closest('a[href], strong, em, u, [data-st-en]');
+      });
+      var full = '';
+      var spans = [];
+      nodes.forEach(function (n) {
+        spans.push({ n: n, a: full.length });
+        full += n.nodeValue || '';
+      });
+      var hits = [];
+      var from = 0;
+      var i;
+      while ((i = full.indexOf(phrase, from)) >= 0) {
+        hits.push(i);
+        from = i + Math.max(1, phrase.length);
+      }
+      if (!hits.length) return null;
+      var start = hits[0];
+      if (hits.length > 1 && at != null && at >= 0) {
+        var best = hits[0];
+        var bestD = Infinity;
+        hits.forEach(function (h) {
+          var d = Math.abs(h - at);
+          if (d < bestD) { bestD = d; best = h; }
+        });
+        start = best;
+      }
+      var end = start + phrase.length;
+      var startNode = null;
+      var startOff = 0;
+      var endNode = null;
+      var endOff = 0;
+      spans.forEach(function (s) {
+        var b = s.a + s.n.nodeValue.length;
+        if (!startNode && start >= s.a && start <= b) { startNode = s.n; startOff = start - s.a; }
+        if (end >= s.a && end <= b) { endNode = s.n; endOff = end - s.a; }
+      });
+      if (!startNode || startNode !== endNode || startOff === endOff) return null;
+      var range = doc.createRange();
+      range.setStart(startNode, startOff);
+      range.setEnd(endNode, endOff);
+      var el = doc.createElement(tag);
+      if (!wrapRange(range, el)) return null;
+      return el;
+    }
+
+    function paintMarks(host, items) {
+      (items || []).forEach(function (item) {
+        if (!item || !item.t) return;
+        var tag = item.tag || (item.h ? 'a' : '');
+        if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
+        var el = wrapDisplayed(host, item.t, item.at, tag);
+        if (!el) return;
+        el.setAttribute('data-st-en-only', '');
+        if (item.at != null) el.setAttribute('data-st-at', String(item.at));
+        if (tag === 'a' && item.h) styleLink(el, item.h, !!item.b);
+      });
+    }
+
+    function paintAllEnMarks() {
+      if (mode !== 'en' || !doc) return;
+      doc.querySelectorAll('[data-st-enmark]').forEach(function (host) { showHost(host); });
+    }
+
+    function restoreMarkSnaps() {
+      if (!doc) return;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (host.stbUkSnap == null) return;
+        host.innerHTML = host.stbUkSnap;
+        host.stbUkSnap = null;
+        host.stbUkFull = '';
+        host.stbEnEdited = false;
+      });
+    }
+
+    function showEnIgnoringInline(host, en) {
+      var nodes = rawTextNodes(host);
+      if (!nodes.length) return;
+      if (!host.stbUkFull) host.stbUkFull = rawUk(host);
+      nodes[0].nodeValue = pad(host.stbUkFull, en);
+      var i;
+      for (i = 1; i < nodes.length; i++) nodes[i].nodeValue = '';
+      nodes.forEach(function (n) { n.stbSynthetic = true; });
+    }
+
     function showWholeEn(host, en) {
       if (!host || host.querySelector('*')) return;
       var raw = '';
@@ -1899,12 +2052,23 @@
 
     function showHost(host) {
       if (!host) return;
+      if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
       if (mode !== 'en') return;
+      var marks = readMarks(host);
+      if (marks.length && host.stbUkSnap == null) {
+        host.stbUkSnap = host.innerHTML;
+        host.stbUkFull = rawUk(host);
+      }
       var plain = hostPlain(host);
-      if (!plain.en || plain.en === plain.uk) return;
+      if (!plain.en || plain.en === plain.uk) {
+        if (marks.length) paintMarks(host, marks);
+        return;
+      }
       if (!host.querySelector('[data-st-en]')) {
-        showWholeEn(host, plain.en);
+        if (!host.querySelector('*')) showWholeEn(host, plain.en);
+        else showEnIgnoringInline(host, plain.en);
+        if (marks.length) paintMarks(host, marks);
         return;
       }
       if (!placeMarked(host, plain.en)) {
@@ -1912,6 +2076,7 @@
         return;
       }
       rawTextNodes(host).forEach(function (n) { n.stbPlaced = true; });
+      if (marks.length) paintMarks(host, marks);
     }
 
     function showMarkedHosts() {
@@ -1922,60 +2087,6 @@
         if (!host || seen.indexOf(host) >= 0) return;
         seen.push(host);
         showHost(host);
-      });
-    }
-
-    function bindPick(el, onPick) {
-      function read() {
-        var sel = window.getSelection();
-        if (!sel || !sel.rangeCount) return;
-        var r = sel.getRangeAt(0);
-        if (!el.contains(r.commonAncestorContainer)) return;
-        var node = el.firstChild;
-        if (!node || r.startContainer !== node || r.endContainer !== node) return;
-        var raw = node.nodeValue.slice(r.startOffset, r.endOffset);
-        var lead = (raw.match(/^\s*/) || [''])[0].length;
-        var text = flat(raw);
-        if (!text) return;
-        onPick({ text: text, start: r.startOffset + lead });
-      }
-      el.addEventListener('mouseup', read);
-      el.addEventListener('keyup', read);
-    }
-
-    function openMatchDialog(plan, apply) {
-      var old = document.getElementById('stb-match-dlg');
-      if (old) old.remove();
-      var ukSide = plan.otherLang === 'uk';
-      var modal = document.createElement('div');
-      modal.className = 'stb-modal';
-      modal.id = 'stb-match-dlg';
-      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true">' +
-        '<h2>' + (ukSide ? 'Select the Ukrainian words' : 'Select the English words') + '</h2>' +
-        '<p class="lead">“' + esc(plan.selected) + '” is formatted in ' + (plan.otherLang === 'uk' ? 'English' : 'Ukrainian') + '. Select the same words below. Nothing is guessed.</p>' +
-        '<div class="stb-pick-text" id="stb-match-pick" tabindex="0"></div>' +
-        '<p class="wide" id="stb-match-status"></p>' +
-        '<div class="stb-actions"><button type="button" class="btn" id="stb-match-ok">Apply</button>' +
-        '<button type="button" class="btn btn-ghost" id="stb-match-x">Cancel</button></div></div>';
-      document.body.appendChild(modal);
-      var pick = modal.querySelector('#stb-match-pick');
-      pick.textContent = plan.otherText;
-      var picked = null;
-      bindPick(pick, function (hit) { picked = hit; modal.querySelector('#stb-match-status').textContent = (ukSide ? 'Ukrainian words: ' : 'English words: ') + hit.text; });
-      function close() { modal.remove(); }
-      modal.querySelector('#stb-match-x').addEventListener('click', close);
-      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-      modal.querySelector('#stb-match-ok').addEventListener('click', function () {
-        if (!picked || plan.otherText.slice(picked.start, picked.start + picked.text.length) !== picked.text) {
-          modal.querySelector('#stb-match-status').textContent = 'Select the matching words in the sentence above.';
-          return;
-        }
-        var enPhrase = ukSide ? plan.enPhrase : picked.text;
-        var enStart = ukSide ? plan.enStart : picked.start;
-        var ukPhrase = ukSide ? picked.text : plan.ukPhrase;
-        var ukStart = ukSide ? picked.start : plan.ukStart;
-        close();
-        apply(enPhrase, enStart, ukPhrase, ukStart);
       });
     }
 
@@ -2031,15 +2142,11 @@
       }).join('');
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-link-title">' +
         '<h2 id="stb-link-title">' + (existing ? 'Edit link' : 'Add a link') + '</h2>' +
-        '<p class="lead">The linked words are shown bold, red and underlined in both languages. An external address opens in a new tab unless you untick the box. A page on this site stays in the same tab.</p>' +
+        '<p class="lead">The selected words become a link. An external address opens in a new tab. A page on this site stays in the same tab.</p>' +
         '<div class="stb-form">' +
           '<label class="wide">Address<input type="text" id="stb-link-url" placeholder="https://…, /kontakty/ or email" autocomplete="off"></label>' +
           '<label class="wide">Page on this site<select id="stb-link-page">' + opts + '</select></label>' +
           '<label class="wide stb-check"><input type="checkbox" id="stb-link-blank"> Open in a new tab</label>' +
-          '<div class="wide" id="stb-link-other" hidden>' +
-            '<p class="lead" id="stb-link-other-lead"></p>' +
-            '<div class="stb-pick-text" id="stb-link-pick" tabindex="0"></div>' +
-          '</div>' +
           '<p class="wide" id="stb-link-status"></p>' +
         '</div>' +
         '<div class="stb-actions"><button type="button" class="btn" id="stb-link-ok">Apply</button>' +
@@ -2064,19 +2171,6 @@
         blankTouched = false;
         syncBlank();
       });
-      var pickedOther = null;
-      if (plan && !plan.auto) {
-        var otherBox = modal.querySelector('#stb-link-other');
-        otherBox.hidden = false;
-        var ukSide = plan.otherLang === 'uk';
-        modal.querySelector('#stb-link-other-lead').textContent = (ukSide ? 'Select the same words in Ukrainian' : 'Select the same words in English') + ' for “' + plan.selected + '”. Nothing is guessed.';
-        var pick = modal.querySelector('#stb-link-pick');
-        pick.textContent = plan.otherText;
-        bindPick(pick, function (hit) {
-          pickedOther = hit;
-          modal.querySelector('#stb-link-status').textContent = (ukSide ? 'Ukrainian words: ' : 'English words: ') + hit.text;
-        });
-      }
       function close() { modal.remove(); }
       modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
       modal.querySelector('#stb-link-x').addEventListener('click', close);
@@ -2084,11 +2178,12 @@
         if (!existing || !existing.isConnected) { close(); return; }
         beforeChange();
         var host = phraseHost(existing);
-        unwrapLink(existing);
+        if (existing.hasAttribute('data-st-en-only')) dropMark(host, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a');
+        else unwrapLink(existing);
         if (host) showHost(host);
         markDirty(whereOf(host || existing));
         close();
-        say('Link removed in both languages. Save to publish.');
+        say('Link removed. Save to publish.');
       });
       modal.querySelector('#stb-link-ok').addEventListener('click', function () {
         var href = normalizeHref(urlInput.value);
@@ -2097,40 +2192,39 @@
           status.textContent = 'Use https://, a path that starts with /, mailto: or tel:.';
           return;
         }
-        var enPhrase = plan ? plan.enPhrase : '';
-        var enStart = plan ? plan.enStart : -1;
-        var ukPhrase = plan ? plan.ukPhrase : '';
-        var ukStart = plan ? plan.ukStart : -1;
-        if (plan && !plan.auto) {
-          if (!pickedOther || plan.otherText.slice(pickedOther.start, pickedOther.start + pickedOther.text.length) !== pickedOther.text) {
-            status.textContent = 'Select the matching words in the sentence above.';
-            return;
-          }
-          if (plan.otherLang === 'uk') { ukPhrase = pickedOther.text; ukStart = pickedOther.start; }
-          else { enPhrase = pickedOther.text; enStart = pickedOther.start; }
-        }
-        if (!existing && (!ukPhrase || !enPhrase)) {
-          status.textContent = 'Select the matching words. The link is saved only when both languages are chosen.';
-          return;
-        }
         beforeChange();
         var made = null;
-        if (existing && existing.isConnected) {
+        if (existing && existing.isConnected && existing.hasAttribute('data-st-en-only')) {
+          var hostOnly = phraseHost(existing);
+          dropMark(hostOnly, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a');
+          addEnMark(hostOnly, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a', href, blank.checked);
+          made = hostOnly;
+        } else if (existing && existing.isConnected) {
           styleLink(existing, href, blank.checked);
           made = existing;
         } else if (plan) {
-          made = wrapPhrase(plan.host, ukPhrase, ukStart, 'a');
-          if (made) {
-            styleLink(made, href, blank.checked);
-            made.setAttribute('data-st-en', enPhrase);
-            if (enStart != null && enStart >= 0) made.setAttribute('data-st-at', String(enStart));
-            showHost(plan.host);
+          if (plan.auto) {
+            made = wrapPhrase(plan.host, plan.ukPhrase, plan.ukStart, 'a');
+            if (made) {
+              styleLink(made, href, blank.checked);
+              made.setAttribute('data-st-en', plan.enPhrase);
+              if (plan.enStart != null && plan.enStart >= 0) made.setAttribute('data-st-at', String(plan.enStart));
+              showHost(plan.host);
+            }
+          }
+          if (!made && mode !== 'en') {
+            made = wrapCurrentUk(plan, 'a');
+            if (made && made.tagName === 'A') styleLink(made, href, blank.checked);
+          }
+          if (!made && mode === 'en') {
+            addEnMark(plan.host, plan.selected, plan.enStart, 'a', href, blank.checked);
+            made = plan.host;
           }
         }
-        if (!made) { say('Those words could not be matched in the Ukrainian sentence.', 'err'); close(); return; }
+        if (!made) { say('Those words could not be linked.', 'err'); close(); return; }
         markDirty(whereOf(made));
         close();
-        say(existing ? 'Link updated in both languages. Save to publish.' : 'Link added in both languages. Save to publish.');
+        say(existing ? 'Link updated. Save to publish.' : 'Link added. Save to publish.');
       });
       urlInput.focus();
     }
@@ -2277,11 +2371,35 @@
       var pairs = [];
       var win = frame.contentWindow;
       if (mode !== 'en' || !win.ST || typeof win.ST.lookup !== 'function') return pairs;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        var uk = flat(host.stbUkFull || '');
+        var synthetic = false;
+        rawTextNodes(host).forEach(function (n) { if (n.stbSynthetic) synthetic = true; });
+        if (host.stbUkSnap == null && !synthetic) return;
+        var cur = flat(host.textContent);
+        var known = uk ? String(win.ST.lookup(uk, 'en') || '').trim() : '';
+        if (host.stbEnEdited && cur && uk && cur !== uk && looksEn(cur) && cur !== known) pairs.push({ uk: uk, en: cur });
+        if (host.stbUkSnap != null) {
+          host.innerHTML = host.stbUkSnap;
+          host.stbUkSnap = null;
+        } else {
+          rawTextNodes(host).forEach(function (n) {
+            if (n.stbUk != null) n.nodeValue = n.stbUk;
+            n.stbSynthetic = false;
+          });
+        }
+        host.stbUkFull = '';
+        host.stbEnEdited = false;
+      });
       walkText(doc, function (node) {
         if (node.stbUk == null) return;
         if (node.stbPlaced) {
+          var placedHost = phraseHost(node);
           var marked = node.parentElement && node.parentElement.closest('[data-st-en]');
-          if (marked) { node.nodeValue = node.stbUk; return; }
+          if (marked || (placedHost && placedHost.querySelector('[data-st-en]'))) {
+            if (node.stbUk != null) node.nodeValue = node.stbUk;
+            return;
+          }
           node.stbPlaced = false;
         }
         var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
