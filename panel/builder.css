@@ -88,6 +88,33 @@
   background: #fff8f8;
   border-bottom: 1px solid rgba(209, 10, 17, .18);
 }
+.stb__pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem .5rem;
+  padding: .4rem .75rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(22, 22, 22, .08);
+}
+.stb__pick[hidden] { display: none; }
+.stb__pick button {
+  font: inherit;
+  font-size: .78rem;
+  border: 1px solid rgba(22, 22, 22, .16);
+  background: #f4f4f5;
+  color: #161616;
+  border-radius: 999px;
+  padding: .16rem .62rem;
+  cursor: pointer;
+}
+.stb__pick button.is-on {
+  background: #161616;
+  color: #fff;
+  border-color: #161616;
+}
+.stb__pick-sep { color: #8a8d92; }
+.stb__pick-note { color: #3d3e40; font-size: .78rem; }
 .stb__lang { display: inline-flex; border: 1px solid rgba(22, 22, 22, .15); border-radius: 999px; overflow: hidden; }
 .stb__lang button {
   border: 0;
@@ -168,7 +195,7 @@
 .stb-dialog h2 { margin: 0 0 .35rem; font-size: 1.25rem; }
 .stb-dialog p.lead { margin: 0 0 .8rem; color: #3d3e40; font-size: .9rem; }
 .stb-dialog label { display: grid; gap: .2rem; font-size: .78rem; color: #3d3e40; }
-.stb-dialog input, .stb-dialog select {
+.stb-dialog input, .stb-dialog select, .stb-dialog textarea {
   font: inherit;
   color: #161616;
   background: #fff;
@@ -176,6 +203,14 @@
   border-radius: 8px;
   padding: .4rem .5rem;
 }
+.stb-dialog label.stb-check {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  font-size: .88rem;
+  color: #161616;
+}
+.stb-dialog label.stb-check input { width: auto; margin-top: .15rem; }
 .stb-form { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem .8rem; }
 .stb-form .wide { grid-column: 1 / -1; }
 .stb-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .85rem; }

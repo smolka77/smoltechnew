@@ -288,8 +288,20 @@ function st_cms_renumber_tiles(string $body): string
 
 function st_cms_set_tile_grid(string $body, int $n): string
 {
-    $g = $n >= 3 ? 'g-3' : 'g-2';
-    return preg_replace('/(<div class="grid )g-\d+/', '$1' . $g, $body, 1) ?? $body;
+    $g = $n <= 1 ? 'g-1' : ($n === 2 ? 'g-2' : 'g-3');
+    $tile = strpos($body, '<a class="tile');
+    if ($tile === false) return $body;
+    $grid = strrpos(substr($body, 0, $tile), '<div class="grid ');
+    if ($grid === false) return $body;
+    $gt = strpos($body, '>', $grid);
+    if ($gt === false || $gt > $tile) return $body;
+    $open = substr($body, $grid, $gt - $grid + 1);
+    if (preg_match('/\bg-\d+\b/', $open)) {
+        $new = preg_replace('/\bg-\d+\b/', $g, $open, 1) ?? $open;
+    } else {
+        $new = preg_replace('/class="grid\b/', 'class="grid ' . $g, $open, 1) ?? $open;
+    }
+    return substr($body, 0, $grid) . $new . substr($body, $gt + 1);
 }
 
 function st_cms_fill_tile(string $tpl, array $it, int $idx): string
@@ -418,7 +430,7 @@ function st_cms_add_child_page(array $data): array
     $meta['crumbs'] = $crumbs;
     if (empty($meta['prio'])) $meta['prio'] = '0.75';
     $body = preg_replace('/(<h1\b[^>]*>)(.*?)(<\/h1>)/s', '$1' . st_cms_esc($titleUk) . '$3', $srcBody, 1) ?? $srcBody;
-    file_put_contents(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, $body));
+    st_cms_atomic_write(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, $body), true);
     [$pmeta, $pbody] = st_cms_parse((string) file_get_contents($parentPath));
     if ($image === '') {
         $tiles = st_cms_tiles($pbody);
@@ -428,7 +440,7 @@ function st_cms_add_child_page(array $data): array
     $pbody = st_cms_append_tile($pbody, [
         'href' => $url, 'title' => $titleUk, 'tag' => $tagUk, 'text' => $textUk, 'link' => $linkUk, 'image' => $image,
     ]);
-    file_put_contents($parentPath, st_cms_dump($pmeta, $pbody));
+    st_cms_atomic_write($parentPath, st_cms_dump($pmeta, $pbody), true);
     $i18n = ['translated' => 0];
     if (function_exists('st_i18n_safe')) {
         require_once __DIR__ . '/tlumacz.php';
@@ -463,9 +475,21 @@ function st_cms_remove_tile_href(string $body, string $href): string
         preg_match('/href="([^"]+)"/', $html, $hm);
         if (st_cms_norm_href((string) ($hm[1] ?? '')) !== $want) continue;
         $end = $start + strlen($html);
-        while ($end < strlen($body) && ($body[$end] === ' ' || $body[$end] === "\t")) $end++;
-        if ($end < strlen($body) && $body[$end] === "\n") $end++;
-        $body = substr($body, 0, $start) . substr($body, $end);
+        $last = $i === count($mm[0]) - 1 && $i > 0;
+        if ($last) {
+            $pre = $start;
+            while ($pre > 0 && ($body[$pre - 1] === ' ' || $body[$pre - 1] === "\t")) $pre--;
+            if ($pre > 0 && $body[$pre - 1] === "\n") {
+                $pre--;
+                if ($pre > 0 && $body[$pre - 1] === "\r") $pre--;
+            }
+            $body = substr($body, 0, $pre) . substr($body, $end);
+        } else {
+            while ($end < strlen($body) && ($body[$end] === ' ' || $body[$end] === "\t")) $end++;
+            if ($end < strlen($body) && $body[$end] === "\r") $end++;
+            if ($end < strlen($body) && $body[$end] === "\n") $end++;
+            $body = substr($body, 0, $start) . substr($body, $end);
+        }
         $left = preg_match_all('/<a class="tile\b[^"]*"[^>]*>.*?<\/a>/s', $body) ?: 0;
         $body = st_cms_renumber_tiles($body);
         return st_cms_set_tile_grid($body, (int) $left);
@@ -479,7 +503,7 @@ function st_cms_unlink_tiles_to(string $url): void
     foreach (glob(ST_PAGES . '/*.html') ?: [] as $file) {
         [$meta, $body] = st_cms_parse((string) file_get_contents($file));
         $new = st_cms_remove_tile_href($body, $url);
-        if ($new !== $body) file_put_contents($file, st_cms_dump($meta, $new));
+        if ($new !== $body) st_cms_atomic_write($file, st_cms_dump($meta, $new), true);
     }
 }
 
@@ -503,6 +527,8 @@ function st_cms_delete_page(string $id): array
     [$meta] = st_cms_parse((string) file_get_contents($path));
     $out = trim((string) ($meta['out'] ?? ''));
     $url = trim((string) ($meta['url'] ?? ($page['url'] ?? '')));
+    st_cms_backup_file($path);
+    if ($out !== '') st_cms_backup_file(ST_ROOT . '/' . $out);
     st_cms_unlink_tiles_to($url);
     unlink($path);
     st_cms_mark_pending('page.delete:' . $id, $out);

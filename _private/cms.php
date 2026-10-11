@@ -23,6 +23,59 @@ function st_cms_strip(string $s): string
     return trim(preg_replace('/\s+/', ' ', $t) ?? $t);
 }
 
+function st_cms_rel(string $path): string
+{
+    $root = str_replace('\\', '/', ST_ROOT);
+    $path = str_replace('\\', '/', $path);
+    if (str_starts_with($path, $root . '/')) return substr($path, strlen($root) + 1);
+    return ltrim($path, '/');
+}
+
+/** Copy a file into _private/data/backups before it is replaced or removed. */
+function st_cms_backup_file(string $path): void
+{
+    if (!is_file($path)) return;
+    $rel = st_cms_rel($path);
+    if ($rel === '' || str_contains($rel, '..')) return;
+    $dest = ST_ROOT . '/_private/data/backups/' . gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '/' . $rel;
+    $dir = dirname($dest);
+    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) return;
+    @copy($path, $dest);
+}
+
+/** Write a file by renaming a temp file in the same folder. Optionally keep a backup first. */
+function st_cms_atomic_write(string $path, string $contents, bool $backup = true): void
+{
+    $dir = dirname($path);
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        throw new RuntimeException('Could not create a folder for the page.');
+    }
+    if ($backup) st_cms_backup_file($path);
+    if (is_file($path)) {
+        $prev = (string) file_get_contents($path);
+        $crlf = substr_count($prev, "\r\n");
+        $lfOnly = substr_count($prev, "\n") - $crlf;
+        if ($crlf > $lfOnly && $crlf > 0) {
+            $contents = str_replace("\r\n", "\n", $contents);
+            $contents = str_replace("\n", "\r\n", $contents);
+        }
+    }
+    $tmp = $dir . '/.' . basename($path) . '.' . bin2hex(random_bytes(4)) . '.tmp';
+    $fh = fopen($tmp, 'wb');
+    if ($fh === false) throw new RuntimeException('Could not write the page.');
+    $ok = fwrite($fh, $contents);
+    fflush($fh);
+    fclose($fh);
+    if ($ok === false || $ok !== strlen($contents)) {
+        @unlink($tmp);
+        throw new RuntimeException('Could not write the page.');
+    }
+    if (!rename($tmp, $path)) {
+        @unlink($tmp);
+        throw new RuntimeException('Could not save the page.');
+    }
+}
+
 function st_cms_kind(string $name, string $nav): string
 {
     if (str_starts_with($name, '00')) return 'home';
@@ -147,10 +200,9 @@ function st_cms_dump(array $meta, string $body): string
         }
     }
     $lines[] = '---';
-    $lines[] = '';
-    $body = ltrim($body, "\n");
+    $body = ltrim($body, "\r\n");
     if (!str_ends_with($body, "\n")) $body .= "\n";
-    return implode("\n", $lines) . "\n" . $body;
+    return implode("\n", $lines) . "\n\n" . $body;
 }
 
 function st_cms_hero(string $body): array
@@ -556,7 +608,14 @@ function st_cms_clean_tag(array $m, bool $rich): string
     if ($name === 'a') {
         $href = preg_match('/href="([^"]*)"/i', $attrs, $hm) ? trim(html_entity_decode($hm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')) : '';
         if ($href !== '' && preg_match('~^(https?://|mailto:|tel:|/|#)~i', $href)) $out .= ' href="' . st_cms_esc($href) . '"';
-        $linked = preg_match('/\bdata-st-link\b/i', $attrs) === 1;
+        $classes = [];
+        if (preg_match('/\bclass="([^"]*)"/i', $attrs, $cm)) {
+            foreach (preg_split('/\s+/', trim($cm[1])) ?: [] as $cls) {
+                if ($cls === 'st-link') $classes[] = 'st-link';
+            }
+        }
+        if ($classes !== []) $out .= ' class="' . implode(' ', $classes) . '"';
+        $linked = preg_match('/\bdata-st-link\b/i', $attrs) === 1 || in_array('st-link', $classes, true);
         if ($linked) $out .= ' data-st-link=""';
         if ($linked ? preg_match('/target="_blank"/i', $attrs) : str_starts_with($href, 'http')) $out .= ' target="_blank" rel="noopener"';
     }
@@ -1856,7 +1915,9 @@ function st_cms_mark_pending(string $note = '', ?string $removedOut = null): arr
 
 function st_cms_clear_pending(): void
 {
-    st_cms_write_pending(st_cms_empty_pending());
+    $empty = st_cms_empty_pending();
+    if (is_file(ST_PENDING) && st_cms_load_pending() == $empty) return;
+    st_cms_write_pending($empty);
 }
 
 function st_cms_safe_public_out(string $rel): ?string
@@ -1907,9 +1968,7 @@ function st_cms_write_public_page(string $file, array $ctx): string
     if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
         throw new RuntimeException('Nie utworzono katalogu witryny.');
     }
-    if (file_put_contents($out, $html) === false) {
-        throw new RuntimeException('Nie zapisano pliku witryny: ' . $rel);
-    }
+    st_cms_atomic_write($out, $html, true);
     return $out;
 }
 
@@ -1975,13 +2034,11 @@ function st_cms_rebuild(): array
             $html = st_cms_render_page($meta, $body, $layout, $partials, $ld, basename($file));
         }
         $out = ST_ROOT . '/' . $meta['out'];
-        $dir = dirname($out);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        file_put_contents($out, $html);
+        st_cms_atomic_write($out, $html, false);
         $built++;
     }
     $sm = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">', ...$sitemap, '</urlset>'];
-    file_put_contents(ST_ROOT . '/sitemap.xml', implode("\n", $sm) . "\n");
+    st_cms_atomic_write(ST_ROOT . '/sitemap.xml', implode("\n", $sm) . "\n", true);
     return ['pages' => $built, 'sitemap' => count($sitemap)];
 }
 
@@ -2032,7 +2089,10 @@ function st_cms_handle(string $action, array $data): array
         if ($action === 'cms.pages') return st_cms_with_pending(['ok' => true, 'pages' => st_cms_pages()]);
         if ($action === 'cms.page.get') return ['ok' => true, 'page' => st_cms_get_page((string) ($data['id'] ?? '')), 'stamp' => st_cms_page_stamp((string) ($data['id'] ?? ''))];
         if ($action === 'cms.page.stamp') return ['ok' => true, 'stamp' => st_cms_page_stamp((string) ($data['id'] ?? ''))];
-        if ($action === 'cms.page.add-child') return st_cms_add_child_page($data);
+        if ($action === 'cms.page.add-child' || $action === 'cms.page.add-machine') {
+            require_once __DIR__ . '/builder.php';
+            return st_builder_add_machine($data);
+        }
         if ($action === 'cms.page.delete') {
             require_once __DIR__ . '/builder.php';
             return st_builder_delete_page((string) ($data['id'] ?? ''));

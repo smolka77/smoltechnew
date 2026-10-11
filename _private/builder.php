@@ -273,7 +273,7 @@ function st_builder_apply_chrome(array $chrome): void
     if (!str_contains($layout, '{{NAV_company}}') || !str_contains($layout, '{{NAV_contact}}')) {
         throw new RuntimeException('Zapis menu usunąłby oznaczenia nawigacji. Nic nie zmieniono w układzie.');
     }
-    file_put_contents(ST_LAYOUT, $layout);
+    st_cms_atomic_write(ST_LAYOUT, $layout, true);
 }
 
 function st_builder_plain_meta(string $value): string
@@ -316,7 +316,7 @@ function st_builder_commit(array $data): array
             $prev = is_file($partialPath) ? (string) file_get_contents($partialPath) : '';
             if (st_builder_norm($form) !== st_builder_norm($prev)) {
                 if (!str_ends_with($form, "\n")) $form .= "\n";
-                file_put_contents($partialPath, $form);
+                st_cms_atomic_write($partialPath, $form, true);
                 $shared = true;
             }
         }
@@ -346,8 +346,12 @@ function st_builder_commit(array $data): array
     }
 
     if (!str_ends_with($main, "\n")) $main .= "\n";
-    file_put_contents($path, st_cms_dump($meta, $main));
-    $live = st_cms_publish_page($id, $shared);
+    st_cms_atomic_write($path, st_cms_dump($meta, $main), true);
+    $navSynced = false;
+    if (function_exists('st_builder_sync_tile_nav')) {
+        $navSynced = st_builder_sync_tile_nav($id);
+    }
+    $live = st_cms_publish_page($id, $shared || $navSynced);
     return [
         'ok' => true,
         'built' => $live['built'] ?? [],

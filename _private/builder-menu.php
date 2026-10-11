@@ -11,6 +11,8 @@ function st_builder_page_links(): array
             'id' => (string) ($p['id'] ?? ''),
             'url' => (string) ($p['url'] ?? ''),
             'name' => (string) ($p['name'] ?? ''),
+            'parentUrl' => (string) ($p['parentUrl'] ?? ''),
+            'canDelete' => !empty($p['canDelete']),
         ];
     }
     return $out;
@@ -213,8 +215,7 @@ function st_builder_menu_apply(string $html, string $url, string $slot, int $pos
             st_builder_menu_li((string) $def['kind'], $url, $label)
         );
         if ($desired === $children) continue;
-        $inner = "\n        " . implode("\n        ", $desired) . "\n      ";
-        $html = substr($html, 0, $region['innerStart']) . $inner . substr($html, $region['innerEnd']);
+        $html = st_builder_splice_children($html, $region, $desired);
     }
     if (!str_contains($html, '{{NAV_company}}') || !str_contains($html, '{{NAV_contact}}')) {
         throw new RuntimeException('That menu change would remove a built-in navigation marker. Nothing was saved.');
@@ -409,7 +410,7 @@ function st_builder_write_layout(string $html): void
     if (!str_contains($html, '{{CONTENT}}') || !str_contains($html, '{{NAV_company}}') || !str_contains($html, '{{NAV_contact}}')) {
         throw new RuntimeException('The menu file no longer looks like the site layout. Nothing was saved.');
     }
-    file_put_contents(ST_LAYOUT, $html);
+    st_cms_atomic_write(ST_LAYOUT, $html, true);
 }
 
 function st_builder_clip(string $text, int $max): string
@@ -482,7 +483,7 @@ function st_builder_place(array $data): array
                 [$pm, $pb] = st_cms_parse((string) file_get_contents($pp));
                 $moved = st_builder_move_tile($pb, $url, $position);
                 if ($moved !== $pb) {
-                    file_put_contents($pp, st_cms_dump($pm, $moved));
+                    st_cms_atomic_write($pp, st_cms_dump($pm, $moved), true);
                     $tileChanged = true;
                     $cardNote = ' Its card on "' . $p['name'] . '" was moved to position ' . $position . '.';
                 }
@@ -606,7 +607,7 @@ function st_builder_place(array $data): array
         'label' => $adminName,
     ];
     if ($og !== '') $meta['og'] = $og;
-    file_put_contents(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, $bodyHtml));
+    st_cms_atomic_write(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, $bodyHtml), true);
     if ($parent) {
         $pp = ST_PAGES . '/' . $parent['id'] . '.html';
         [$pm, $pb] = st_cms_parse((string) file_get_contents($pp));
@@ -619,7 +620,7 @@ function st_builder_place(array $data): array
             'image' => $tileImage,
         ], $position);
         if ($inserted !== $pb) {
-            file_put_contents($pp, st_cms_dump($pm, $inserted));
+            st_cms_atomic_write($pp, st_cms_dump($pm, $inserted), true);
             $cardNote = ' A card was added on "' . $parent['name'] . '" at position ' . $position . '.';
         } else {
             $cardNote = ' "' . $parent['name'] . '" has no card grid, so no card was added there. The address is still under that category.';
@@ -650,6 +651,472 @@ function st_builder_place(array $data): array
     ];
 }
 
+function st_builder_footer_region(string $html): ?array
+{
+    $pos = strpos($html, 'class="ftr__col ftr__col--prod"');
+    if ($pos === false) return null;
+    $ul = strpos($html, '<ul', $pos);
+    if ($ul === false) return null;
+    $gt = strpos($html, '>', $ul);
+    if ($gt === false) return null;
+    $end = st_builder_el_end($html, 'ul', $gt + 1);
+    if ($end === null) return null;
+    return [
+        'start' => $ul,
+        'end' => $end,
+        'innerStart' => $gt + 1,
+        'innerEnd' => $end - strlen('</ul>'),
+    ];
+}
+
+function st_builder_footer_remove(string $html, string $url): string
+{
+    $region = st_builder_footer_region($html);
+    if ($region === null) return $html;
+    $want = st_builder_norm_url($url);
+    if ($want === '') return $html;
+    $children = st_builder_direct_children($html, $region['innerStart'], $region['innerEnd']);
+    $kept = [];
+    $changed = false;
+    foreach ($children as $el) {
+        if (st_builder_own_href($el) === $want) { $changed = true; continue; }
+        $kept[] = $el;
+    }
+    if (!$changed) return $html;
+    return st_builder_splice_children($html, $region, $kept);
+}
+
+function st_builder_footer_insert(string $html, string $url, string $label, array $siblingUrls): string
+{
+    $region = st_builder_footer_region($html);
+    if ($region === null) return $html;
+    $want = st_builder_norm_url($url);
+    if ($want === '') return $html;
+    $sibs = [];
+    foreach ($siblingUrls as $u) {
+        $n = st_builder_norm_url((string) $u);
+        if ($n !== '') $sibs[$n] = true;
+    }
+    $children = st_builder_direct_children($html, $region['innerStart'], $region['innerEnd']);
+    $last = -1;
+    foreach ($children as $i => $el) {
+        $h = st_builder_own_href($el);
+        if ($h === $want) return $html;
+        if (isset($sibs[$h])) $last = $i;
+    }
+    if ($last < 0) return $html;
+    $li = '<li><a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">'
+        . htmlspecialchars($label, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '</a></li>';
+    array_splice($children, $last + 1, 0, [$li]);
+    return st_builder_splice_children($html, $region, $children);
+}
+
+function st_builder_reorder_list(string $html, array $region, array $urlsInOrder): string
+{
+    $children = st_builder_direct_children($html, $region['innerStart'], $region['innerEnd']);
+    $want = [];
+    foreach ($urlsInOrder as $u) {
+        $n = st_builder_norm_url((string) $u);
+        if ($n !== '') $want[$n] = true;
+    }
+    $hits = [];
+    $indexes = [];
+    foreach ($children as $i => $el) {
+        $h = st_builder_own_href($el);
+        if ($h !== '' && isset($want[$h]) && !isset($hits[$h])) {
+            $hits[$h] = $el;
+            $indexes[] = $i;
+        }
+    }
+    if (count($indexes) < 2) return $html;
+    $current = [];
+    foreach ($indexes as $i) $current[] = st_builder_own_href($children[$i]);
+    $desired = [];
+    $block = [];
+    foreach ($urlsInOrder as $u) {
+        $n = st_builder_norm_url((string) $u);
+        if (!isset($hits[$n])) continue;
+        $desired[] = $n;
+        $block[] = $hits[$n];
+    }
+    if ($block === [] || $current === $desired) return $html;
+    $at = array_flip($indexes);
+    $new = [];
+    $placed = false;
+    foreach ($children as $i => $el) {
+        if (isset($at[$i])) {
+            if (!$placed) {
+                foreach ($block as $b) $new[] = $b;
+                $placed = true;
+            }
+            continue;
+        }
+        $new[] = $el;
+    }
+    return st_builder_splice_children($html, $region, $new);
+}
+
+function st_builder_splice_children(string $html, array $region, array $desired): string
+{
+    $inner = substr($html, $region['innerStart'], $region['innerEnd'] - $region['innerStart']);
+    $indent = "\n        ";
+    $tail = "\n      ";
+    if (preg_match('/\r?\n([ \t]*)<li\b/', $inner, $m)) $indent = "\n" . $m[1];
+    if (preg_match('/\r?\n([ \t]*)$/', $inner, $tm)) $tail = "\n" . $tm[1];
+    $joined = $indent . implode($indent, $desired) . $tail;
+    if ($joined === $inner) return $html;
+    return substr($html, 0, $region['innerStart']) . $joined . substr($html, $region['innerEnd']);
+}
+
+function st_builder_reorder_slot(string $html, string $slot, array $urls): string
+{
+    $regions = [];
+    foreach (st_builder_menu_defs() as $def) {
+        if (($def['slot'] ?? '') !== $slot) continue;
+        $region = st_builder_find_region($html, $def);
+        if ($region !== null) $regions[] = $region;
+    }
+    usort($regions, static fn(array $a, array $b): int => $b['start'] <=> $a['start']);
+    foreach ($regions as $region) $html = st_builder_reorder_list($html, $region, $urls);
+    return $html;
+}
+
+function st_builder_sync_tile_nav(string $id): bool
+{
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', $id)) return false;
+    $path = ST_PAGES . '/' . $id . '.html';
+    if (!is_file($path)) return false;
+    [$meta, $body] = st_cms_parse((string) file_get_contents($path));
+    $parentUrl = (string) ($meta['url'] ?? '');
+    if ($parentUrl === '') return false;
+    $ordered = [];
+    foreach (st_cms_tiles($body) as $tile) {
+        $u = st_builder_norm_url((string) ($tile['href'] ?? ''));
+        if ($u === '' || in_array($u, $ordered, true)) continue;
+        $ordered[] = $u;
+    }
+    if (count($ordered) < 2) return false;
+    $child = [];
+    foreach (st_cms_pages() as $p) {
+        if ((string) ($p['parentUrl'] ?? '') === $parentUrl) $child[st_builder_norm_url((string) ($p['url'] ?? ''))] = true;
+    }
+    $urls = [];
+    foreach ($ordered as $u) if (!empty($child[$u])) $urls[] = $u;
+    if (count($urls) < 2) return false;
+    $layout = (string) file_get_contents(ST_LAYOUT);
+    $slot = 'hidden';
+    $best = 0;
+    foreach (st_builder_menu_defs() as $def) {
+        if (empty($def['desktop'])) continue;
+        $n = 0;
+        foreach ($urls as $u) {
+            $place = st_builder_menu_find($layout, $u);
+            if ($place['menu'] === $def['slot']) $n++;
+        }
+        if ($n > $best) { $best = $n; $slot = (string) $def['slot']; }
+    }
+    $next = $layout;
+    if ($slot !== 'hidden') $next = st_builder_reorder_slot($next, $slot, $urls);
+    $region = st_builder_footer_region($next);
+    if ($region !== null) $next = st_builder_reorder_list($next, $region, $urls);
+    if ($next === $layout) return false;
+    st_builder_write_layout($next);
+    return true;
+}
+
+function st_builder_one_variant(string $body, string $name, string $image = ''): string
+{
+    $safe = htmlspecialchars($name !== '' ? $name : 'Модель 1', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $img = htmlspecialchars($image, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $offset = 0;
+    while (preg_match('/<ul class="model-strip\b[^"]*"[^>]*>/i', $body, $m, PREG_OFFSET_CAPTURE, $offset)) {
+        $start = (int) $m[0][1];
+        $open = $m[0][0];
+        $gt = $start + strlen($open);
+        $end = st_builder_el_end($body, 'ul', $gt);
+        if ($end === null) break;
+        $inner = substr($body, $gt, $end - strlen('</ul>') - $gt);
+        if (!preg_match('/<li\b.*?<\/li>/s', $inner, $li)) { $offset = $end; continue; }
+        $item = $li[0];
+        $item = preg_replace('/\sclass="model-strip__btn[^"]*"/', ' class="model-strip__btn is-active"', $item, 1) ?? $item;
+        $item = preg_replace('/data-model="\d+"/', 'data-model="1"', $item, 1) ?? $item;
+        $item = preg_replace('/aria-pressed="(?:true|false)"/', 'aria-pressed="true"', $item, 1) ?? $item;
+        $item = preg_replace('/(<span class="model-strip__name"[^>]*>).*?(<\/span>)/s', '$1' . $safe . '$2', $item, 1) ?? $item;
+        if ($img !== '') {
+            $item = preg_replace('/\s(src|srcset)="[^"]*"/', ' $1="' . $img . '"', $item) ?? $item;
+        }
+        $newOpen = $open;
+        if (preg_match('/class="([^"]*)"/', $newOpen, $cm)) {
+            $cls = st_cms_with_count($cm[1], 'model-strip', 1, 3);
+            $newOpen = preg_replace('/class="[^"]*"/', 'class="' . $cls . '"', $newOpen, 1) ?? $newOpen;
+        }
+        if (preg_match('/aria-label="[^"]*"/', $newOpen)) {
+            $newOpen = preg_replace('/aria-label="[^"]*"/', 'aria-label="' . $safe . '"', $newOpen, 1) ?? $newOpen;
+        }
+        if (str_contains($newOpen, 'model-strip--shots')) {
+            if (preg_match('/style="/', $newOpen)) $newOpen = preg_replace('/style="[^"]*"/', 'style="--ms-cols:1"', $newOpen, 1) ?? $newOpen;
+            else $newOpen = substr($newOpen, 0, -1) . ' style="--ms-cols:1">';
+        }
+        $newUl = $newOpen . "\n        " . $item . "\n      </ul>";
+        $body = substr($body, 0, $start) . $newUl . substr($body, $end);
+        $offset = $start + strlen($newUl);
+    }
+    $offset = 0;
+    while (preg_match('/<div class="param-matrix\b/', $body, $m, PREG_OFFSET_CAPTURE, $offset)) {
+        $start = (int) $m[0][1];
+        $gt = strpos($body, '>', $start);
+        if ($gt === false) break;
+        $end = st_builder_el_end($body, 'div', $gt + 1);
+        if ($end === null) break;
+        $block = substr($body, $start, $end - $start);
+        if (preg_match('/<div class="param-matrix__table"[^>]*>/', $block, $tm, PREG_OFFSET_CAPTURE)) {
+            $tStart = (int) $tm[0][1];
+            $tOpenLen = strlen($tm[0][0]);
+            $tEnd = st_builder_el_end($block, 'div', $tStart + $tOpenLen);
+            if ($tEnd !== null && preg_match_all('/<div class="param-matrix__cell\b[^"]*"[^>]*>.*?<\/div>/s', substr($block, $tStart + $tOpenLen, $tEnd - strlen('</div>') - ($tStart + $tOpenLen)), $cells)) {
+                $kept = [];
+                foreach ($cells[0] as $cell) {
+                    if (preg_match('/data-col="(\d+)"/', $cell, $cm)) {
+                        if ($cm[1] !== '1') continue;
+                        if (str_contains($cell, 'param-matrix__head') && !str_contains($cell, 'param-matrix__label')) {
+                            $cell = preg_replace('/(<div\b[^>]*>).*?(<\/div>)/s', '$1' . $safe . '$2', $cell, 1) ?? $cell;
+                        } elseif (str_contains($cell, 'param-matrix__val')) {
+                            $cell = preg_replace('/(<div\b[^>]*>).*?(<\/div>)/s', '$1—$2', $cell, 1) ?? $cell;
+                        }
+                    }
+                    $kept[] = $cell;
+                }
+                $newTable = $tm[0][0] . "\n" . implode("\n", $kept) . "\n          </div>";
+                $block = substr($block, 0, $tStart) . $newTable . substr($block, $tEnd);
+            }
+        }
+        $block = preg_replace_callback('/<div class="(param-matrix\b[^"]*)"([^>]*)>/', static function (array $wm): string {
+            $cls = preg_replace('/\bparam-matrix--\d+\b/', '', $wm[1]) ?? $wm[1];
+            $cls = trim((string) preg_replace('/\s+/', ' ', $cls));
+            if (!str_contains($cls, 'param-matrix--1')) $cls .= ' param-matrix--1';
+            $attrs = preg_replace('/\sstyle="[^"]*"/', '', $wm[2]) ?? $wm[2];
+            return '<div class="' . trim($cls) . '"' . $attrs . ' style="--pm-cols:1">';
+        }, $block, 1) ?? $block;
+        $body = substr($body, 0, $start) . $block . substr($body, $end);
+        $offset = $start + strlen($block);
+    }
+    return $body;
+}
+
+function st_builder_swap_hero_image(string $html, string $image): string
+{
+    if ($image === '' || !preg_match('/<section class="hero\b.*?<\/section>/s', $html, $m, PREG_OFFSET_CAPTURE)) return $html;
+    $safe = htmlspecialchars($image, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $hero = preg_replace('/\s(src|srcset)="[^"]*"/', ' $1="' . $safe . '"', $m[0][0]) ?? $m[0][0];
+    return substr($html, 0, (int) $m[0][1]) . $hero . substr($html, (int) $m[0][1] + strlen($m[0][0]));
+}
+
+function st_builder_type_children(string $parentUrl): array
+{
+    $out = [];
+    foreach (st_cms_pages() as $p) {
+        if ((string) ($p['parentUrl'] ?? '') === $parentUrl && (string) ($p['url'] ?? '') !== $parentUrl) $out[] = $p;
+    }
+    return $out;
+}
+
+function st_builder_nest_new(string $parentUrl, array $children, array $tiles): bool
+{
+    $base = st_builder_norm_url($parentUrl);
+    $under = 0;
+    $other = 0;
+    $seen = [];
+    foreach ($tiles as $tile) $seen[] = st_builder_norm_url((string) ($tile['href'] ?? ''));
+    if ($seen === [] || $seen === ['']) {
+        foreach ($children as $ch) $seen[] = st_builder_norm_url((string) ($ch['url'] ?? ''));
+    }
+    foreach ($seen as $h) {
+        if ($h === '' || $h === $base) continue;
+        if (str_starts_with($h, $base)) $under++;
+        else $other++;
+    }
+    if ($under + $other === 0) return true;
+    return $under >= $other;
+}
+
+function st_builder_type_template(array $children): ?string
+{
+    $strip = [];
+    $matrix = [];
+    $any = [];
+    foreach ($children as $ch) {
+        $path = ST_PAGES . '/' . $ch['id'] . '.html';
+        if (!is_file($path)) continue;
+        $raw = (string) file_get_contents($path);
+        $any[] = $path;
+        if (str_contains($raw, 'model-strip')) $strip[] = $path;
+        elseif (str_contains($raw, 'param-matrix')) $matrix[] = $path;
+    }
+    if ($strip !== []) return $strip[array_key_last($strip)];
+    if ($matrix !== []) return $matrix[array_key_last($matrix)];
+    if ($any !== []) return $any[array_key_last($any)];
+    return null;
+}
+
+function st_builder_add_machine(array $data): array
+{
+    $parentId = trim((string) ($data['parent'] ?? ''));
+    if (!preg_match('/^[A-Za-z0-9_-]+$/', $parentId)) throw new RuntimeException('Open a category page first.');
+    $parentPath = ST_PAGES . '/' . $parentId . '.html';
+    if (!is_file($parentPath)) throw new RuntimeException('That category was not found.');
+    $parent = null;
+    foreach (st_cms_pages() as $p) {
+        if (($p['id'] ?? '') === $parentId) { $parent = $p; break; }
+    }
+    if ($parent === null) throw new RuntimeException('That category was not found.');
+    [$pmeta, $pbody] = st_cms_parse((string) file_get_contents($parentPath));
+    $tiles = st_cms_tiles($pbody);
+    if ($tiles === []) throw new RuntimeException('This page has no machine-type cards. Open a category such as Stationary spot welders or Stud welding.');
+    [$titleUk, $titleEn] = st_builder_uk_title((string) ($data['title'] ?? ''));
+    if (mb_strlen($titleUk) < 2) throw new RuntimeException('Enter the machine type name.');
+    $tagRaw = trim((string) ($data['tag'] ?? ''));
+    $textRaw = trim((string) ($data['text'] ?? ''));
+    if (mb_strlen($tagRaw) > 60) $tagRaw = mb_substr($tagRaw, 0, 60);
+    if (mb_strlen($textRaw) > 400) $textRaw = mb_substr($textRaw, 0, 400);
+    $image = trim((string) ($data['image'] ?? ''));
+    if ($image !== '') {
+        if (!preg_match('#^/assets/img/[A-Za-z0-9_./-]+$#', $image) || str_contains($image, '..') || !is_file(ST_ROOT . $image)) {
+            throw new RuntimeException('Choose an image that was uploaded to the site.');
+        }
+    }
+    $parentUrl = (string) ($parent['url'] ?? ($pmeta['url'] ?? ''));
+    $children = st_builder_type_children($parentUrl);
+    $srcPath = st_builder_type_template($children);
+    if ($srcPath === null) throw new RuntimeException('This category has no machine page to copy. Add the first subpage from Add page, then new types can copy it.');
+    $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleEn !== '' ? $titleEn : $titleUk);
+    $pages = st_cms_pages();
+    $usedId = [];
+    $usedUrl = [];
+    foreach ($pages as $p) {
+        $usedId[(string) $p['id']] = true;
+        $usedUrl[st_builder_norm_url((string) ($p['url'] ?? ''))] = true;
+    }
+    $nest = st_builder_nest_new($parentUrl, $children, $tiles);
+    $basePath = $nest ? rtrim($parentUrl, '/') . '/' . $slug . '/' : '/' . $slug . '/';
+    $basePath = preg_replace('#/+#', '/', $basePath) ?? $basePath;
+    if (!str_starts_with($basePath, '/')) $basePath = '/' . $basePath;
+    $url = $basePath;
+    $n = 2;
+    while (isset($usedUrl[st_builder_norm_url($url)]) || is_file(ST_ROOT . '/' . trim($url, '/') . '/index.html')) {
+        $url = rtrim($basePath, '/') . '-' . $n . '/';
+        $n++;
+        if ($n > 40) throw new RuntimeException('Could not find a free address for that name.');
+    }
+    $nums = [];
+    foreach ($pages as $p) {
+        if (preg_match('/^(\d+)/', (string) $p['id'], $nm)) $nums[] = (int) $nm[1];
+    }
+    $nxt = $nums !== [] ? max($nums) + 1 : 80;
+    $idSlug = $slug;
+    $extra = 0;
+    do {
+        $newId = $nxt . '-' . $idSlug;
+        if (!isset($usedId[$newId]) && !is_file(ST_PAGES . '/' . $newId . '.html')) break;
+        $extra++;
+        $idSlug = $slug . '-' . ($extra + 1);
+        if ($extra > 30) throw new RuntimeException('Could not find a free page id.');
+    } while (true);
+    [$tm, $tbody] = st_cms_parse((string) file_get_contents($srcPath));
+    $tagUk = $tagRaw !== '' ? $tagRaw : st_builder_clip(st_cms_strip((string) (st_cms_hero($tbody)['eyebrow'] ?? 'SMOLTECH')), 40);
+    if ($tagUk === '') $tagUk = 'SMOLTECH';
+    $textUk = $textRaw !== '' ? $textRaw : 'Опишіть цю машину — потужність, процес і типові деталі.';
+    $linkUk = st_builder_clip('Дивитись ' . $titleUk, 48);
+    if ($image === '') {
+        $image = (string) ($tiles[array_key_last($tiles)]['image'] ?? '');
+        if ($image === '') $image = (string) (st_cms_hero($tbody)['image'] ?? '/assets/img/company-hall-1.jpg');
+    }
+    $bodyHtml = st_builder_retarget_links(st_builder_set_h1($tbody, $titleUk), (string) ($tm['url'] ?? ''), $url);
+    $bodyHtml = preg_replace('/(<p class="hero__sub">).*?(<\/p>)/s', '$1' . htmlspecialchars($textUk, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '$2', $bodyHtml, 1) ?? $bodyHtml;
+    if (preg_match('/<section class="hero\b.*?<\/section>/s', $bodyHtml, $hero, PREG_OFFSET_CAPTURE)) {
+        $chunk = preg_replace('/(<p class="eyebrow">).*?(<\/p>)/s', '$1' . htmlspecialchars($tagUk, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '$2', $hero[0][0], 1) ?? $hero[0][0];
+        $bodyHtml = substr($bodyHtml, 0, (int) $hero[0][1]) . $chunk . substr($bodyHtml, (int) $hero[0][1] + strlen($hero[0][0]));
+    }
+    $bodyHtml = st_builder_swap_hero_image($bodyHtml, $image);
+    $bodyHtml = st_builder_one_variant($bodyHtml, $titleUk, $image);
+    $parentCrumb = trim((string) ($pmeta['crumbs'] ?? ''));
+    if (str_contains($parentCrumb, '|')) $parentCrumb = trim((string) preg_replace('/^.*\|\s*/u', '', $parentCrumb));
+    if (str_contains($parentCrumb, '>>')) $parentCrumb = trim(explode('>>', $parentCrumb, 2)[0]);
+    if ($parentCrumb === '') $parentCrumb = (string) ($parent['name'] ?? $titleUk);
+    $meta = [
+        'out' => trim($url, '/') . '/index.html',
+        'url' => $url,
+        'nav' => (string) ($parent['nav'] ?? ($pmeta['nav'] ?? '')),
+        'title' => $titleUk . ' | SMOLTECH',
+        'desc' => $textUk,
+        'ogtitle' => $titleUk,
+        'crumbs' => $parentCrumb . '>>' . $parentUrl . ' | ' . $titleUk,
+        'prio' => '0.75',
+        'added' => '1',
+        'label' => $titleEn !== '' ? $titleEn : $titleUk,
+    ];
+    if (!empty($tm['og'])) $meta['og'] = (string) $tm['og'];
+    $layoutOrig = (string) file_get_contents(ST_LAYOUT);
+    $parentOrig = (string) file_get_contents($parentPath);
+    $newPath = ST_PAGES . '/' . $newId . '.html';
+    st_cms_atomic_write($newPath, st_cms_dump($meta, $bodyHtml), false);
+    try {
+        $inserted = st_builder_insert_tile($pbody, [
+            'href' => $url,
+            'title' => $titleUk,
+            'tag' => $tagUk,
+            'text' => $textUk,
+            'link' => $linkUk,
+            'image' => $image,
+        ], count($tiles) + 1);
+        if ($inserted === $pbody) throw new RuntimeException('The card could not be added to the category grid.');
+        st_cms_atomic_write($parentPath, st_cms_dump($pmeta, $inserted), true);
+        $layout = $layoutOrig;
+        $slot = 'hidden';
+        $position = 1;
+        $sibUrls = [];
+        foreach ($children as $ch) {
+            $cu = (string) ($ch['url'] ?? '');
+            $sibUrls[] = $cu;
+            $place = st_builder_menu_find($layoutOrig, $cu);
+            if ($place['menu'] !== 'hidden' && (int) $place['position'] >= $position) {
+                $slot = (string) $place['menu'];
+                $position = (int) $place['position'] + 1;
+            }
+        }
+        if ($slot !== 'hidden') $layout = st_builder_menu_apply($layout, $url, $slot, $position, $titleUk);
+        $footLabel = $tagUk !== '' && $tagUk !== 'SMOLTECH' ? st_builder_clip($tagUk . ' — ' . $titleUk, 48) : st_builder_clip($titleUk, 48);
+        $layout = st_builder_footer_insert($layout, $url, $footLabel, $sibUrls);
+        if ($layout !== $layoutOrig) st_builder_write_layout($layout);
+        if ($titleEn !== '' && $titleEn !== $titleUk) {
+            require_once __DIR__ . '/tlumacz.php';
+            st_i18n_author_pairs([
+                ['uk' => $titleUk, 'en' => $titleEn],
+            ]);
+        }
+    } catch (Throwable $e) {
+        if (is_file($newPath)) @unlink($newPath);
+        if (is_file($parentPath) && (string) file_get_contents($parentPath) !== $parentOrig) {
+            st_cms_atomic_write($parentPath, $parentOrig, false);
+        }
+        if ((string) file_get_contents(ST_LAYOUT) !== $layoutOrig) st_cms_atomic_write(ST_LAYOUT, $layoutOrig, false);
+        throw $e;
+    }
+    $live = st_cms_publish_page($newId, true);
+    $where = 'Added “' . $titleUk . '” as a new card. Its page is at ' . $url . '.';
+    if ($slot === 'hidden') $where .= ' Sibling pages are not in the menu, so this one is in the sitemap only.';
+    else $where .= ' It was added to the ' . st_builder_menu_label($slot) . '.';
+    $where .= ' Open it to edit variants.';
+    return $live + [
+        'ok' => true,
+        'id' => $newId,
+        'url' => $url,
+        'parent' => $parentId,
+        'name' => $titleEn !== '' ? $titleEn : $titleUk,
+        'where' => $where,
+        'created' => true,
+    ];
+}
+
 function st_builder_delete_page(string $id): array
 {
     if (!preg_match('/^[A-Za-z0-9_-]+$/', $id)) throw new RuntimeException('Nieprawidłowa strona.');
@@ -663,10 +1130,15 @@ function st_builder_delete_page(string $id): array
     if (empty($page['canDelete'])) throw new RuntimeException('Tej strony nie można usunąć.');
     [$meta] = st_cms_parse((string) file_get_contents($path));
     $url = (string) ($meta['url'] ?? '');
+    st_cms_backup_file($path);
+    st_cms_backup_file(ST_LAYOUT);
+    $out = trim((string) ($meta['out'] ?? ''));
+    if ($out !== '') st_cms_backup_file(ST_ROOT . '/' . $out);
     if ($url !== '') {
         $layout = (string) file_get_contents(ST_LAYOUT);
         $label = trim(strip_tags((string) ($meta['title'] ?? 'Сторінка')));
-        $next = st_builder_menu_apply($layout, $url, 'hidden', 1, $label);
+        $next = st_builder_footer_remove($layout, $url);
+        $next = st_builder_menu_apply($next, $url, 'hidden', 1, $label);
         if ($next !== $layout) st_builder_write_layout($next);
     }
     return st_cms_delete_page($id);

@@ -1386,6 +1386,8 @@ picture:has(> img[data-st-crop]),
    CARDS / GRIDS
    ========================================================================== */
 .grid { display: grid; gap: clamp(1.1rem, 2.2vw, 1.7rem); }
+.g-1 { grid-template-columns: minmax(0, 1fr); }
+.g-1 > .tile { max-width: 26rem; }
 .g-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .g-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
 .g-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -3498,10 +3500,17 @@ table.tbl tbody th { font-weight: 600; }
 .prose ul, .prose ol { padding-left: 1.3rem; display: grid; gap: .5rem; }
 .prose ul.ticks, .prose ol.ticks { padding-left: 0; }
 .prose li { padding-left: .2rem; }
-a[data-st-link] { color: var(--brand-600); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; transition: text-decoration-thickness .15s; }
+a.st-link,
+a[data-st-link] {
+  color: var(--brand) !important;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-thickness .15s;
+}
+a.st-link:hover,
 a[data-st-link]:hover { text-decoration-thickness: 2px; }
-.sec-dark a[data-st-link], .sec-dark-2 a[data-st-link] { color: var(--brand); }
-.hero a[data-st-link] { color: inherit; }
 .prose a:not(.btn):not(.arrow-link) { color: var(--brand-600); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .prose a:not(.btn):not(.arrow-link):hover { text-decoration-thickness: 2px; }
 .sec-dark .prose a:not(.btn):not(.arrow-link), .sec-dark-2 .prose a:not(.btn):not(.arrow-link) { color: var(--brand); }

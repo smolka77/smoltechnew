@@ -89,6 +89,10 @@
     var skipClick = false;
     var slugTouched = false;
     var freshForm = false;
+    var level = 'text';
+    var currentSection = null;
+    var currentItem = null;
+    var linkRange = null;
 
     var oldBlocks = document.getElementById('stb-blocks');
     if (oldBlocks) oldBlocks.remove();
@@ -118,15 +122,15 @@
             '<button type="button" data-act="center" title="Align center">Center</button>' +
             '<button type="button" data-act="right" title="Align right">Right</button>' +
             '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">Bullets</button>' +
-            '<button type="button" data-act="link" title="Insert a link">Link</button>' +
+            '<button type="button" data-act="link" title="Link the selected words">Link</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="layout">' +
             '<span class="stb__grp-h">Layout</span>' +
             '<button type="button" data-act="add" title="Insert a ready-made section">Add block</button>' +
-            '<button type="button" data-act="up" title="Move this section up">Up</button>' +
-            '<button type="button" data-act="down" title="Move this section down">Down</button>' +
-            '<button type="button" data-act="dup" title="Duplicate this section">Duplicate</button>' +
-            '<button type="button" data-act="del" title="Delete this section">Delete</button>' +
+            '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
+            '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
+            '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
+            '<button type="button" data-act="del" title="Delete the selected card. Delete a whole section only after choosing it in the bar">Delete</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="media">' +
             '<span class="stb__grp-h">Media</span>' +
@@ -140,6 +144,9 @@
             '<span class="stb__grp-h">Page</span>' +
             '<button type="button" data-act="undo" id="stb-undo" disabled title="Undo (Ctrl+Z)">Undo</button>' +
             '<button type="button" data-act="redo" id="stb-redo" disabled title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>' +
+            '<button type="button" id="stb-add-type" hidden title="Add a machine type: a card on this page and a new subpage">Add machine type</button>' +
+            '<button type="button" id="stb-add-mach" hidden title="Add a product card on this page">Add product</button>' +
+            '<button type="button" id="stb-add-var" hidden title="Add a variant column to the specification table">Add variant</button>' +
             '<button type="button" id="stb-pages" title="Add a page or change where a page sits in the menu">Add page</button>' +
             '<button type="button" id="stb-delpage" hidden title="Delete this page">Delete page</button>' +
             '<button type="button" id="stb-meta-btn" title="Google title and description">Page settings</button>' +
@@ -154,6 +161,7 @@
           '<label>Share title <input type="text" id="stb-og"></label>' +
         '</div>' +
         '<p class="stb__note" id="stb-note">Click text to edit it. Double-click a menu or card link to open that page. To crop a photo, click Move photo, then drag.</p>' +
+        '<div class="stb__pick" id="stb-pick" hidden></div>' +
         '<iframe class="stb__frame" id="stb-frame" title="Page editor"></iframe>' +
         '<p class="stb__status" id="stb-status"></p>' +
       '</div>';
@@ -215,7 +223,12 @@
       selected = null;
       image = null;
       field = null;
+      level = 'text';
+      currentSection = null;
+      currentItem = null;
+      renderPick();
       syncImageTools();
+      syncPageTools();
       host.querySelector('#stb-ph-wrap').hidden = true;
     }
 
@@ -374,6 +387,7 @@
       image = null;
       field = null;
       syncImageTools();
+      syncPageTools();
       applyLang('en');
       resetHistory();
       var hello = ctx.hello || '';
@@ -392,6 +406,7 @@
         'html{scroll-behavior:auto!important}',
         '.stb-ink-light,.stb-ink-light *{background-color:#1a1a1a!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
         '.stb-ink-dark,.stb-ink-dark *{background-color:#fff!important;color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
+        'a.st-link,a[data-st-link]{color:#d10a11!important;-webkit-text-fill-color:#d10a11!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px}',
         '.stb-ink-light,.stb-ink-dark{border-radius:2px}',
         'a{cursor:text}',
         '[data-st-region="header"] a[href^="/"],[data-st-region="drawer"] a[href^="/"],[data-st-region="mbar"] a[href^="/"],[data-st-region="footer"] a[href^="/"],a.tile{cursor:pointer}',
@@ -436,6 +451,8 @@
             box.firstChild.stbUk = box.stbUkLeaf;
           }
         }
+        var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
+        if (nameNode) syncVariantName(nameNode);
         markDirty(where);
       });
       d.addEventListener('focusout', function (e) {
@@ -499,14 +516,90 @@
       return null;
     }
 
-    function unitOf(el) {
+    var ITEM_SEL = 'a.tile, a.card, a.choice__card, a.area, article.area, article.vcard, article.mach, article.film-rail__i, li.proof__i, li.stats__i, ul.model-strip > li, .faq > details, ul.ticks > li, .grid > figure, .grid > article, .grid > a, .choice > a, .choice > .choice__card, .mach-list > article, .film-rail > article';
+
+    function itemOf(el) {
+      if (!el || !el.closest) return null;
       var main = doc.getElementById('main');
-      var card = el.closest('li, article, details');
-      if (card && card !== main && !(card.matches && card.matches('[data-st-region]'))) return card;
-      var n = el;
-      while (n.parentElement && n.parentElement !== main && n.parentElement !== doc.body) n = n.parentElement;
-      if (main && n.parentElement === main) return n;
-      return null;
+      var item = el.closest(ITEM_SEL);
+      if (!item || !main || !main.contains(item)) return null;
+      if (item.matches && item.matches('[data-st-region]')) return null;
+      return item;
+    }
+
+    function sectionOf(el) {
+      var main = doc.getElementById('main');
+      if (!el || !main) return null;
+      var n = el.nodeType === 1 ? el : el.parentElement;
+      if (!n || !main.contains(n) || n === main) return null;
+      while (n.parentElement && n.parentElement !== main) n = n.parentElement;
+      return n.parentElement === main ? n : null;
+    }
+
+    function unitOf(el) {
+      return itemOf(el) || sectionOf(el);
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function labelOf(el) {
+      if (!el) return '';
+      var h = el.querySelector('h1, h2, h3, .model-strip__name');
+      var t = (h ? h.textContent : el.textContent) || '';
+      t = t.replace(/\s+/g, ' ').trim();
+      if (t.length > 72) t = t.slice(0, 72) + '…';
+      return t;
+    }
+
+    function setSelection(fromEl, force) {
+      var item = fromEl ? itemOf(fromEl) : null;
+      var section = fromEl ? sectionOf(fromEl) : currentSection;
+      if (force === 'section' && section) {
+        level = 'section';
+        currentSection = section;
+        currentItem = null;
+        highlight(section);
+      } else if (force === 'item' && currentItem) {
+        level = 'item';
+        highlight(currentItem);
+      } else if (item && force !== 'section') {
+        level = 'item';
+        currentItem = item;
+        currentSection = sectionOf(item);
+        highlight(item);
+      } else if (section) {
+        level = 'text';
+        currentSection = section;
+        currentItem = null;
+        highlight(section);
+      } else {
+        level = 'text';
+        currentSection = null;
+        currentItem = null;
+        highlight(null);
+      }
+      renderPick();
+    }
+
+    function renderPick() {
+      var bar = host.querySelector('#stb-pick');
+      if (!bar) return;
+      if (!currentSection) { bar.hidden = true; bar.innerHTML = ''; return; }
+      bar.hidden = false;
+      var sName = labelOf(currentSection) || 'This section';
+      var html = '<button type="button" data-pick="section"' + (level === 'section' ? ' class="is-on"' : '') + '>Section: ' + esc(sName) + '</button>';
+      if (currentItem) {
+        var kind = currentItem.matches('ul.model-strip > li') ? 'Variant' : 'Card';
+        html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="item"' + (level === 'item' ? ' class="is-on"' : '') + '>' + kind + ': ' + esc(labelOf(currentItem) || kind) + '</button>';
+      }
+      if (level === 'text') html += '<span class="stb__pick-note">Click a card to select just that card. Choose the section name to delete the whole block.</span>';
+      else if (level === 'item') html += '<span class="stb__pick-note">Delete removes only this. Up and Down move it.</span>';
+      else html += '<span class="stb__pick-note">The whole section is selected.</span>';
+      bar.innerHTML = html;
     }
 
     function clearEdit() {
@@ -674,7 +767,7 @@
         if (imgOnly && !skipPhoto(imgOnly)) {
           image = imgOnly;
           syncImageTools();
-          highlight(unitOf(imgOnly));
+          setSelection(imgOnly);
           setNote(imgOnly);
         }
         return;
@@ -690,7 +783,7 @@
           e.preventDefault();
           image = moving.el;
           syncImageTools();
-          highlight(unitOf(moving.el) || moving.el.closest('figure, .hero, section'));
+          setSelection(moving.el);
           setNote(moving.el);
           say('Drag the photo inside its frame. Click Move photo again to edit text.');
           return;
@@ -713,8 +806,7 @@
         if (control.stbUk == null) control.stbUk = control.getAttribute('placeholder') || '';
         var lab = control.closest('label');
         var span = lab && lab.querySelector('span');
-        var unit = unitOf(control);
-        highlight(unit);
+        setSelection(control);
         if (span) startEdit(span);
         setNote(control);
         return;
@@ -724,9 +816,11 @@
       var img = t.closest('img');
       image = img || null;
       syncImageTools();
-      var box = unitOf(t);
-      highlight(box);
+      setSelection(t);
       var hostEl = textHost(t);
+      if (hostEl && hostEl.matches && hostEl.matches('a.tile, a.card, a.choice__card, a.btn, a.nav__link, a.area')) {
+        hostEl = hostEl.querySelector('h3, h2, p');
+      }
       if (hostEl && !hostEl.matches('img')) startEdit(hostEl);
       setNote(t);
     }
@@ -883,7 +977,7 @@
           }
           image = el;
           syncImageTools();
-          highlight(unitOf(el) || el);
+          setSelection(el);
           setNote(el);
         }
         return;
@@ -892,7 +986,7 @@
       if (e) { e.preventDefault(); e.stopPropagation(); }
       if (el.tagName === 'IMG') image = el;
       syncImageTools();
-      highlight(unitOf(el) || el);
+      setSelection(el);
       markDirty(whereOf(el));
       setNote(el);
       say('Photo position updated. Save to publish it.');
@@ -977,43 +1071,73 @@
     }
 
     function move(dir) {
-      if (!selected) { say('Click the block you want to move.', 'err'); return; }
-      var sib = dir < 0 ? selected.previousElementSibling : selected.nextElementSibling;
+      var node = level === 'item' ? currentItem : (level === 'section' ? currentSection : selected);
+      if (!node) { say('Click the block you want to move.', 'err'); return; }
+      if (node.matches && node.matches('ul.model-strip > li')) {
+        moveVariant(node, dir);
+        return;
+      }
+      var sib = dir < 0 ? node.previousElementSibling : node.nextElementSibling;
+      while (sib && sib.matches && sib.matches('script, style')) sib = dir < 0 ? sib.previousElementSibling : sib.nextElementSibling;
       if (!sib) return;
       beforeChange();
-      if (dir < 0) sib.before(selected); else sib.after(selected);
-      markDirty(whereOf(selected));
+      if (dir < 0) sib.before(node); else sib.after(node);
+      if (node.matches && node.matches('a.tile') && node.parentElement) reflowTiles(node.parentElement);
+      if (node.matches && node.matches('article.mach') && node.parentElement) renumberMach(node.parentElement);
+      markDirty(whereOf(node));
+      setSelection(node);
     }
 
     function duplicate() {
-      if (!selected || !selected.parentElement) { say('Click the block you want to copy.', 'err'); return; }
-      if (selected.id === 'zapyt' || selected.querySelector('#zapyt')) {
+      var node = level === 'item' ? currentItem : selected;
+      if (!node || !node.parentElement) { say('Click the block you want to copy.', 'err'); return; }
+      if (node.id === 'zapyt' || node.querySelector('#zapyt')) {
         say('A page can have only one quote form.', 'err');
         return;
       }
+      if (node.matches && node.matches('a.tile') && childPage(node.getAttribute('href'))) {
+        say('This card opens its own page. Use Add machine type so the new card gets its own page.', 'err');
+        return;
+      }
       beforeChange();
-      var copy = selected.cloneNode(true);
+      var copy = node.cloneNode(true);
       if (copy.id) copy.removeAttribute('id');
       copy.querySelectorAll('[id]').forEach(function (n) { n.removeAttribute('id'); });
       copy.classList.remove('stb-on');
-      selected.after(copy);
+      node.after(copy);
       stampTree(copy);
-      highlight(copy);
+      if (copy.matches && copy.matches('a.tile') && copy.parentElement) reflowTiles(copy.parentElement);
+      if (copy.matches && copy.matches('article.mach') && copy.parentElement) renumberMach(copy.parentElement);
+      setSelection(copy);
       markDirty(whereOf(copy));
     }
 
     function removeUnit() {
-      if (!selected) { say('Click the block you want to remove.', 'err'); return; }
-      var form = selected.id === 'zapyt' || (selected.querySelector && selected.querySelector('#zapyt') && selected.querySelector('#zapyt').parentElement === selected);
+      if (level === 'item' && currentItem) {
+        if (currentItem.matches('ul.model-strip > li')) { deleteVariant(currentItem); return; }
+        confirmRemoveItem(currentItem);
+        return;
+      }
+      if (level !== 'section' || !currentSection) {
+        say('Click a card to delete only that card. To delete a whole section, click its name in the bar above, then Delete.', 'err');
+        return;
+      }
+      var form = currentSection.id === 'zapyt' || (currentSection.querySelector && currentSection.querySelector('#zapyt') && currentSection.querySelector('#zapyt').parentElement === currentSection);
+      var name = labelOf(currentSection) || 'this section';
       var msg = form
         ? 'Remove the quote form from this page only? Other pages keep it.'
-        : 'Remove this block?';
+        : 'Delete the whole section “' + name + '”? Everything inside it goes. The rest of the page stays.';
       if (!window.confirm(msg)) return;
       beforeChange();
-      var where = whereOf(selected);
-      selected.remove();
+      var where = whereOf(currentSection);
+      currentSection.remove();
+      currentSection = null;
+      currentItem = null;
+      level = 'text';
       selected = null;
+      renderPick();
       markDirty(where);
+      say('Section removed. Save to publish.');
     }
 
     function insertSection(html) {
@@ -1031,7 +1155,7 @@
       } else if (formEl) formEl.before(sec);
       else main.appendChild(sec);
       stampTree(sec);
-      highlight(sec);
+      setSelection(sec, 'section');
       var h = sec.querySelector('h1, h2, h3');
       if (h) startEdit(h);
       markDirty('page');
@@ -1173,74 +1297,168 @@
       markDirty('page');
     }
 
-    function linkFromSelection() {
+    function structuralLink(a) {
+      if (!a || !a.matches) return false;
+      if (a.matches('a.tile, a.card, a.choice__card, a.btn, a.nav__link, a.drawer__link, a.brand, a.skip, a.arrow-link, a.cta__phone, a.area')) return true;
+      if (a.closest('.nav, .mega, .drawer, .ftr, .mbar, .crumbs, .hdr, .topbar')) return true;
+      return false;
+    }
+
+    function textLinkFrom(node) {
+      var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+      var a = el && el.closest ? el.closest('a[href]') : null;
+      if (!a || structuralLink(a)) return null;
+      if (a.closest('[data-st-region="header"], [data-st-region="drawer"], [data-st-region="footer"], [data-st-region="mbar"]')) return null;
+      return a;
+    }
+
+    function savedRange() {
       var sel = doc.getSelection();
-      var node = sel && sel.rangeCount ? sel.anchorNode : null;
-      var el = node ? (node.nodeType === 1 ? node : node.parentElement) : null;
-      var existing = el && el.closest ? el.closest('a[href]') : null;
-      if (existing) return existing;
-      var host = doc.querySelector('[contenteditable="true"]');
-      if (host && host.matches && host.matches('a[href]')) return host;
-      if (host && host.closest) return host.closest('a[href]');
-      return null;
+      if (!sel || !sel.rangeCount) return null;
+      try { return sel.getRangeAt(0).cloneRange(); } catch (err) { return null; }
+    }
+
+    function normalizeHref(v) {
+      v = String(v || '').trim();
+      if (!v) return '';
+      if (/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(v)) return v;
+      if (/^[^\s@\/]+@[^\s@\/]+\.[a-z]{2,}$/i.test(v)) return 'mailto:' + v;
+      if (/^\+?[\d\s().-]{7,}$/.test(v)) return 'tel:' + v.replace(/[^\d+]/g, '');
+      if (/^(www\.)?[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(v)) return 'https://' + v;
+      if (/^[a-z0-9][a-z0-9\-./]*\/?$/i.test(v)) return '/' + v.replace(/^\/+/, '');
+      return '';
+    }
+
+    function styleLink(a, url, blank) {
+      a.setAttribute('href', url);
+      a.classList.add('st-link');
+      a.setAttribute('data-st-link', '');
+      a.style.color = '#d10a11';
+      a.style.fontWeight = '700';
+      a.style.textDecoration = 'underline';
+      var external = /^https?:/i.test(url);
+      var openBlank = blank == null ? external : !!blank;
+      if (openBlank) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+      } else {
+        a.removeAttribute('target');
+        a.removeAttribute('rel');
+      }
+    }
+
+    function unwrapLink(a) {
+      var parent = a.parentNode;
+      if (!parent) return;
+      while (a.firstChild) parent.insertBefore(a.firstChild, a);
+      parent.removeChild(a);
+    }
+
+    function wrapRange(range, a) {
+      try {
+        range.surroundContents(a);
+        return true;
+      } catch (err) {
+        try {
+          var frag = range.extractContents();
+          if (!frag || !String(frag.textContent || '').trim()) return false;
+          a.appendChild(frag);
+          range.insertNode(a);
+          return true;
+        } catch (err2) { return false; }
+      }
     }
 
     function makeLink() {
       if (!doc) return;
       var sel = doc.getSelection();
-      var range = null;
-      try { if (sel && sel.rangeCount) range = sel.getRangeAt(0).cloneRange(); } catch (err) { range = null; }
-      var existing = linkFromSelection();
-      var url = window.prompt('Link address (https://, /page/, mailto: or tel:). Leave it empty to remove the link.', existing ? (existing.getAttribute('href') || '') : 'https://');
-      if (url == null) return;
-      if (range) {
-        try {
-          var again = doc.getSelection();
-          again.removeAllRanges();
-          again.addRange(range);
-        } catch (err2) { /* the prompt can drop the selection */ }
+      var node = sel && sel.rangeCount ? sel.anchorNode : null;
+      var existing = textLinkFrom(node);
+      if (!existing && sel && sel.rangeCount) existing = textLinkFrom(sel.focusNode);
+      var hostEl = doc.querySelector('[contenteditable="true"]');
+      if (!existing && hostEl) existing = textLinkFrom(hostEl);
+      if (hostEl && structuralLink(hostEl)) {
+        say('That card is already a link. Select ordinary text to add a link inside a paragraph.', 'err');
+        return;
       }
-      url = String(url).trim();
-      if (!url) {
-        if (!existing) { say('Select the link you want to remove.', 'err'); return; }
+      linkRange = savedRange();
+      if (linkRange && hostEl && !hostEl.contains(linkRange.commonAncestorContainer)) linkRange = null;
+      var chosen = linkRange && !linkRange.collapsed && String(linkRange.toString() || '').trim();
+      if (!existing && !chosen) { say('Select the words you want to link.', 'err'); return; }
+      openLinkDialog(existing, chosen);
+    }
+
+    function openLinkDialog(existing, chosen) {
+      var old = document.getElementById('stb-link-dlg');
+      if (old) old.remove();
+      var external = existing && /^https?:/i.test(existing.getAttribute('href') || '');
+      var modal = document.createElement('div');
+      modal.className = 'stb-modal';
+      modal.id = 'stb-link-dlg';
+      var pages = (page && page.pages) || [];
+      var opts = '<option value="">Type an address, or pick a page</option>' + pages.filter(function (p) {
+        return p.url && p.id !== '90-404';
+      }).map(function (p) {
+        return '<option value="' + esc(p.url) + '">' + esc(p.name || p.url) + '</option>';
+      }).join('');
+      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-link-title">' +
+        '<h2 id="stb-link-title">' + (existing ? 'Edit link' : 'Add a link') + '</h2>' +
+        '<p class="lead">The linked words are shown bold, red and underlined. An external address opens in a new tab. A page on this site stays in the same tab.</p>' +
+        '<div class="stb-form">' +
+          '<label class="wide">Address<input type="text" id="stb-link-url" placeholder="https://…, /kontakty/ or email" autocomplete="off"></label>' +
+          '<label class="wide">Page on this site<select id="stb-link-page">' + opts + '</select></label>' +
+          '<label class="wide stb-check"><input type="checkbox" id="stb-link-blank"> Open in a new tab</label>' +
+          '<p class="wide" id="stb-link-status"></p>' +
+        '</div>' +
+        '<div class="stb-actions"><button type="button" class="btn" id="stb-link-ok">Apply</button>' +
+          '<button type="button" class="btn btn-ghost" id="stb-link-rm"' + (existing ? '' : ' hidden') + '>Remove link</button>' +
+          '<button type="button" class="btn btn-ghost" id="stb-link-x">Cancel</button></div></div>';
+      document.body.appendChild(modal);
+      var urlInput = modal.querySelector('#stb-link-url');
+      var pageSel = modal.querySelector('#stb-link-page');
+      var blank = modal.querySelector('#stb-link-blank');
+      urlInput.value = existing ? (existing.getAttribute('href') || '') : '';
+      blank.checked = existing ? existing.getAttribute('target') === '_blank' : false;
+      pageSel.addEventListener('change', function () {
+        if (!pageSel.value) return;
+        urlInput.value = pageSel.value;
+        blank.checked = false;
+      });
+      function close() { modal.remove(); }
+      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+      modal.querySelector('#stb-link-x').addEventListener('click', close);
+      modal.querySelector('#stb-link-rm').addEventListener('click', function () {
+        if (!existing || !existing.isConnected) { close(); return; }
         beforeChange();
         var parent = existing.parentNode;
-        while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
-        parent.removeChild(existing);
+        unwrapLink(existing);
         markDirty(whereOf(parent));
-        say('Link removed.');
-        return;
-      }
-      if (!/^(https?:|mailto:|tel:|\/|#)/i.test(url)) {
-        say('Use an http, mailto or tel address, or a path that starts with /.', 'err');
-        return;
-      }
-      beforeChange();
-      var sel = doc.getSelection();
-      var inside = existing && sel && sel.rangeCount && existing.contains(sel.anchorNode) && existing.contains(sel.focusNode);
-      if (existing && (!sel || !sel.rangeCount || sel.isCollapsed || inside)) {
-        existing.setAttribute('href', url);
-        markDirty(whereOf(existing));
-        say('Link updated.');
-        return;
-      }
-      try { frame.contentWindow.focus(); } catch (err) { /* optional */ }
-      var made = false;
-      var live = doc.getSelection();
-      if (live && live.rangeCount && !live.isCollapsed) {
-        var wrap = live.getRangeAt(0);
-        var a = doc.createElement('a');
-        a.setAttribute('href', url);
-        try {
-          wrap.surroundContents(a);
-          made = true;
-        } catch (err3) {
-          made = !!doc.execCommand('createLink', false, url);
+        close();
+        say('Link removed. Save to publish.');
+      });
+      modal.querySelector('#stb-link-ok').addEventListener('click', function () {
+        var href = normalizeHref(urlInput.value);
+        if (!href) {
+          modal.querySelector('#stb-link-status').textContent = 'Use https://, a path that starts with /, mailto: or tel:.';
+          return;
         }
-      }
-      if (!made) { say('Select the words you want to link.', 'err'); return; }
-      markDirty('page');
-      say('Link added.');
+        beforeChange();
+        var made = null;
+        if (existing && existing.isConnected) {
+          styleLink(existing, href, blank.checked);
+          made = existing;
+        } else if (linkRange) {
+          var a = doc.createElement('a');
+          styleLink(a, href, blank.checked);
+          if (wrapRange(linkRange, a)) made = a;
+        }
+        if (!made) { say('Select the words you want to link.', 'err'); close(); return; }
+        markDirty(whereOf(made));
+        close();
+        say('Link updated. It stays bold, red and underlined after you save.');
+      });
+      urlInput.focus();
+      if (!existing && chosen) urlInput.select && urlInput.focus();
     }
 
     function currentEl() {
@@ -1420,20 +1638,21 @@
       if (ui) ui.remove();
     }
 
-    function save() {
+    function save(after) {
       if (!doc) return;
+      var done = typeof after === 'function' ? after : null;
       var btn = host.querySelector('#stb-save');
       btn.disabled = true;
       say('Saving to the site…');
       try {
-        saveBody(btn);
+        saveBody(btn, done);
       } catch (err) {
         btn.disabled = false;
         say('Not saved: ' + (err && err.message ? err.message : err), 'err');
       }
     }
 
-    function saveBody(btn) {
+    function saveBody(btn, after) {
       var pairs = collectPairs();
       var formEl = doc.getElementById('zapyt');
       freshForm = !!(formEl && formEl.getAttribute('data-stb-newform') === '1');
@@ -1476,6 +1695,10 @@
           return;
         }
         dirty = false;
+        formDirty = false;
+        chromeDirty = false;
+        metaDirty = false;
+        if (after) { after(res); return; }
         say('Saved. This version is on the site.', 'ok');
         flash('Saved. This version is on the site.');
         load();
@@ -1663,6 +1886,441 @@
       });
     }
 
+    function syncPageTools() {
+      var addType = host.querySelector('#stb-add-type');
+      var addMach = host.querySelector('#stb-add-mach');
+      var addVar = host.querySelector('#stb-add-var');
+      var main = doc && doc.getElementById('main');
+      if (addType) addType.hidden = !(page && page.role === 'group' && main && main.querySelector('a.tile'));
+      if (addMach) addMach.hidden = !(main && main.querySelector('.mach-list > article.mach'));
+      if (addVar) addVar.hidden = !(main && main.querySelector('ul.model-strip > li'));
+    }
+
+    function syncVariantName(el) {
+      if (!el || !el.closest) return;
+      var root = el.closest('[data-param-matrix]') || el.closest('section') || doc;
+      var name = el.matches('.model-strip__name') ? el : el.closest('.model-strip__name');
+      if (name) {
+        var btn = name.closest('[data-model]');
+        var mid = btn && btn.getAttribute('data-model');
+        if (!mid) return;
+        var head = root.querySelector('.param-matrix__head[data-col="' + mid + '"]');
+        if (head && head.textContent !== name.textContent) head.textContent = name.textContent;
+        return;
+      }
+      var headEl = el.matches('.param-matrix__head[data-col]') ? el : el.closest('.param-matrix__head[data-col]');
+      if (!headEl) return;
+      var col = headEl.getAttribute('data-col');
+      var label = root.querySelector('.model-strip [data-model="' + col + '"] .model-strip__name');
+      if (label && label.textContent !== headEl.textContent) label.textContent = headEl.textContent;
+    }
+
+    function reflowTiles(grid) {
+      if (!grid || !grid.children) return;
+      var tiles = Array.prototype.filter.call(grid.children, function (el) {
+        return el.matches && el.matches('a.tile');
+      });
+      tiles.forEach(function (t, i) {
+        var no = t.querySelector('.tile__no');
+        if (!no) return;
+        var num = String(i + 1);
+        if (num.length < 2) num = '0' + num;
+        no.textContent = num;
+      });
+      var n = tiles.length;
+      var g = n <= 1 ? 'g-1' : (n === 2 ? 'g-2' : 'g-3');
+      var cls = grid.getAttribute('class') || '';
+      if (/\bg-\d+\b/.test(cls)) cls = cls.replace(/\bg-\d+\b/, g);
+      else cls = (cls + ' ' + g).trim();
+      grid.setAttribute('class', cls.replace(/\s+/g, ' ').trim());
+    }
+
+    function renumberMach(list) {
+      if (!list || !list.children) return;
+      var items = Array.prototype.filter.call(list.children, function (el) {
+        return el.matches && el.matches('article.mach');
+      });
+      items.forEach(function (a, i) {
+        var idx = a.querySelector('.mach__idx');
+        if (!idx) return;
+        var num = String(i + 1);
+        if (num.length < 2) num = '0' + num;
+        idx.textContent = num;
+      });
+    }
+
+    function childPage(href) {
+      var n = normUrl(href);
+      if (!n || !page || !page.pages) return null;
+      var parent = normUrl(page.url || '');
+      if (!parent) return null;
+      for (var i = 0; i < page.pages.length; i++) {
+        var row = page.pages[i];
+        if (!row || row.id === id) continue;
+        if (normUrl(row.url) === n && normUrl(row.parentUrl) === parent) return row;
+      }
+      return null;
+    }
+
+    function matrixRoot(el) {
+      if (!el || !el.closest) return null;
+      return el.closest('[data-param-matrix]');
+    }
+
+    function applyMatrixCount(root, n) {
+      if (!root) return;
+      n = Math.max(1, n | 0);
+      var pm = root.querySelector('.param-matrix');
+      if (pm) {
+        pm.style.setProperty('--pm-cols', String(n));
+        Array.prototype.slice.call(pm.classList).forEach(function (c) {
+          if (/^param-matrix--\d+$/.test(c)) pm.classList.remove(c);
+        });
+        pm.classList.add('param-matrix--' + n);
+        pm.className = pm.className.replace(/\bis-hl-\d+\b/g, '').replace(/\s+/g, ' ').trim();
+        pm.classList.add('is-hl-1');
+      }
+      var strip = root.querySelector('.model-strip');
+      if (strip && strip.classList.contains('model-strip--shots')) {
+        strip.style.setProperty('--ms-cols', String(n));
+        Array.prototype.slice.call(strip.classList).forEach(function (c) {
+          if (/^model-strip--\d+$/.test(c)) strip.classList.remove(c);
+        });
+        strip.classList.add('model-strip--' + n);
+      }
+    }
+
+    function reorderMatrix(root) {
+      if (!root) return;
+      var strip = root.querySelector('ul.model-strip');
+      var table = root.querySelector('.param-matrix__table');
+      if (!strip || !table) return;
+      var buttons = Array.prototype.slice.call(strip.querySelectorAll(':scope > li [data-model]'));
+      var order = buttons.map(function (b) { return b.getAttribute('data-model'); }).filter(Boolean);
+      var cells = Array.prototype.slice.call(table.children);
+      var rows = [];
+      var row = null;
+      cells.forEach(function (cell) {
+        if (cell.classList && cell.classList.contains('param-matrix__label')) {
+          row = { label: cell, cols: {} };
+          rows.push(row);
+          return;
+        }
+        if (!row) return;
+        var col = cell.getAttribute('data-col');
+        if (col) row.cols[col] = cell;
+      });
+      while (table.firstChild) table.removeChild(table.firstChild);
+      rows.forEach(function (r) {
+        table.appendChild(r.label);
+        order.forEach(function (cid, i) {
+          var cell = r.cols[cid];
+          if (!cell) return;
+          cell.setAttribute('data-col', String(i + 1));
+          table.appendChild(cell);
+        });
+      });
+      buttons.forEach(function (b, i) {
+        b.setAttribute('data-model', String(i + 1));
+        var on = i === 0;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      applyMatrixCount(root, order.length);
+    }
+
+    function moveVariant(li, dir) {
+      var sib = dir < 0 ? li.previousElementSibling : li.nextElementSibling;
+      if (!sib) return;
+      beforeChange();
+      if (dir < 0) sib.before(li); else sib.after(li);
+      reorderMatrix(matrixRoot(li));
+      markDirty(whereOf(li));
+      setSelection(li);
+    }
+
+    function deleteVariant(li) {
+      var strip = li.parentElement;
+      var items = strip ? strip.querySelectorAll(':scope > li') : [];
+      if (!items || items.length <= 1) { say('Keep at least one variant.', 'err'); return; }
+      var name = labelOf(li) || 'this variant';
+      if (!window.confirm('Delete the variant “' + name + '”? Its column is removed. The other variants stay.')) return;
+      beforeChange();
+      var root = matrixRoot(li);
+      var where = whereOf(li);
+      li.remove();
+      reorderMatrix(root);
+      currentItem = null;
+      level = 'text';
+      selected = null;
+      if (root) setSelection(root);
+      else renderPick();
+      markDirty(where);
+      say('Variant removed. Save to publish.');
+    }
+
+    function addVariant() {
+      var root = (currentItem && matrixRoot(currentItem))
+        || (currentSection && currentSection.querySelector && currentSection.querySelector('[data-param-matrix]'))
+        || (doc && doc.querySelector('#main [data-param-matrix]'));
+      if (!root) { say('This page has no specification table.', 'err'); return; }
+      var strip = root.querySelector('ul.model-strip');
+      var table = root.querySelector('.param-matrix__table');
+      if (!strip || !table) { say('This specification has no variant list to extend.', 'err'); return; }
+      var lastLi = strip.querySelector(':scope > li:last-child');
+      if (!lastLi) return;
+      var btn0 = lastLi.querySelector('[data-model]');
+      var oldId = btn0 ? btn0.getAttribute('data-model') : '';
+      if (!oldId) { say('This specification has no variant list to extend.', 'err'); return; }
+      beforeChange();
+      var copy = lastLi.cloneNode(true);
+      copy.classList.remove('stb-on');
+      var btn = copy.querySelector('[data-model]');
+      if (btn) {
+        btn.classList.remove('is-active');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('data-model', 'new');
+      }
+      var nameEl = copy.querySelector('.model-strip__name');
+      if (nameEl) nameEl.textContent = 'Нова модель';
+      lastLi.after(copy);
+      Array.prototype.slice.call(table.querySelectorAll('[data-col="' + oldId + '"]')).forEach(function (cell) {
+        var c = cell.cloneNode(true);
+        c.setAttribute('data-col', 'new');
+        if (c.classList.contains('param-matrix__head')) c.textContent = 'Нова модель';
+        else c.innerHTML = '—';
+        cell.after(c);
+      });
+      reorderMatrix(root);
+      stampTree(copy);
+      setSelection(copy);
+      if (nameEl && nameEl.isConnected) startEdit(nameEl);
+      markDirty('page');
+      say('Variant added. Edit its name and values, then Save.');
+    }
+
+    function dropItem(el) {
+      var grid = el.parentElement;
+      var tile = el.matches && el.matches('a.tile');
+      var mach = el.matches && el.matches('article.mach');
+      var where = whereOf(el);
+      beforeChange();
+      el.remove();
+      if (tile && grid && grid.isConnected) reflowTiles(grid);
+      if (mach && grid && grid.isConnected) renumberMach(grid);
+      currentItem = null;
+      level = 'text';
+      selected = null;
+      image = null;
+      if (currentSection && !currentSection.isConnected) currentSection = null;
+      highlight(currentSection);
+      renderPick();
+      syncImageTools();
+      markDirty(where);
+    }
+
+    function itemKind(el) {
+      if (!el || !el.matches) return 'item';
+      if (el.matches('a.tile, a.card, a.choice__card, a.area, article.area')) return 'card';
+      if (el.matches('article.mach')) return 'product';
+      if (el.matches('article.vcard, article.film-rail__i')) return 'video';
+      if (el.matches('.faq > details')) return 'question';
+      if (el.matches('figure')) return 'photo';
+      return 'item';
+    }
+
+    function confirmRemoveItem(el) {
+      var name = labelOf(el) || '';
+      var kind = itemKind(el);
+      var child = el.matches && el.matches('a[href]') ? childPage(el.getAttribute('href')) : null;
+      var offerPage = !!(child && child.canDelete && child.id);
+      var old = document.getElementById('stb-del-dlg');
+      if (old) old.remove();
+      var modal = document.createElement('div');
+      modal.className = 'stb-modal';
+      modal.id = 'stb-del-dlg';
+      var title = name ? ('Delete the ' + kind + ' “' + name + '”?') : ('Delete this ' + kind + '?');
+      var lead = 'Only this ' + kind + ' is removed. The rest of the section stays.';
+      if (kind === 'card') lead = 'Only this card is removed. The other cards stay, and the grid closes up.';
+      var pageBox = '';
+      if (offerPage) {
+        pageBox = '<label class="wide stb-check"><input type="checkbox" id="stb-del-page" checked> Also delete its page' +
+          (child.url ? ' (' + esc(child.url) + ')' : '') +
+          '. A backup is kept, and the page leaves the menu and the sitemap.</label>';
+      } else if (child) {
+        pageBox = '<p class="wide">Its page stays on the site. This only removes the card.</p>';
+      }
+      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-del-title">' +
+        '<h2 id="stb-del-title">' + esc(title) + '</h2>' +
+        '<p class="lead">' + esc(lead) + '</p>' +
+        '<div class="stb-form">' + pageBox + '</div>' +
+        '<div class="stb-actions"><button type="button" class="btn" id="stb-del-ok">Delete</button>' +
+        '<button type="button" class="btn btn-ghost" id="stb-del-x">Cancel</button></div></div>';
+      document.body.appendChild(modal);
+      function close() { modal.remove(); }
+      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+      modal.querySelector('#stb-del-x').addEventListener('click', close);
+      modal.querySelector('#stb-del-ok').addEventListener('click', function () {
+        var also = offerPage && modal.querySelector('#stb-del-page') && modal.querySelector('#stb-del-page').checked;
+        var childId = child && child.id;
+        close();
+        if (!also) {
+          dropItem(el);
+          say('Deleted “' + (name || kind) + '”. The rest of the section stays. Save to publish.');
+          return;
+        }
+        dropItem(el);
+        say('Removing “' + (name || kind) + '” and its page…');
+        save(function () {
+          api({ action: 'cms.page.delete', id: childId }).then(function (res) {
+            if (!res || !res.ok) {
+              say('The card was removed, but the page stayed: ' + ((res && res.error) || 'Could not delete the page.'), 'err');
+              ctx.hello = 'The card was removed from this page. The subpage is still on the site.';
+              load();
+              return;
+            }
+            ctx.hello = 'Deleted “' + (name || kind) + '” and its page. A backup was kept, and the menu and sitemap were updated.';
+            flash(ctx.hello);
+            load();
+          }).catch(function () {
+            say('The card was removed, but the page could not be deleted (connection error).', 'err');
+            load();
+          });
+        });
+      });
+    }
+
+    function openAddType() {
+      if (!doc) return;
+      if (dirty || formDirty || chromeDirty || metaDirty) {
+        say('Save this page first, then add a machine type.', 'err');
+        return;
+      }
+      var old = document.getElementById('stb-type-dlg');
+      if (old) old.remove();
+      var modal = document.createElement('div');
+      modal.className = 'stb-modal';
+      modal.id = 'stb-type-dlg';
+      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-type-title">' +
+        '<h2 id="stb-type-title">Add a machine type</h2>' +
+        '<p class="lead">A new card is added to this category, and a subpage is copied from a sibling machine page with one empty variant. The menu and sitemap follow the existing machine types in this category.</p>' +
+        '<div class="stb-form">' +
+          '<label class="wide">Name (Ukrainian)<input type="text" id="stb-type-name" placeholder="Наприклад: Машини 40 кВА"></label>' +
+          '<label>Address slug<input type="text" id="stb-type-slug" placeholder="mashyny-40-kva"></label>' +
+          '<label>Short tag<input type="text" id="stb-type-tag" maxlength="60" placeholder="TECNA"></label>' +
+          '<label class="wide">Short description<textarea id="stb-type-text" rows="3" maxlength="400" placeholder="Потужність, процес і типові деталі."></textarea></label>' +
+          '<div class="wide stb-actions" style="margin-top:0"><button type="button" class="btn btn-ghost" id="stb-type-img">Upload card image</button><span id="stb-type-img-name">Uses the last card’s photo if you skip this.</span></div>' +
+          '<p class="wide" id="stb-type-status"></p>' +
+        '</div>' +
+        '<div class="stb-actions"><button type="button" class="btn" id="stb-type-ok">Add machine type</button><button type="button" class="btn btn-ghost" id="stb-type-x">Cancel</button></div></div>';
+      document.body.appendChild(modal);
+      var slugTouchedLocal = false;
+      var imageUrl = '';
+      var nameInput = modal.querySelector('#stb-type-name');
+      var slugInput = modal.querySelector('#stb-type-slug');
+      nameInput.addEventListener('input', function () {
+        if (!slugTouchedLocal) slugInput.value = slugify(nameInput.value);
+      });
+      slugInput.addEventListener('input', function () { slugTouchedLocal = true; });
+      function close() { modal.remove(); }
+      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+      modal.querySelector('#stb-type-x').addEventListener('click', close);
+      modal.querySelector('#stb-type-img').addEventListener('click', function () {
+        uploadFile(function (url) {
+          imageUrl = url || '';
+          modal.querySelector('#stb-type-img-name').textContent = imageUrl || 'Uses the last card’s photo if you skip this.';
+        });
+      });
+      modal.querySelector('#stb-type-ok').addEventListener('click', function () {
+        var status = modal.querySelector('#stb-type-status');
+        var title = nameInput.value.trim();
+        if (title.length < 2) { status.textContent = 'Enter the machine type name.'; return; }
+        status.textContent = 'Creating the card and its page…';
+        modal.querySelector('#stb-type-ok').disabled = true;
+        api({
+          action: 'cms.page.add-machine',
+          parent: id,
+          title: title,
+          slug: slugInput.value.trim(),
+          tag: modal.querySelector('#stb-type-tag').value.trim(),
+          text: modal.querySelector('#stb-type-text').value.trim(),
+          image: imageUrl
+        }).then(function (res) {
+          modal.querySelector('#stb-type-ok').disabled = false;
+          if (!res || !res.ok) { status.textContent = (res && res.error) || 'The machine type was not created.'; return; }
+          ctx.hello = res.where || 'The new machine type is on the site.';
+          close();
+          if (window.confirm('Open the new page to edit its variants?')) open(res.id, host, ctx);
+          else load();
+        }).catch(function () {
+          modal.querySelector('#stb-type-ok').disabled = false;
+          status.textContent = 'Connection error.';
+        });
+      });
+      nameInput.focus();
+    }
+
+    function openAddMach() {
+      var list = doc && doc.querySelector('#main .mach-list');
+      var last = list && list.querySelector('article.mach:last-of-type');
+      if (!list || !last) { say('This page has no product list.', 'err'); return; }
+      var old = document.getElementById('stb-mach-dlg');
+      if (old) old.remove();
+      var modal = document.createElement('div');
+      modal.className = 'stb-modal';
+      modal.id = 'stb-mach-dlg';
+      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-mach-title">' +
+        '<h2 id="stb-mach-title">Add a product</h2>' +
+        '<p class="lead">A new product card is added to this page, in the same style as the others. Change its photo or video after it appears, then Save.</p>' +
+        '<div class="stb-form">' +
+          '<label class="wide">Product name<input type="text" id="stb-mach-name" placeholder="Назва машини"></label>' +
+          '<label class="wide">Short description<textarea id="stb-mach-text" rows="3" placeholder="Короткий опис."></textarea></label>' +
+          '<p class="wide" id="stb-mach-status"></p>' +
+        '</div>' +
+        '<div class="stb-actions"><button type="button" class="btn" id="stb-mach-ok">Add product</button><button type="button" class="btn btn-ghost" id="stb-mach-x">Cancel</button></div></div>';
+      document.body.appendChild(modal);
+      function close() { modal.remove(); }
+      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+      modal.querySelector('#stb-mach-x').addEventListener('click', close);
+      var nameInput = modal.querySelector('#stb-mach-name');
+      modal.querySelector('#stb-mach-ok').addEventListener('click', function () {
+        var title = nameInput.value.trim();
+        var text = modal.querySelector('#stb-mach-text').value.trim();
+        if (title.length < 2) { modal.querySelector('#stb-mach-status').textContent = 'Enter the product name.'; return; }
+        beforeChange();
+        var copy = last.cloneNode(true);
+        copy.classList.remove('stb-on', 'rv-d1', 'rv-d2', 'rv-d3');
+        var slug = slugify(title) || 'produkt';
+        var base = slug;
+        var n = 2;
+        while (doc.getElementById(base)) { base = slug + '-' + n; n++; }
+        copy.id = base;
+        if (copy.hasAttribute('data-ask-topic')) copy.setAttribute('data-ask-topic', title);
+        var h = copy.querySelector('h3');
+        if (h) h.textContent = title;
+        var p = copy.querySelector('.mach__text p');
+        if (p) p.textContent = text || 'Короткий опис.';
+        last.after(copy);
+        renumberMach(list);
+        stampTree(copy);
+        setSelection(copy);
+        markDirty('page');
+        close();
+        if (h) startEdit(h);
+        say('Product added on this page. Save to publish it.');
+      });
+      nameInput.focus();
+    }
+
+    host.querySelector('#stb-pick').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-pick]');
+      if (!btn) return;
+      if (btn.getAttribute('data-pick') === 'section' && currentSection) setSelection(currentSection, 'section');
+      else if (currentItem) setSelection(currentItem, 'item');
+    });
+    host.querySelector('#stb-add-type').addEventListener('click', openAddType);
+    host.querySelector('#stb-add-mach').addEventListener('click', openAddMach);
+    host.querySelector('#stb-add-var').addEventListener('click', addVariant);
     host.querySelector('#stb-save').addEventListener('click', save);
     host.querySelector('#stb-pages').addEventListener('click', openPages);
     host.querySelector('#stb-delpage').addEventListener('click', function () {
