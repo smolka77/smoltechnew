@@ -173,13 +173,23 @@ function st_builder_mark(string $html, string $needle, string $attr): string
 
 function st_builder_page_info(string $id): array
 {
-    $info = ['role' => 'page', 'name' => $id, 'canDelete' => false];
-    foreach (st_cms_pages() as $row) {
+    $info = ['role' => 'page', 'name' => $id, 'canDelete' => false, 'parentId' => ''];
+    $rows = st_cms_pages();
+    $parentUrl = '';
+    foreach ($rows as $row) {
         if (($row['id'] ?? '') !== $id) continue;
         $info['role'] = (string) ($row['role'] ?? 'page');
         $info['name'] = (string) ($row['name'] ?? $id);
         $info['canDelete'] = !empty($row['canDelete']);
+        $parentUrl = (string) ($row['parentUrl'] ?? '');
         break;
+    }
+    if ($parentUrl !== '') {
+        foreach ($rows as $row) {
+            if ((string) ($row['url'] ?? '') !== $parentUrl) continue;
+            $info['parentId'] = (string) ($row['id'] ?? '');
+            break;
+        }
     }
     return $info;
 }
@@ -227,6 +237,7 @@ function st_builder_preview(string $id): array
         'hasForm' => str_contains($body, '{{FORMULARZ}}'),
         'role' => $info['role'],
         'canDelete' => $info['canDelete'],
+        'parentId' => $info['parentId'],
         'pages' => st_builder_page_links(),
     ];
 }

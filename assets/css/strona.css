@@ -1936,9 +1936,10 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
 .stud-svc__gallery {
   display: grid;
   grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: .85rem;
-  min-height: min(520px, 70vw);
+  min-height: 0;
+  align-items: stretch;
 }
 .stud-svc__shot {
   margin: 0;
@@ -1948,6 +1949,8 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
   background: #fff;
   border: 1px solid var(--line-l);
   box-shadow: var(--sh-1);
+  aspect-ratio: 4 / 3;
+  min-height: 0;
   transition: transform .35s var(--ease), box-shadow .35s var(--ease);
 }
 .stud-svc__shot:hover {
@@ -1956,6 +1959,9 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
 }
 .stud-svc__shot--tall {
   grid-row: 1 / -1;
+  aspect-ratio: auto;
+  height: auto;
+  align-self: stretch;
   background: #1a1214;
 }
 .stud-svc__shot picture,
@@ -1964,6 +1970,9 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
   width: 100%;
   height: 100%;
   max-width: none;
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
 }
 .stud-svc__shot--tall img {
   object-fit: cover;
@@ -1973,6 +1982,9 @@ a.choice__card--link .arrow-link { margin-top: 1.1rem; }
   object-fit: cover;
   padding: 0;
   background: transparent;
+}
+.stud-svc__shot img.is-slot {
+  object-fit: contain;
 }
 .stud-svc__shot figcaption {
   position: absolute;

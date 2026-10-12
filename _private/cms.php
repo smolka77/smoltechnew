@@ -2112,7 +2112,7 @@ function st_cms_handle(string $action, array $data): array
             require_once __DIR__ . '/tlumacz.php';
             $sl = (string) ($data['sl'] ?? 'en');
             $tl = (string) ($data['tl'] ?? 'uk');
-            if (!in_array($sl, ['uk', 'en', 'pl'], true) || !in_array($tl, ['uk', 'en', 'pl'], true)) {
+            if (!in_array($sl, ['uk', 'en', 'pl', 'ru'], true) || !in_array($tl, ['uk', 'en', 'pl', 'ru'], true)) {
                 return ['ok' => false, 'error' => 'Nieprawidłowy język.'];
             }
             $texts = is_array($data['texts'] ?? null) ? $data['texts'] : [];

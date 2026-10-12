@@ -7,10 +7,11 @@
   var SKIP = /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|CODE|KBD)$/;
   var ATTRS = ['aria-label', 'alt', 'title', 'placeholder', 'data-title'];
   var PREFIX = [
-    ['Відтворити відео: ', { en: 'Play video: ', pl: 'Odtwórz wideo: ' }],
-    ['Дивитись відео: ', { en: 'Watch video: ', pl: 'Obejrzyj wideo: ' }],
-    ['Дивитися відео: ', { en: 'Watch video: ', pl: 'Obejrzyj wideo: ' }]
+    ['Відтворити відео: ', { en: 'Play video: ', pl: 'Odtwórz wideo: ', ru: 'Воспроизвести видео: ' }],
+    ['Дивитись відео: ', { en: 'Watch video: ', pl: 'Obejrzyj wideo: ', ru: 'Смотреть видео: ' }],
+    ['Дивитися відео: ', { en: 'Watch video: ', pl: 'Obejrzyj wideo: ', ru: 'Смотреть видео: ' }]
   ];
+  var R = (typeof window !== 'undefined' && window.ST_RU) ? window.ST_RU : {};
 
   var D = {
     /* chrome */
@@ -18,6 +19,7 @@
     'Мова сайту': 'Site language',
     'Українська': 'Ukrainian',
     'Mokronos Dolny, Польща': 'Mokronos Dolny, Poland',
+    'Польща, 55-080 Mokronos Dolny': 'Poland, 55-080 Mokronos Dolny',
     'Польща': 'Poland',
     'SMOLTECH на YouTube': 'SMOLTECH on YouTube',
     'SMOLTECH в Instagram': 'SMOLTECH on Instagram',
@@ -2742,7 +2744,7 @@
     if (!uk || lang === 'uk') return uk;
     var n = normKey(uk);
     var src = n || uk;
-    var table = lang === 'pl' ? P : D;
+    var table = lang === 'pl' ? P : (lang === 'ru' ? R : D);
     var hit = cmsIndex()[uk] || cmsIndex()[n];
     /* Custom phrases saved in the admin panel (flag a=1) beat the static dictionary. */
     if (hit && hit.a === '1' && hit[lang]) return hit[lang];
@@ -2761,7 +2763,8 @@
 
   window.ST = {
     lang: function () {
-      return document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'uk';
+      var l = document.documentElement.getAttribute('data-lang');
+      return l === 'en' || l === 'ru' ? l : 'uk';
     },
     lookup: lookup,
     t: function (uk, en) {
@@ -2773,11 +2776,11 @@
   };
 
   function wanted() {
-    var q = /(?:^|[?&])lang=(en|uk)(?:&|$)/.exec(location.search);
+    var q = /(?:^|[?&])lang=(en|uk|ru)(?:&|$)/.exec(location.search);
     if (q) return q[1];
     try {
       var s = localStorage.getItem(STORE);
-      if (s === 'en') return 'en';
+      if (s === 'en' || s === 'ru') return s;
     } catch (e) { /* ignore */ }
     return 'uk';
   }
@@ -3066,7 +3069,9 @@
         if (node.innerHTML !== node.stOrigHTML) node.innerHTML = node.stOrigHTML;
         if (lang === 'uk') return;
         var whole = lookup(node.stOrigPlain, lang);
-        if (whole !== node.stOrigPlain) {
+        if (whole !== node.stOrigPlain && lang !== 'en' && node.querySelector('[data-st-en], [data-st-enmark]')) {
+          /* Keep the link markup and translate the Ukrainian pieces below. */
+        } else if (whole !== node.stOrigPlain) {
           if (node.querySelector('[data-st-en]')) {
             if (!placeMarked(node, whole)) {
               node.innerHTML = node.stOrigHTML;
@@ -3078,7 +3083,7 @@
           applyEnMarks(node);
           return;
         }
-        if (node.hasAttribute('data-st-enmark')) applyEnMarks(node);
+        if (lang === 'en' && node.hasAttribute('data-st-enmark')) applyEnMarks(node);
       }
       var ch = node.childNodes;
       var i;
@@ -3122,7 +3127,18 @@
       el.setAttribute(pairs[i][1], lang === 'uk' ? orig : lookup(orig, lang));
     }
     el = document.querySelector('meta[property="og:locale"]');
-    if (el) el.setAttribute('content', lang === 'en' ? 'en_GB' : 'uk_UA');
+    if (el) el.setAttribute('content', lang === 'en' ? 'en_GB' : (lang === 'ru' ? 'ru_RU' : 'uk_UA'));
+  }
+
+  function applyMaps(lang) {
+    var hl = lang === 'en' ? 'en' : (lang === 'ru' ? 'ru' : 'uk');
+    var frames = document.querySelectorAll('iframe[src*="maps"]');
+    var i, src, next;
+    for (i = 0; i < frames.length; i++) {
+      src = frames[i].getAttribute('src') || '';
+      next = src.replace(/([?&]hl=)[a-zA-Z_-]+/i, '$1' + hl);
+      if (next !== src) frames[i].setAttribute('src', next);
+    }
   }
 
   function syncButtons(lang) {
@@ -3140,12 +3156,14 @@
   }
 
   function apply(lang) {
+    if (lang !== 'en' && lang !== 'ru') lang = 'uk';
     document.documentElement.setAttribute('data-lang', lang);
-    document.documentElement.setAttribute('lang', lang === 'en' ? 'en' : 'uk-UA');
+    document.documentElement.setAttribute('lang', lang === 'en' ? 'en' : (lang === 'ru' ? 'ru' : 'uk-UA'));
     syncButtons(lang);
     if (document.body) {
       walkText(document.body, lang);
       applyAttrs(document.body, lang);
+      applyMaps(lang);
     }
     applyMeta(lang);
     try { localStorage.setItem(STORE, lang); } catch (e) { /* ignore */ }
@@ -3157,7 +3175,8 @@
       var btn = e.target.closest && e.target.closest('.lang__btn[data-lang]');
       if (!btn) return;
       e.preventDefault();
-      apply(btn.getAttribute('data-lang') === 'en' ? 'en' : 'uk');
+      var picked = btn.getAttribute('data-lang');
+      apply(picked === 'en' || picked === 'ru' ? picked : 'uk');
     });
   }
 

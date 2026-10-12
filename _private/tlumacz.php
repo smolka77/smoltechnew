@@ -469,6 +469,16 @@ function st_i18n_author_pairs(array $pairs): int
             $cache[st_i18n_pair_key('en', 'uk', $en)] = $uk;
             $n++;
         }
+        $ruPlain = st_i18n_plain((string) ($row['ru'] ?? ''));
+        if ($ukPlain !== '' && $ruPlain !== '' && $ruPlain !== $ukPlain && !st_i18n_skip($ukPlain, 'uk')) {
+            if (!isset($overlay[$ukPlain]) || !is_array($overlay[$ukPlain])) $overlay[$ukPlain] = [];
+            if (($overlay[$ukPlain]['ru'] ?? '') !== $ruPlain) {
+                $overlay[$ukPlain]['ru'] = $ruPlain;
+                $overlay[$ukPlain]['a'] = '1';
+                $cache['auth:ru:' . substr(sha1($ukPlain), 0, 16)] = $ruPlain;
+                $n++;
+            }
+        }
     }
     if ($n) {
         st_i18n_write($overlay);

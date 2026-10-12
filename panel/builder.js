@@ -110,6 +110,7 @@
           '<div class="stb__lang" role="group" aria-label="Content language">' +
             '<button type="button" data-lang="uk">Українська</button>' +
             '<button type="button" data-lang="en" class="is-on">English</button>' +
+            '<button type="button" data-lang="ru">Русский</button>' +
           '</div>' +
           '<p class="stb__hint">Click once to edit words. Double-click a menu link to open that page.</p>' +
         '</div>' +
@@ -133,7 +134,7 @@
             '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
             '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
             '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
-            '<button type="button" data-act="del" title="Delete the selected text or card. Delete a whole section only after choosing it in the bar">Delete</button>' +
+            '<button type="button" data-act="del" title="Delete the selected text, card, or whole section">Delete</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="media">' +
             '<span class="stb__grp-h">Media</span>' +
@@ -281,6 +282,16 @@
     function onKey(e) {
       var t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+      var editing = t && (t.isContentEditable || (t.closest && t.closest('[contenteditable="true"]')));
+      if (!editing && doc && doc.activeElement && doc.activeElement.isContentEditable) editing = true;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !editing) {
+        if (level === 'section' || level === 'item' || (level === 'text' && currentField)) {
+          e.preventDefault();
+          e.stopPropagation();
+          removeUnit();
+        }
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey)) return;
       var z = e.key === 'z' || e.key === 'Z';
       var y = e.key === 'y' || e.key === 'Y';
@@ -523,17 +534,22 @@
         var where = 'page';
         if (t.closest && t.closest('#zapyt')) where = 'form';
         else if (t.closest && !t.closest('#main')) where = 'chrome';
-        if (mode === 'en' && t.closest) {
+        if ((mode === 'en' || mode === 'ru') && t.closest) {
           var box = t.closest('[contenteditable="true"]');
           if (box && box.stbUkLeaf && box.childNodes.length === 1 && box.firstChild && box.firstChild.nodeType === 3 && box.firstChild.stbUk == null) {
             box.firstChild.stbUk = box.stbUkLeaf;
           }
           var phrase = t.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote');
-          if (phrase && (phrase.stbUkSnap != null || phrase.stbUkFull)) phrase.stbEnEdited = true;
-          if (box) rawTextNodes(box).forEach(function (n) {
-            if (n.stbEn != null) n.stbEn = n.nodeValue;
-            else if (n.stbUk && (String(n.stbUk).indexOf('\u200C') >= 0 || String(n.stbUk).indexOf('\u200D') >= 0)) n.stbEn = n.nodeValue;
-          });
+          if (mode === 'en') {
+            if (phrase && (phrase.stbUkSnap != null || phrase.stbUkFull)) phrase.stbEnEdited = true;
+            if (box) rawTextNodes(box).forEach(function (n) {
+              if (n.stbEn != null) n.stbEn = n.nodeValue;
+              else if (n.stbUk && (String(n.stbUk).indexOf('\u200C') >= 0 || String(n.stbUk).indexOf('\u200D') >= 0)) n.stbEn = n.nodeValue;
+            });
+          } else if (box) {
+            if (phrase) phrase.stbRuEdited = true;
+            rawTextNodes(box).forEach(function (n) { n.stbRu = n.nodeValue; });
+          }
         }
         var nameNode = t.closest && (t.closest('.model-strip__name') || t.closest('.param-matrix__head[data-col]'));
         if (!nameNode && t.closest) nameNode = t.closest('button.model-strip__btn');
@@ -717,11 +733,21 @@
         currentItem = null;
         highlight(field);
       } else if (section) {
-        level = 'text';
-        currentSection = section;
-        currentItem = null;
-        currentField = null;
-        highlight(section);
+        var raw = fromEl && fromEl.nodeType === 1 ? fromEl : (fromEl && fromEl.parentElement);
+        var onPiece = raw && raw.closest && raw.closest('img, picture, video, iframe, button, a, input, textarea, select, svg');
+        if (!onPiece) {
+          level = 'section';
+          currentSection = section;
+          currentItem = null;
+          currentField = null;
+          highlight(section);
+        } else {
+          level = 'text';
+          currentSection = section;
+          currentItem = null;
+          currentField = null;
+          highlight(section);
+        }
       } else {
         level = 'text';
         currentSection = null;
@@ -746,8 +772,8 @@
       } else if (currentField) {
         html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="text"' + (level === 'text' ? ' class="is-on"' : '') + '>Text: ' + esc(labelOf(currentField) || 'field') + '</button>';
       }
-      if (level === 'text' && currentField) html += '<span class="stb__pick-note">Delete removes only this text. Choose the section name to delete the whole block.</span>';
-      else if (level === 'text') html += '<span class="stb__pick-note">Click a text field or a card to delete only that. Choose the section name to delete the whole block.</span>';
+      if (level === 'text' && currentField) html += '<span class="stb__pick-note">Delete removes only this text. Click the empty area of the section to select the whole block.</span>';
+      else if (level === 'text') html += '<span class="stb__pick-note">Click the empty area of the section to select the whole block.</span>';
       else if (level === 'item') html += '<span class="stb__pick-note">Delete removes only this. Up and Down move it. Add another inserts one more.</span>';
       else html += '<span class="stb__pick-note">The whole section is selected. Delete removes the whole block.</span>';
       bar.innerHTML = html;
@@ -910,6 +936,14 @@
       var t = e.target;
       if (!t || t.nodeType !== 1) t = t && t.parentElement;
       if (!t) return;
+      var langBtn = t.closest && t.closest('.lang__btn[data-lang]');
+      if (langBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var nextLang = langBtn.getAttribute('data-lang');
+        if (nextLang === 'en' || nextLang === 'uk' || nextLang === 'ru') applyLang(nextLang);
+        return;
+      }
       if (skipClick) {
         skipClick = false;
         e.preventDefault();
@@ -1233,59 +1267,86 @@
       var n;
       while ((n = tw.nextNode())) {
         if (n.stbUk == null) n.stbUk = n.nodeValue;
-        if (mode === 'en' && win.ST && typeof win.ST.lookup === 'function') {
+        if ((mode === 'en' || mode === 'ru') && win.ST && typeof win.ST.lookup === 'function') {
           var uk = String(n.stbUk).replace(/\s+/g, ' ').trim();
-          var en = win.ST.lookup(uk, 'en');
-          if (en && en !== uk) n.nodeValue = pad(n.stbUk, en);
+          var tr = win.ST.lookup(uk, mode);
+          if (tr && tr !== uk) n.nodeValue = pad(n.stbUk, tr);
+          else if (mode === 'en' && n.stbEn) n.nodeValue = pad(n.stbUk, n.stbEn);
+          else if (mode === 'ru' && n.stbRu) n.nodeValue = pad(n.stbUk, n.stbRu);
         }
       }
     }
 
+    function syncLangButtons() {
+      host.querySelectorAll('.stb__lang button').forEach(function (btn) {
+        btn.classList.toggle('is-on', btn.getAttribute('data-lang') === mode);
+      });
+      if (!doc) return;
+      doc.querySelectorAll('.lang__btn[data-lang]').forEach(function (btn) {
+        var on = btn.getAttribute('data-lang') === mode;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function applyMapLang(lang) {
+      if (!doc) return;
+      var hl = lang === 'en' ? 'en' : (lang === 'ru' ? 'ru' : 'uk');
+      doc.querySelectorAll('iframe[src*="maps"]').forEach(function (f) {
+        var src = f.getAttribute('src') || '';
+        var next = src.replace(/([?&]hl=)[a-zA-Z_-]+/i, '$1' + hl);
+        if (next !== src) f.setAttribute('src', next);
+      });
+    }
+
+    function overlayLang(lang) {
+      var win = frame.contentWindow;
+      walkText(doc, function (node) {
+        if (node.stbUk == null) node.stbUk = node.nodeValue;
+        var parent = node.parentElement;
+        if (parent && parent.childNodes.length === 1) parent.stbUkLeaf = node.stbUk;
+        var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
+        var tr = win.ST.lookup(uk, lang);
+        if (tr && tr !== uk) node.nodeValue = pad(node.stbUk, tr);
+        else if (lang === 'en' && node.stbEn) node.nodeValue = pad(node.stbUk, node.stbEn);
+        else if (lang === 'ru' && node.stbRu) node.nodeValue = pad(node.stbUk, node.stbRu);
+      });
+      doc.querySelectorAll('[placeholder]').forEach(function (el) {
+        if (el.stbUk == null) el.stbUk = el.getAttribute('placeholder') || '';
+        var uk = String(el.stbUk).trim();
+        var tr = win.ST.lookup(uk, lang);
+        if (tr && tr !== uk) el.setAttribute('placeholder', tr);
+      });
+      applyMapLang(lang);
+    }
+
     function applyLang(lang) {
       if (!doc) return;
+      if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') lang = 'en';
       restoreMarkSnaps();
       var win = frame.contentWindow;
-      if (lang === 'en') {
-        if (!win.ST || typeof win.ST.lookup !== 'function') {
-          mode = 'uk';
-          say('Translations did not load. Showing the Ukrainian source.', 'err');
-          host.querySelectorAll('.stb__lang button').forEach(function (btn) {
-            btn.classList.toggle('is-on', btn.getAttribute('data-lang') === 'uk');
-          });
-          return;
-        }
-        walkText(doc, function (node) {
-          if (node.stbUk == null) node.stbUk = node.nodeValue;
-          var parent = node.parentElement;
-          if (parent && parent.childNodes.length === 1) parent.stbUkLeaf = node.stbUk;
-          var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
-          var en = win.ST.lookup(uk, 'en');
-          if (en && en !== uk) node.nodeValue = pad(node.stbUk, en);
-          else if (node.stbEn) node.nodeValue = pad(node.stbUk, node.stbEn);
-        });
-        doc.querySelectorAll('[placeholder]').forEach(function (el) {
-          if (el.stbUk == null) el.stbUk = el.getAttribute('placeholder') || '';
-          var uk = String(el.stbUk).trim();
-          var en = win.ST.lookup(uk, 'en');
-          if (en && en !== uk) el.setAttribute('placeholder', en);
-        });
-        mode = 'en';
-      } else {
+      if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
+        mode = 'uk';
+        say('Translations did not load. Showing the Ukrainian source.', 'err');
+        syncLangButtons();
+        return;
+      }
+      mode = lang;
+      if (lang === 'uk') {
         walkText(doc, function (node) {
           if (node.stbUk != null) node.nodeValue = node.stbUk;
         });
         doc.querySelectorAll('[placeholder]').forEach(function (el) {
           if (el.stbUk != null) el.setAttribute('placeholder', el.stbUk);
         });
-        mode = 'uk';
-      }
-      host.querySelectorAll('.stb__lang button').forEach(function (btn) {
-        btn.classList.toggle('is-on', btn.getAttribute('data-lang') === mode);
-      });
+        applyMapLang('uk');
+      } else overlayLang(lang);
+      syncLangButtons();
       showMarkedHosts();
       paintAllEnMarks();
       showUaOnlyHosts();
       repairPlainHosts();
+      if (lang === 'ru') overlayLang('ru');
       heldRange = null;
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
     }
@@ -1454,6 +1515,90 @@
       return '<i class="bar"></i><i class="line a"></i><i class="line b"></i>';
     }
 
+    function machineCardHtml(cards) {
+      var arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      var slot = '<img class="is-slot" src="/assets/img/slot.svg" alt="Фото" width="800" height="600" loading="lazy" decoding="async">';
+      var tiles = cards.map(function (card, i) {
+        var n = (i + 1 < 10 ? '0' : '') + (i + 1);
+        var href = esc(card.url || '#zapyt');
+        var title = esc(card.title || 'Нова машина');
+        return '<a class="tile" href="' + href + '"><div class="tile__media"><span class="tile__no">' + n + '</span>' + slot + '</div><div class="tile__body"><span class="tag">Позначка</span><h3>' + title + '</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a>';
+      }).join('');
+      return '<section class="sec sec-paper-2"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="grid g-2">' + tiles + '</div></div></section>';
+    }
+
+    function addMachineCards() {
+      if (!doc) return;
+      var parent = (page && page.role === 'group') ? id : (page && page.parentId);
+      if (!parent) {
+        say('Open a category page to add machine cards. The new pages are created inside that category.', 'err');
+        return;
+      }
+      if (dirty || formDirty || chromeDirty || metaDirty) {
+        say('Save this page first, then add machine cards.', 'err');
+        return;
+      }
+      say('Creating the machine pages…');
+      var created = [];
+      function nextTitle(n) {
+        return n <= 1 ? 'Нова машина' : ('Нова машина ' + n);
+      }
+      function nextEn(n) {
+        return n <= 1 ? 'New machine' : ('New machine ' + n);
+      }
+      function nextRu(n) {
+        return n <= 1 ? 'Новая машина' : ('Новая машина ' + n);
+      }
+      function createOne(n) {
+        return api({
+          action: 'cms.page.add-machine',
+          parent: parent,
+          bare: 1,
+          title: nextTitle(n),
+          titleEn: nextEn(n),
+          titleRu: nextRu(n),
+          tag: 'Позначка',
+          text: '',
+          image: '/assets/img/slot.svg'
+        }).then(function (res) {
+          if (res && res.ok) return { res: res, n: n };
+          var err = (res && res.error) || '';
+          if (n < 12 && /already|name/i.test(err)) return createOne(n + 1);
+          throw new Error(err || 'The machine page was not created.');
+        });
+      }
+      createOne(1).then(function (first) {
+        created.push(first.res);
+        return createOne(first.n + 1).then(function (second) {
+          created.push(second.res);
+          return [first.res, second.res];
+        });
+      }).then(function (made) {
+        beforeChange();
+        var sec = insertSection(machineCardHtml(made.map(function (row) {
+          return { url: row.url, title: row.nameUk || row.titleUk || 'Нова машина' };
+        })));
+        if (sec) {
+          sec.querySelectorAll('a.tile h3').forEach(function (h, i) {
+            var row = made[i];
+            if (!row || !h.firstChild) return;
+            h.firstChild.stbUk = row.nameUk || row.titleUk || h.firstChild.stbUk;
+            if (row.nameEn || row.titleEn) h.firstChild.stbEn = row.nameEn || row.titleEn;
+            if (row.nameRu || row.titleRu) h.firstChild.stbRu = row.nameRu || row.titleRu;
+            if (mode === 'en' && (row.nameEn || row.titleEn)) h.firstChild.nodeValue = row.nameEn || row.titleEn;
+            else if (mode === 'ru' && (row.nameRu || row.titleRu)) h.firstChild.nodeValue = row.nameRu || row.titleRu;
+          });
+        }
+        created = [];
+        say('Two machine pages were created. Save this page to publish the cards.');
+      }).catch(function (err) {
+        created.forEach(function (row) {
+          if (row && row.id) api({ action: 'cms.page.delete', id: row.id });
+        });
+        say((err && err.message) || 'The machine pages were not created.', 'err');
+      });
+    }
+
     function openBlocks() {
       if (!doc) return;
       var old = document.getElementById('stb-blocks');
@@ -1482,6 +1627,11 @@
             close();
             return;
           }
+          if (idT === 'tiles') {
+            close();
+            addMachineCards();
+            return;
+          }
           beforeChange();
           insertSection(tpl.html);
           close();
@@ -1491,27 +1641,16 @@
     }
 
     function align(dir) {
-      if (!requireUk()) return;
       if (!doc) return;
+      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField || selected;
+      if (!hostEl || !hostEl.closest) { say('Click the text you want to align.', 'err'); return; }
+      var block = hostEl.closest('p, h1, h2, h3, h4, h5, h6, li, figcaption, blockquote, td, th, div') || hostEl;
       beforeChange();
-      try { frame.contentWindow.focus(); } catch (err) { /* optional */ }
-      doc.execCommand('styleWithCSS', false, true);
-      var cmd = dir === 'center' ? 'justifyCenter' : (dir === 'right' ? 'justifyRight' : 'justifyLeft');
-      var sel = doc.getSelection();
-      var hostEl = doc.querySelector('[contenteditable="true"]');
-      if (!sel || sel.isCollapsed || !sel.rangeCount) {
-        var target = hostEl || selected;
-        if (!target) { say('Click the text you want to align.', 'err'); return; }
-        target.style.textAlign = dir;
-        markDirty(whereOf(target));
-        return;
-      }
-      doc.execCommand(cmd, false, null);
-      markDirty(whereOf((sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)) || hostEl));
+      block.style.textAlign = dir === 'right' ? 'right' : (dir === 'center' ? 'center' : 'left');
+      markDirty(whereOf(block));
     }
 
     function applySize(size) {
-      if (!requireUk()) return;
       if (!doc || !size) return;
       if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
       beforeChange();
@@ -1577,12 +1716,12 @@
     }
 
     function paint(color) {
-      if (!requireUk()) return;
-      if (!doc) return;
+      if (!doc || !color) return;
+      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
+      if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
       beforeChange();
-      doc.execCommand('styleWithCSS', false, true);
-      doc.execCommand('foreColor', false, color);
-      markDirty('page');
+      hostEl.style.color = color;
+      markDirty(whereOf(hostEl));
     }
 
     function structuralLink(a) {
@@ -2395,7 +2534,6 @@
     }
 
     function toggleBullet() {
-      if (!requireUk()) return;
       if (!doc) return;
       try { frame.contentWindow.focus(); } catch (err) { /* optional */ }
       var el = currentEl();
@@ -2430,7 +2568,7 @@
       if (backClass) item.setAttribute('data-stb-back-class', backClass);
       if (backTag && backTag !== 'p') item.setAttribute('data-stb-back-tag', backTag);
       while (p.firstChild) item.appendChild(p.firstChild);
-      if (!item.textContent.trim()) item.textContent = 'Новий пункт';
+      if (!item.textContent.trim()) fillText(item, 'Новий пункт', 'New item');
       made.appendChild(item);
       p.replaceWith(made);
       stampTree(made);
@@ -2507,6 +2645,29 @@
       var pairs = [];
       pushMarkedSlots(pairs);
       var win = frame.contentWindow;
+      if (mode === 'ru' && win.ST && typeof win.ST.lookup === 'function') {
+        walkText(doc, function (node) {
+          if (node.stbUk == null) return;
+          var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
+          var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
+          var known = String(win.ST.lookup(uk, 'ru') || '').trim();
+          if (cur && cur !== uk && cur !== known) {
+            var row = { uk: uk, ru: cur };
+            if (node.stbEn && looksEn(node.stbEn)) row.en = slotBase(node.stbEn);
+            pairs.push(row);
+          }
+          node.nodeValue = node.stbUk;
+        });
+        doc.querySelectorAll('[placeholder]').forEach(function (el) {
+          if (el.stbUk == null) return;
+          var uk = String(el.stbUk).trim();
+          var cur = String(el.getAttribute('placeholder') || '').trim();
+          var known = String(win.ST.lookup(uk, 'ru') || '').trim();
+          if (cur && cur !== uk && cur !== known) pairs.push({ uk: uk, ru: cur });
+          el.setAttribute('placeholder', el.stbUk);
+        });
+        return pairs;
+      }
       if (mode !== 'en' || !win.ST || typeof win.ST.lookup !== 'function') return pairs;
       doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
         var uk = flat(host.stbUkFull || '');
@@ -2859,7 +3020,35 @@
       'Цифри': 'Figures',
       'Підбір': 'Selection',
       'Наступний крок': 'Next step',
-      'Фото': 'Photo'
+      'Фото': 'Photo',
+      'Новий пункт': 'New item'
+    };
+
+    var SLOT_RU = {
+      'Розділ': 'Раздел',
+      'Заголовок': 'Заголовок',
+      'Специфікація': 'Спецификация',
+      'Короткий опис, який можна змінити.': 'Краткое описание, которое можно изменить.',
+      'Текст, який можна змінити.': 'Текст, который можно изменить.',
+      'Пункт': 'Пункт',
+      'Позначка': 'Метка',
+      'Підпис': 'Подпись',
+      'Нове відео': 'Новое видео',
+      'Запросити пропозицію': 'Запросить предложение',
+      'Докладніше': 'Подробнее',
+      'Питання': 'Вопрос',
+      'Нова модель': 'Новая модель',
+      'Модель': 'Модель',
+      'Відео': 'Видео',
+      'Дивитись відео': 'Смотреть видео',
+      'Партнери': 'Партнёры',
+      'Галерея': 'Галерея',
+      'Перелік': 'Список',
+      'Цифри': 'Цифры',
+      'Підбір': 'Подбор',
+      'Наступний крок': 'Следующий шаг',
+      'Фото': 'Фото',
+      'Новий пункт': 'Новый пункт'
     };
 
     function slotBase(s) {
@@ -2888,12 +3077,17 @@
     function fillText(el, uk, en) {
       if (!el) return;
       var key = slotKey(uk);
-      var shown = mode === 'en' ? (en || uk) : key;
+      var base = slotBase(uk);
+      var ru = SLOT_RU[base] || '';
+      var shown = key;
+      if (mode === 'en') shown = en || SLOT_EN[base] || uk;
+      else if (mode === 'ru') shown = (ru && ru !== base) ? ru : key;
       el.textContent = shown;
       if (el.firstChild && el.firstChild.nodeType === 3) {
         el.firstChild.stbUk = key;
         el.stbUkLeaf = key;
         if (en && en !== uk) el.firstChild.stbEn = en;
+        if (ru && ru !== base) el.firstChild.stbRu = ru;
       }
     }
 
@@ -2917,11 +3111,15 @@
         if (String(raw).indexOf('\u200C') >= 0 || String(raw).indexOf('\u200D') >= 0) return;
         var key = base + slotMark();
         var en = SLOT_EN[base];
+        var ru = SLOT_RU[base] || '';
         node.stbUk = key;
         node.stbEn = en;
+        if (ru && ru !== base) node.stbRu = ru;
         var parent = node.parentElement;
         if (parent && parent.childNodes.length === 1) parent.stbUkLeaf = key;
-        node.nodeValue = mode === 'en' ? pad(key, en) : key;
+        if (mode === 'en') node.nodeValue = pad(key, en);
+        else if (mode === 'ru' && ru && ru !== base) node.nodeValue = pad(key, ru);
+        else node.nodeValue = key;
       });
     }
 
@@ -2933,14 +3131,20 @@
         if (uk.indexOf('\u200C') < 0 && uk.indexOf('\u200D') < 0) return;
         var base = slotBase(uk);
         var en = node.stbEn != null ? slotBase(node.stbEn) : '';
+        var ru = node.stbRu != null ? slotBase(node.stbRu) : (SLOT_RU[base] || '');
         if (mode === 'en') {
           var cur = slotBase(node.nodeValue);
           if (looksEn(cur)) en = cur;
+        } else if (mode === 'ru') {
+          var curRu = slotBase(node.nodeValue);
+          if (curRu && curRu !== base) ru = curRu;
         }
         if (!en || !looksEn(en)) en = SLOT_EN[base] || '';
         var key = uk.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
         if (!key || !en || !looksEn(en)) return;
-        pairs.push({ uk: key, en: en });
+        var row = { uk: key, en: en };
+        if (ru && ru !== base) row.ru = ru;
+        pairs.push(row);
       });
       doc.querySelectorAll('[data-title], [aria-label], img[alt]').forEach(function (el) {
         if (!el.stbAttrs) return;
@@ -3043,19 +3247,21 @@
       copy.querySelectorAll('a.btn, a.arrow-link').forEach(function (a) {
         var uk = a.classList.contains('btn') ? 'Запросити пропозицію' : 'Докладніше';
         var en = a.classList.contains('btn') ? 'Request a quote' : 'Read more';
+        var ru = SLOT_RU[uk] || '';
         var key = slotKey(uk);
         var text = null;
         var i;
         for (i = 0; i < a.childNodes.length; i++) {
           if (a.childNodes[i].nodeType === 3 && String(a.childNodes[i].nodeValue || '').trim()) { text = a.childNodes[i]; break; }
         }
-        var shown = mode === 'en' ? en : key;
+        var shown = mode === 'en' ? en : (mode === 'ru' && ru && ru !== uk ? ru : key);
         if (!text) {
           text = doc.createTextNode(shown);
           a.insertBefore(text, a.firstChild);
         } else text.nodeValue = shown;
         text.stbUk = key;
         if (en !== uk) text.stbEn = en;
+        if (ru && ru !== uk) text.stbRu = ru;
       });
     }
 

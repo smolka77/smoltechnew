@@ -1111,6 +1111,34 @@ function st_builder_slot_dict(): array
         'Підбір' => 'Selection',
         'Наступний крок' => 'Next step',
         'Фото' => 'Photo',
+        'Новий пункт' => 'New item',
+    ];
+}
+
+/** Russian wording for the same placeholders. Identical strings are omitted. */
+function st_builder_slot_ru(): array
+{
+    return [
+        'Розділ' => 'Раздел',
+        'Специфікація' => 'Спецификация',
+        'Короткий опис, який можна змінити.' => 'Краткое описание, которое можно изменить.',
+        'Текст, який можна змінити.' => 'Текст, который можно изменить.',
+        'Позначка' => 'Метка',
+        'Підпис' => 'Подпись',
+        'Нове відео' => 'Новое видео',
+        'Запросити пропозицію' => 'Запросить предложение',
+        'Докладніше' => 'Подробнее',
+        'Питання' => 'Вопрос',
+        'Нова модель' => 'Новая модель',
+        'Відео' => 'Видео',
+        'Дивитись відео' => 'Смотреть видео',
+        'Партнери' => 'Партнёры',
+        'Галерея' => 'Галерея',
+        'Перелік' => 'Список',
+        'Цифри' => 'Цифры',
+        'Підбір' => 'Подбор',
+        'Наступний крок' => 'Следующий шаг',
+        'Новий пункт' => 'Новый пункт',
     ];
 }
 
@@ -1138,6 +1166,7 @@ function st_builder_slot_mark(): string
 function st_builder_personal_slots(string $html): array
 {
     $dict = st_builder_slot_dict();
+    $ruDict = st_builder_slot_ru();
     $token = 'STFORMHOLD';
     $html = str_replace('{{FORMULARZ}}', '<div id="' . $token . '"></div>', $html);
     $prev = libxml_use_internal_errors(true);
@@ -1160,7 +1189,9 @@ function st_builder_personal_slots(string $html): array
         if (!isset($dict[$base])) continue;
         $key = $base . st_builder_slot_mark();
         $node->nodeValue = preg_replace('/' . preg_quote($trim, '/') . '/u', $key, $node->nodeValue, 1) ?? $key;
-        $pairs[] = ['uk' => $key, 'en' => $dict[$base]];
+        $row = ['uk' => $key, 'en' => $dict[$base]];
+        if (isset($ruDict[$base]) && $ruDict[$base] !== '' && $ruDict[$base] !== $base) $row['ru'] = $ruDict[$base];
+        $pairs[] = $row;
     }
     foreach (['alt', 'aria-label', 'data-title', 'title'] as $attr) {
         foreach ($xp->query('.//*[@' . $attr . ']', $root) ?: [] as $el) {
@@ -1170,7 +1201,9 @@ function st_builder_personal_slots(string $html): array
             if (!isset($dict[$base])) continue;
             $key = $base . st_builder_slot_mark();
             $el->setAttribute($attr, $key);
-            $pairs[] = ['uk' => $key, 'en' => $dict[$base]];
+            $row = ['uk' => $key, 'en' => $dict[$base]];
+            if (isset($ruDict[$base]) && $ruDict[$base] !== '' && $ruDict[$base] !== $base) $row['ru'] = $ruDict[$base];
+            $pairs[] = $row;
         }
     }
     $out = '';
@@ -1270,13 +1303,16 @@ function st_builder_add_machine(array $data): array
         if (($p['id'] ?? '') === $parentId) { $parent = $p; break; }
     }
     if ($parent === null) throw new RuntimeException('That category was not found.');
+    $bare = !empty($data['bare']);
     [$pmeta, $pbody] = st_cms_parse((string) file_get_contents($parentPath));
     $tiles = st_cms_tiles($pbody);
-    if ($tiles === []) throw new RuntimeException('This page has no machine-type cards. Open a category such as Stationary spot welders or Stud welding.');
+    if ($tiles === [] && !$bare) throw new RuntimeException('This page has no machine-type cards. Open a category such as Stationary spot welders or Stud welding.');
     [$titleUk, $titleEn] = st_builder_uk_title((string) ($data['title'] ?? ''));
     if (mb_strlen($titleUk) < 2) throw new RuntimeException('Enter the machine type name.');
     $givenEn = trim((string) ($data['titleEn'] ?? ''));
     if ($givenEn !== '') $titleEn = $givenEn;
+    $titleRu = trim((string) ($data['titleRu'] ?? ''));
+    if (mb_strlen($titleRu) > 140) $titleRu = mb_substr($titleRu, 0, 140);
     $tagRaw = trim((string) ($data['tag'] ?? ''));
     $textRaw = trim((string) ($data['text'] ?? ''));
     $subUk = trim((string) ($data['subtitle'] ?? ''));
@@ -1369,16 +1405,18 @@ function st_builder_add_machine(array $data): array
     $newPath = ST_PAGES . '/' . $newId . '.html';
     st_cms_atomic_write($newPath, st_cms_dump($meta, $bodyHtml), false);
     try {
-        $inserted = st_builder_insert_tile($pbody, [
-            'href' => $url,
-            'title' => $titleUk,
-            'tag' => $tagUk,
-            'text' => $textUk,
-            'link' => $linkUk,
-            'image' => $image,
-        ], count($tiles) + 1);
-        if ($inserted === $pbody) throw new RuntimeException('The card could not be added to the category grid.');
-        st_cms_atomic_write($parentPath, st_cms_dump($pmeta, $inserted), true);
+        if (!$bare) {
+            $inserted = st_builder_insert_tile($pbody, [
+                'href' => $url,
+                'title' => $titleUk,
+                'tag' => $tagUk,
+                'text' => $textUk,
+                'link' => $linkUk,
+                'image' => $image,
+            ], count($tiles) + 1);
+            if ($inserted === $pbody) throw new RuntimeException('The card could not be added to the category grid.');
+            st_cms_atomic_write($parentPath, st_cms_dump($pmeta, $inserted), true);
+        }
         $layout = $layoutOrig;
         $slot = 'hidden';
         $position = 1;
@@ -1397,7 +1435,13 @@ function st_builder_add_machine(array $data): array
         $layout = st_builder_footer_insert($layout, $url, $footUk, $sibUrls);
         if ($layout !== $layoutOrig) st_builder_write_layout($layout);
         $pairs = [];
-        if ($titleEn !== '' && $titleEn !== $titleUk) $pairs[] = ['uk' => $titleUk, 'en' => $titleEn];
+        if ($titleEn !== '' && $titleEn !== $titleUk) {
+            $titlePair = ['uk' => $titleUk, 'en' => $titleEn];
+            if ($titleRu !== '' && $titleRu !== $titleUk) $titlePair['ru'] = $titleRu;
+            $pairs[] = $titlePair;
+        } elseif ($titleRu !== '' && $titleRu !== $titleUk) {
+            $pairs[] = ['uk' => $titleUk, 'ru' => $titleRu];
+        }
         if ($textUk !== '' && $textEn !== '' && $textEn !== $textUk) $pairs[] = ['uk' => $textUk, 'en' => $textEn];
         if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) $pairs[] = ['uk' => $subUk, 'en' => $subEn];
         if ($titleEn !== '') $pairs[] = ['uk' => $linkUk, 'en' => st_builder_clip('See ' . $titleEn, 48)];
@@ -1415,8 +1459,10 @@ function st_builder_add_machine(array $data): array
         if ((string) file_get_contents(ST_LAYOUT) !== $layoutOrig) st_cms_atomic_write(ST_LAYOUT, $layoutOrig, false);
         throw $e;
     }
-    $live = st_cms_publish_page($newId, true);
-    $where = 'Added “' . $titleUk . '” as a new card. Its page is at ' . $url . '.';
+    $live = st_cms_publish_page($newId, !$bare);
+    $where = $bare
+        ? 'Created the page “' . $titleUk . '” at ' . $url . '. Save this page to publish the card that opens it.'
+        : 'Added “' . $titleUk . '” as a new card. Its page is at ' . $url . '.';
     if ($slot === 'hidden') $where .= ' Sibling pages are not in the menu, so this one is in the sitemap only.';
     else $where .= ' It was added to the ' . st_builder_menu_label($slot) . '.';
     $where .= ' The new page has the same sections as the others in this category, with empty text and photo slots.';
@@ -1426,6 +1472,12 @@ function st_builder_add_machine(array $data): array
         'url' => $url,
         'parent' => $parentId,
         'name' => $titleEn !== '' ? $titleEn : $titleUk,
+        'nameUk' => $titleUk,
+        'titleUk' => $titleUk,
+        'nameEn' => $titleEn,
+        'titleEn' => $titleEn,
+        'nameRu' => $titleRu,
+        'titleRu' => $titleRu,
         'where' => $where,
         'created' => true,
     ];
