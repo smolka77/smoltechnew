@@ -616,7 +616,8 @@
     'Найкраща команда професіоналів.': 'The best team of professionals.',
     'Наші партнери:': 'Our partners:',
     'Короткий час заряджання — високий такт на серійних і дрібносерійних роботах.': 'Short charging time — high takt on series and short-run work.',
-    'Машини CDM працюють із контактними пістолетами C2 і пістолетами з підняттям LG2. Для комбінації кількох пістолетів — CDM Multi-Gun (до трьох комплектів).': 'CDM machines work with contact guns C2 and lift guns LG2. For a combination of several guns — CDM Multi-Gun (up to three sets).'
+    'Машини CDM працюють із контактними пістолетами C2 і пістолетами з підняттям LG2. Для комбінації кількох пістолетів — CDM Multi-Gun (до трьох комплектів).': 'CDM machines work with contact guns C2 and lift guns LG2. For a combination of several guns — CDM Multi-Gun (up to three sets).',
+    'Зварювання з оснасткою SMOLTECH: мідні електроди, притиск і зварна точка на деталі': 'SMOLTECH fixture welding: copper electrodes, clamp and a weld spot on the part'
   };
 
   /* video titles + home variants */
@@ -3172,7 +3173,7 @@
     if (ruScript) return ruScript;
     ruScript = new Promise(function (ok, bad) {
       var s = document.createElement('script');
-      s.src = '/assets/js/ru-slovnyk.js?v=20261012b';
+      s.src = '/assets/js/ru-slovnyk.js?v=20261012c';
       s.onload = function () { ok(); };
       s.onerror = function () { ruScript = null; bad(); };
       document.head.appendChild(s);

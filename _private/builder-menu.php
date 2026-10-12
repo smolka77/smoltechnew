@@ -1438,7 +1438,7 @@ function st_builder_add_machine(array $data): array
             }
         }
         if ($slot !== 'hidden') $layout = st_builder_menu_apply($layout, $url, $slot, $position, $titleUk, $subUk);
-        [$footUk, $footEn, $footRu] = st_builder_footer_labels($tagUk, $titleUk, $titleEn, $titleRu);
+        [$footUk, $footEn, $footRu] = st_builder_footer_labels($bare ? '' : $tagUk, $titleUk, $titleEn, $titleRu);
         $layout = st_builder_footer_insert($layout, $url, $footUk, $sibUrls);
         $layoutChanged = $layout !== $layoutOrig;
         if ($layoutChanged) st_builder_write_layout($layout);

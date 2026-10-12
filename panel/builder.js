@@ -1329,7 +1329,7 @@
       if (win && win.ST_RU) return Promise.resolve();
       return new Promise(function (ok, bad) {
         var s = doc.createElement('script');
-        s.src = '/assets/js/ru-slovnyk.js?v=20261012b';
+        s.src = '/assets/js/ru-slovnyk.js?v=20261012c';
         s.onload = function () { ok(); };
         s.onerror = function () { bad(); };
         (doc.head || doc.documentElement).appendChild(s);
