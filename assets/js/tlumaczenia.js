@@ -2995,9 +2995,9 @@
   function dropBlankUnmarkedLinks(node) {
     var links = node.querySelectorAll('a[href]');
     var i, a;
-    for (i = 0; i < links.length; i++) {
+    for (i = links.length - 1; i >= 0; i--) {
       a = links[i];
-      if (a.hasAttribute('data-st-en')) continue;
+      if (a.querySelector('img, svg, video')) continue;
       if ((a.textContent || '').replace(/\s/g, '')) continue;
       if (a.parentNode) a.parentNode.removeChild(a);
     }
@@ -3027,6 +3027,7 @@
   }
 
   function wrapPlainPhrase(el, phrase, tag) {
+    if (el.normalize) el.normalize();
     var nodes = [];
     var walker = document.createTreeWalker(el, 4, {
       acceptNode: function (node) {
@@ -3052,11 +3053,11 @@
     var endNode = null;
     var endOff = 0;
     spans.forEach(function (s) {
-      var b = s.a + s.n.nodeValue.length;
-      if (!startNode && at >= s.a && at <= b) { startNode = s.n; startOff = at - s.a; }
-      if (end >= s.a && end <= b) { endNode = s.n; endOff = end - s.a; }
+      var b = s.a + (s.n.nodeValue || '').length;
+      if (!startNode && at >= s.a && at < b) { startNode = s.n; startOff = at - s.a; }
+      if (end > s.a && end <= b) { endNode = s.n; endOff = end - s.a; }
     });
-    if (!startNode || startNode !== endNode || startOff === endOff) return null;
+    if (!startNode || !endNode || (startNode === endNode && startOff === endOff)) return null;
     var range = document.createRange();
     range.setStart(startNode, startOff);
     range.setEnd(endNode, endOff);
@@ -3087,11 +3088,12 @@
           if (node.querySelector('[data-st-en]')) {
             if (!placeMarked(node, whole)) {
               node.innerHTML = node.stOrigHTML;
-              return;
+              if (!node.querySelector('*') || onlyOwnInline(node)) node.textContent = whole;
+              else spreadTextNodes(node, whole);
             }
-            dropBlankUnmarkedLinks(node);
           } else if (node.firstElementChild && (!onlyOwnInline(node) || (lang !== 'en' && node.querySelector('a.st-link, a[data-st-link]')))) spreadTextNodes(node, whole);
           else node.textContent = whole;
+          dropBlankUnmarkedLinks(node);
           applyEnMarks(node);
           return;
         }

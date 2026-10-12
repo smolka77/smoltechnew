@@ -1586,6 +1586,11 @@
       paintAllEnMarks();
       showUaOnlyHosts();
       repairPlainHosts();
+      if (lang === 'en') {
+        doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+          if (host.stbUkSnap != null) dropEmptyAnchors(host);
+        });
+      }
       if (lang === 'ru') overlayLang('ru');
       showAttrs(lang);
       heldRange = null;
@@ -1867,7 +1872,7 @@
         preview.tabIndex = -1;
         preview.title = '';
         preview.setAttribute('sandbox', 'allow-same-origin');
-        preview.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="/assets/css/strona.css?v=20261012b"><style>html,body{margin:0;background:#fff}body{width:1100px;overflow:hidden}</style></head><body>' + tpl.html + '</body></html>';
+        preview.srcdoc = '<!DOCTYPE html><html data-st-builder="1"><head><link rel="stylesheet" href="/assets/css/strona.css?v=20261012g"><style>html,body{margin:0;background:#fff}body{width:1100px;overflow:hidden}</style></head><body>' + tpl.html + '</body></html>';
         holder.appendChild(preview);
       });
       function close() { modal.remove(); }
@@ -1982,13 +1987,19 @@
         if (made) {
           made.setAttribute('data-st-en', plan.enPhrase);
           if (plan.enStart != null && plan.enStart >= 0) made.setAttribute('data-st-at', String(plan.enStart));
+          rememberUk(plan.host);
           showHost(plan.host);
+          if (!paintedPhrase(plan.host, tag, mode === 'en' ? plan.enPhrase : plan.ukPhrase)) made = null;
         }
       }
       if (!made && mode !== 'en') made = wrapCurrentUk(plan, tag);
-      if (!made && mode === 'en') {
+      if (!made && mode === 'en' && !plan.auto) {
         addEnMark(plan.host, plan.selected, plan.enStart, tag, '', false);
-        made = plan.host;
+        made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
+        if (!made) {
+          dropMark(plan.host, plan.selected, plan.enStart, tag);
+          showHost(plan.host);
+        }
       }
       if (!made) { say('Those words could not be formatted.', 'err'); return; }
       markDirty(whereOf(made));
@@ -2153,7 +2164,8 @@
 
     function hostPlain(host) {
       var raw = '';
-      rawTextNodes(host).forEach(function (n) { raw += n.stbUk != null ? n.stbUk : (n.nodeValue || ''); });
+      if (host && host.stbUkFull) raw = String(host.stbUkFull);
+      else rawTextNodes(host).forEach(function (n) { raw += n.stbUk != null ? n.stbUk : (n.nodeValue || ''); });
       var uk = flat(raw);
       var en = lookupEn(uk);
       return { uk: uk, en: en || uk };
@@ -2290,20 +2302,26 @@
     }
 
     function wrapPhrase(host, ukPhrase, ukStart, tag) {
+      var hadSnap = !!(host && host.stbUkSnap != null);
+      if (hadSnap) host.innerHTML = host.stbUkSnap;
+      function fail() {
+        if (hadSnap && mode === 'en') showHost(host);
+        return null;
+      }
       revealUk(host);
       var raw = rawTextNodes(host).map(function (n) { return n.nodeValue || ''; }).join('');
       var mapped = normMap(raw);
       var phrase = flat(ukPhrase);
       var start = ukStart;
       if (start == null || start < 0 || mapped.norm.slice(start, start + phrase.length) !== phrase) start = mapped.norm.indexOf(phrase);
-      if (!phrase || start < 0) return null;
+      if (!phrase || start < 0) return fail();
       var end = start + phrase.length;
       var rawStart = mapped.map[start];
       var rawEnd = mapped.map[end - 1] + 1;
       var endLoc = locateRaw(host, rawEnd);
       if (endLoc && endLoc.offset > 0 && endLoc.offset < endLoc.node.nodeValue.length) splitAt(endLoc.node, endLoc.offset);
       var startLoc = locateRaw(host, rawStart);
-      if (!startLoc) return null;
+      if (!startLoc) return fail();
       if (startLoc.offset > 0 && startLoc.offset < startLoc.node.nodeValue.length) splitAt(startLoc.node, startLoc.offset);
       var nodes = rawTextNodes(host);
       var acc = 0;
@@ -2317,14 +2335,57 @@
         if (a === rawStart) startNode = nodes[i];
         if (b === rawEnd) endNode = nodes[i];
       }
-      if (!startNode || !endNode) return null;
+      if (!startNode || !endNode) return fail();
       var range = doc.createRange();
       range.setStart(startNode, 0);
       range.setEnd(endNode, endNode.nodeValue.length);
       var el = doc.createElement(tag);
-      if (!wrapRange(range, el)) return null;
+      if (!wrapRange(range, el)) return fail();
       commitUk(host);
       return el;
+    }
+
+    function rememberUk(host) {
+      if (!host) return;
+      host.stbUkSnap = host.innerHTML;
+      host.stbUkFull = rawUk(host);
+    }
+
+    function ownInline(host) {
+      var els = host.querySelectorAll('*');
+      var i, el, tag;
+      for (i = 0; i < els.length; i++) {
+        el = els[i];
+        if (el.hasAttribute('data-st-en')) return false;
+        tag = el.tagName;
+        if (tag !== 'A' && tag !== 'STRONG' && tag !== 'EM' && tag !== 'U' && tag !== 'B' && tag !== 'I') return false;
+      }
+      return true;
+    }
+
+    function dropEmptyAnchors(host) {
+      if (!host || !host.querySelectorAll) return;
+      var links = host.querySelectorAll('a[href]');
+      var i, a;
+      for (i = links.length - 1; i >= 0; i--) {
+        a = links[i];
+        if (a.querySelector('img, svg, video')) continue;
+        if ((a.textContent || '').replace(/\s/g, '')) continue;
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }
+    }
+
+    function paintedPhrase(host, tag, phrase, href) {
+      if (!host || !phrase) return false;
+      var want = flat(phrase);
+      var list = host.querySelectorAll(tag);
+      var i;
+      for (i = 0; i < list.length; i++) {
+        if (flat(list[i].textContent) !== want) continue;
+        if (href && list[i].getAttribute('href') !== href) continue;
+        return true;
+      }
+      return false;
     }
 
     function unwrapEl(el) {
@@ -2422,6 +2483,7 @@
     }
 
     function addEnMark(host, phrase, at, tag, href, blank) {
+      if (!flat(phrase)) return;
       var tagName = tag || 'a';
       var items = readMarks(host).filter(function (it) {
         return !((it.tag || 'a') === tagName && it.t === phrase && String(it.at == null ? '' : it.at) === String(at == null ? '' : at));
@@ -2478,10 +2540,10 @@
       var endOff = 0;
       spans.forEach(function (s) {
         var b = s.a + s.n.nodeValue.length;
-        if (!startNode && start >= s.a && start <= b) { startNode = s.n; startOff = start - s.a; }
-        if (end >= s.a && end <= b) { endNode = s.n; endOff = end - s.a; }
+        if (!startNode && start >= s.a && start < b) { startNode = s.n; startOff = start - s.a; }
+        if (end > s.a && end <= b) { endNode = s.n; endOff = end - s.a; }
       });
-      if (!startNode || startNode !== endNode || startOff === endOff) return null;
+      if (!startNode || !endNode || (startNode === endNode && startOff === endOff)) return null;
       var range = doc.createRange();
       range.setStart(startNode, startOff);
       range.setEnd(endNode, endOff);
@@ -2491,6 +2553,9 @@
     }
 
     function paintMarks(host, items) {
+      if (!host) return;
+      host.querySelectorAll('[data-st-en-only]').forEach(unwrapEl);
+      if (host.normalize) host.normalize();
       (items || []).forEach(function (item) {
         if (!item || !item.t) return;
         var tag = item.tag || (item.h ? 'a' : '');
@@ -2523,9 +2588,9 @@
       if (!host || host.querySelector('[data-st-en]')) return;
       var full = host.stbUkFull || '';
       if (!full) return;
-      rawTextNodes(host).forEach(function (n) {
-        if (n.stbUk === full && n.nodeValue !== n.stbUk) n.stbUk = n.nodeValue;
-      });
+      var nodes = rawTextNodes(host).filter(function (n) { return String(n.nodeValue || '').length; });
+      if (nodes.length !== 1) return;
+      if (nodes[0].stbUk === full && nodes[0].nodeValue !== nodes[0].stbUk) nodes[0].stbUk = nodes[0].nodeValue;
     }
 
     function showUaOnlyHosts() {
@@ -2573,9 +2638,9 @@
     }
 
     function showWholeEn(host, en) {
-      if (!host || host.querySelector('*')) return;
-      var raw = '';
-      rawTextNodes(host).forEach(function (n) { raw += n.stbUk != null ? n.stbUk : (n.nodeValue || ''); });
+      if (!host) return;
+      var raw = host.stbUkFull || '';
+      if (!raw) rawTextNodes(host).forEach(function (n) { raw += n.stbUk != null ? n.stbUk : (n.nodeValue || ''); });
       if (!String(raw).trim()) return;
       host.textContent = pad(raw, en);
       if (host.firstChild && host.firstChild.nodeType === 3) {
@@ -2612,17 +2677,22 @@
         return;
       }
       if (!host.querySelector('[data-st-en]')) {
-        if (!host.querySelector('*')) showWholeEn(host, plain.en);
+        if (!host.querySelector('*') || ownInline(host)) showWholeEn(host, plain.en);
         else showEnIgnoringInline(host, plain.en);
+        dropEmptyAnchors(host);
         if (marks.length) paintMarks(host, marks);
         pinEnFragments(host);
         return;
       }
       if (!placeMarked(host, plain.en)) {
         revealUk(host);
+        if (ownInline(host)) showWholeEn(host, plain.en);
+        dropEmptyAnchors(host);
+        if (marks.length) paintMarks(host, marks);
         return;
       }
       rawTextNodes(host).forEach(function (n) { n.stbPlaced = true; });
+      dropEmptyAnchors(host);
       if (marks.length) paintMarks(host, marks);
       pinEnFragments(host);
     }
@@ -2757,16 +2827,23 @@
               styleLink(made, href, blank.checked);
               made.setAttribute('data-st-en', plan.enPhrase);
               if (plan.enStart != null && plan.enStart >= 0) made.setAttribute('data-st-at', String(plan.enStart));
+              rememberUk(plan.host);
               showHost(plan.host);
+              var shown = mode === 'en' ? (plan.enPhrase || plan.selected) : (plan.ukPhrase || plan.selected);
+              if (!paintedPhrase(plan.host, 'a', shown, href)) made = null;
             }
           }
           if (!made && mode !== 'en') {
             made = wrapCurrentUk(plan, 'a');
             if (made && made.tagName === 'A') styleLink(made, href, blank.checked);
           }
-          if (!made && mode === 'en') {
+          if (!made && mode === 'en' && !plan.auto) {
             addEnMark(plan.host, plan.selected, plan.enStart, 'a', href, blank.checked);
-            made = plan.host;
+            made = paintedPhrase(plan.host, 'a', plan.selected, href) ? plan.host : null;
+            if (!made) {
+              dropMark(plan.host, plan.selected, plan.enStart, 'a');
+              showHost(plan.host);
+            }
           }
         }
         if (!made) { say('Those words could not be linked.', 'err'); close(); return; }

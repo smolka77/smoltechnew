@@ -3893,7 +3893,6 @@ a[data-st-link]:hover { text-decoration-thickness: 2px; }
   padding-block: 0 clamp(2.4rem, 5vw, 3.6rem);
   background: var(--paper);
 }
-.about-clients .wrap { max-width: min(1440px, 100%); }
 .about-clients .sec-head { margin-bottom: clamp(1.3rem, 2.8vw, 2rem); }
 .client-wall {
   list-style: none;
@@ -3910,6 +3909,7 @@ a[data-st-link]:hover { text-decoration-thickness: 2px; }
 .client-wall li {
   display: grid;
   place-items: center;
+  min-width: 0;
   min-height: 4.5rem;
   padding: .2rem .12rem;
 }
@@ -4048,7 +4048,9 @@ a[data-st-link]:hover { text-decoration-thickness: 2px; }
   color: var(--tx-ink-2);
   max-width: 28ch;
 }
+img.is-slot { display: none; }
 [data-st-builder] img.is-slot {
+  display: block;
   object-fit: contain;
   background:
     repeating-linear-gradient(-45deg, rgba(141, 16, 24, .05) 0 8px, transparent 8px 16px),
