@@ -440,10 +440,7 @@
     var a = p.querySelector('a');
     if (!a || !full || full === plain) return;
     var at = full.lastIndexOf(linkT);
-    if (at < 0) {
-      p.textContent = full;
-      return;
-    }
+    if (at < 0) return;
     var first = p.firstChild;
     if (first && first.nodeType === 3) first.nodeValue = full.slice(0, at);
     a.textContent = linkT;

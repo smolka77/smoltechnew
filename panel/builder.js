@@ -125,6 +125,8 @@
             '<button type="button" data-act="left" title="Align left">Left</button>' +
             '<button type="button" data-act="center" title="Align center">Center</button>' +
             '<button type="button" data-act="right" title="Align right">Right</button>' +
+            '<button type="button" data-act="outdent" title="Decrease indent">Outdent</button>' +
+            '<button type="button" data-act="indent" title="Increase indent">Indent</button>' +
             '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">Bullets</button>' +
             '<button type="button" data-act="link" title="Link the selected words">Link</button>' +
           '</div>' +
@@ -350,6 +352,8 @@
       else if (act === 'left') align('left');
       else if (act === 'center') align('center');
       else if (act === 'right') align('right');
+      else if (act === 'indent') indentBlock(1);
+      else if (act === 'outdent') indentBlock(-1);
       else if (act === 'up') move(-1);
       else if (act === 'down') move(1);
       else if (act === 'dup') duplicate();
@@ -1320,11 +1324,36 @@
       applyMapLang(lang);
     }
 
+    function loadFrameRu() {
+      var win = frame.contentWindow;
+      if (win && win.ST_RU) return Promise.resolve();
+      return new Promise(function (ok, bad) {
+        var s = doc.createElement('script');
+        s.src = '/assets/js/ru-slovnyk.js?v=20261012b';
+        s.onload = function () { ok(); };
+        s.onerror = function () { bad(); };
+        (doc.head || doc.documentElement).appendChild(s);
+      });
+    }
+
     function applyLang(lang) {
       if (!doc) return;
       if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') lang = 'en';
-      restoreMarkSnaps();
       var win = frame.contentWindow;
+      if (lang === 'ru' && win && !win.ST_RU) {
+        if (applyLang.waiting) return;
+        applyLang.waiting = true;
+        loadFrameRu().then(function () {
+          applyLang.waiting = false;
+          if (win.ST_RU) applyLang('ru');
+          else say('Russian did not load.', 'err');
+        }, function () {
+          applyLang.waiting = false;
+          say('Russian did not load.', 'err');
+        });
+        return;
+      }
+      restoreMarkSnaps();
       if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
         mode = 'uk';
         say('Translations did not load. Showing the Ukrainian source.', 'err');
@@ -1650,28 +1679,44 @@
       markDirty(whereOf(block));
     }
 
+    function textBlock() {
+      var sel = doc.getSelection();
+      var node = sel && sel.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
+      var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+      if (el && el.closest) {
+        var fromSel = el.closest('li') || el.closest('p, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th');
+        if (fromSel) return fromSel;
+      }
+      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField || selected;
+      if (!hostEl || !hostEl.closest) return hostEl;
+      return hostEl.closest('li') || hostEl.closest('p, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th, ul, ol') || hostEl;
+    }
+
     function applySize(size) {
       if (!doc || !size) return;
       if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
+      var block = textBlock();
+      if (!block || !block.style) { say('Click the text first.', 'err'); return; }
       beforeChange();
-      var hostEl = doc.querySelector('[contenteditable="true"]') || selected;
-      var sel = doc.getSelection();
-      if (!hostEl && (!sel || sel.isCollapsed)) { say('Click the text first.', 'err'); return; }
-      if (!sel || sel.isCollapsed || !sel.rangeCount) {
-        if (size === 'inherit') hostEl.style.fontSize = '';
-        else hostEl.style.fontSize = size;
-        markDirty(whereOf(hostEl));
+      if (size === 'inherit' || size === '1rem') block.style.fontSize = '';
+      else block.style.fontSize = size;
+      markDirty(whereOf(block));
+    }
+
+    function indentBlock(dir) {
+      if (!doc) return;
+      var block = textBlock();
+      if (!block || !block.style || !block.closest) { say('Click a paragraph or a bullet first.', 'err'); return; }
+      if (!block.matches('li, p, h1, h2, h3, h4, h5, h6, blockquote, ul, ol')) {
+        say('Click a paragraph or a bullet first.', 'err');
         return;
       }
-      doc.execCommand('styleWithCSS', false, true);
-      var range = sel.getRangeAt(0);
-      var span = doc.createElement('span');
-      if (size !== 'inherit') span.style.fontSize = size;
-      try { range.surroundContents(span); }
-      catch (err) {
-        if (hostEl) hostEl.style.fontSize = size === 'inherit' ? '' : size;
-      }
-      markDirty(whereOf(hostEl || span));
+      beforeChange();
+      var cur = parseFloat(block.style.marginLeft) || 0;
+      var next = dir < 0 ? Math.max(0, cur - 1.5) : Math.min(6, cur + 1.5);
+      if (next <= 0) block.style.marginLeft = '';
+      else block.style.marginLeft = next + 'rem';
+      markDirty(whereOf(block));
     }
 
     function fmt(cmd) {

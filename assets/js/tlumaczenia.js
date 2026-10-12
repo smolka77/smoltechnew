@@ -11,8 +11,6 @@
     ['Дивитись відео: ', { en: 'Watch video: ', pl: 'Obejrzyj wideo: ', ru: 'Смотреть видео: ' }],
     ['Дивитися відео: ', { en: 'Watch video: ', pl: 'Obejrzyj wideo: ', ru: 'Смотреть видео: ' }]
   ];
-  var R = (typeof window !== 'undefined' && window.ST_RU) ? window.ST_RU : {};
-
   var D = {
     /* chrome */
     'Перейти до основного вмісту': 'Skip to content',
@@ -614,7 +612,11 @@
     'зварних огорожних і армувальних сіток;': 'welded fence and reinforcing mesh;',
     'сталевих корпусів і шаф;': 'steel housings and cabinets;',
     'вентиляційних систем та інших металевих виробів у Польщі, Україні та світі.': 'HVAC systems and other metal products in Poland, Ukraine and worldwide.',
-    'Автоматизація та роботизація зварювальних процесів — найважливіший напрям нашої діяльності. Ми створюємо спеціалізовані зварювальні комплекси: технічно передове обладнання контактного зварювання, спроєктоване з нуля під конкретне завдання. Кожну машину знято на відео, щоб показати її роботу.': 'Welding automation and robotics are our core activities. We build dedicated welding cells: advanced resistance-welding equipment designed from scratch for a specific task. Every machine is filmed to show it at work.'
+    'Автоматизація та роботизація зварювальних процесів — найважливіший напрям нашої діяльності. Ми створюємо спеціалізовані зварювальні комплекси: технічно передове обладнання контактного зварювання, спроєктоване з нуля під конкретне завдання. Кожну машину знято на відео, щоб показати її роботу.': 'Welding automation and robotics are our core activities. We build dedicated welding cells: advanced resistance-welding equipment designed from scratch for a specific task. Every machine is filmed to show it at work.',
+    'Найкраща команда професіоналів.': 'The best team of professionals.',
+    'Наші партнери:': 'Our partners:',
+    'Короткий час заряджання — високий такт на серійних і дрібносерійних роботах.': 'Short charging time — high takt on series and short-run work.',
+    'Машини CDM працюють із контактними пістолетами C2 і пістолетами з підняттям LG2. Для комбінації кількох пістолетів — CDM Multi-Gun (до трьох комплектів).': 'CDM machines work with contact guns C2 and lift guns LG2. For a combination of several guns — CDM Multi-Gun (up to three sets).'
   };
 
   /* video titles + home variants */
@@ -2744,19 +2746,28 @@
     if (!uk || lang === 'uk') return uk;
     var n = normKey(uk);
     var src = n || uk;
-    var table = lang === 'pl' ? P : (lang === 'ru' ? R : D);
+    var table = lang === 'pl' ? P : (lang === 'ru' ? (window.ST_RU || {}) : D);
     var hit = cmsIndex()[uk] || cmsIndex()[n];
     /* Custom phrases saved in the admin panel (flag a=1) beat the static dictionary. */
     if (hit && hit.a === '1' && hit[lang]) return hit[lang];
     if (table[uk]) return table[uk];
     if (n !== uk && table[n]) return table[n];
     if (hit && hit[lang]) return hit[lang];
-    var i, rest;
+    var i, pfx, raw, restRaw, restTr, restNorm, alt;
+    raw = String(uk);
     for (i = 0; i < PREFIX.length; i++) {
-      if (src.indexOf(PREFIX[i][0]) === 0) {
-        rest = src.slice(PREFIX[i][0].length);
-        return (PREFIX[i][1][lang] || PREFIX[i][1].en) + lookup(rest, lang);
+      pfx = PREFIX[i][0];
+      if (raw.indexOf(pfx) !== 0 && src.indexOf(pfx) !== 0) continue;
+      restRaw = raw.indexOf(pfx) === 0 ? raw.slice(pfx.length) : src.slice(pfx.length);
+      restTr = lookup(restRaw, lang);
+      if (restTr === restRaw) {
+        restNorm = normKey(restRaw);
+        if (restNorm && restNorm !== restRaw) {
+          alt = lookup(restNorm, lang);
+          if (alt !== restNorm) restTr = alt;
+        }
       }
+      return (PREFIX[i][1][lang] || PREFIX[i][1].en) + restTr;
     }
     return uk;
   }
@@ -3078,7 +3089,7 @@
               return;
             }
             dropBlankUnmarkedLinks(node);
-          } else if (node.firstElementChild && !onlyOwnInline(node)) spreadTextNodes(node, whole);
+          } else if (node.firstElementChild && (!onlyOwnInline(node) || (lang !== 'en' && node.querySelector('a.st-link, a[data-st-link]')))) spreadTextNodes(node, whole);
           else node.textContent = whole;
           applyEnMarks(node);
           return;
@@ -3155,7 +3166,25 @@
     }
   }
 
+  var ruScript = null;
+  function loadRu() {
+    if (window.ST_RU) return Promise.resolve();
+    if (ruScript) return ruScript;
+    ruScript = new Promise(function (ok, bad) {
+      var s = document.createElement('script');
+      s.src = '/assets/js/ru-slovnyk.js?v=20261012b';
+      s.onload = function () { ok(); };
+      s.onerror = function () { ruScript = null; bad(); };
+      document.head.appendChild(s);
+    });
+    return ruScript;
+  }
+
   function apply(lang) {
+    if (lang === 'ru' && !window.ST_RU) {
+      loadRu().then(function () { apply('ru'); }, function () { apply('uk'); });
+      return;
+    }
     if (lang !== 'en' && lang !== 'ru') lang = 'uk';
     document.documentElement.setAttribute('data-lang', lang);
     document.documentElement.setAttribute('lang', lang === 'en' ? 'en' : (lang === 'ru' ? 'ru' : 'uk-UA'));

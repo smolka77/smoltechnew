@@ -12,7 +12,7 @@ function st_builder_style(string $style): string
         $prop = strtolower(trim($prop));
         $val = trim($val);
         if ($prop === 'text-decoration-line') $prop = 'text-decoration';
-        if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration', 'font-size', 'object-position', 'background-position', '--st-x', '--st-y', '--st-z'], true)) continue;
+        if (!in_array($prop, ['color', 'text-align', 'font-weight', 'font-style', 'text-decoration', 'font-size', 'margin-left', 'object-position', 'background-position', '--st-x', '--st-y', '--st-z'], true)) continue;
         if (preg_match('/url\s*\(|expression|javascript/i', $val)) continue;
         $edge = '(?:left|center|right|top|bottom|(?:0|[1-9]\d?|100)(?:\.\d+)?%)';
         $pct = '(?:0|[1-9]\d?|100)(?:\.\d+)?%';
@@ -23,6 +23,7 @@ function st_builder_style(string $style): string
             'font-style' => in_array(strtolower($val), ['normal', 'italic', 'oblique'], true),
             'text-decoration' => (bool) preg_match('/^(none|underline|line-through|overline)(?:\s+(?:none|underline|line-through|overline))*$/i', $val),
             'font-size' => (bool) preg_match('/^(?:inherit|(?:0|[1-9]\d?)(?:\.\d+)?(?:px|rem|em|%))$/i', $val),
+            'margin-left' => (bool) preg_match('/^(?:1\.5|3|4\.5|6)rem$/', $val),
             'object-position' => (bool) preg_match('/^' . $edge . '(?:\s+' . $edge . ')?$/i', $val),
             'background-position' => (bool) preg_match('/^' . $edge . '(?:\s+' . $edge . ')?$/i', $val),
             '--st-x', '--st-y' => (bool) preg_match('/^' . $pct . '$/i', $val),

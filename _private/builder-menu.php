@@ -688,19 +688,25 @@ function st_builder_footer_remove(string $html, string $url): string
     return st_builder_splice_children($html, $region, $kept);
 }
 
-/** Footer line is "tag — title". The English title needs its own pair or the tag stays glued to the Ukrainian name. */
-function st_builder_footer_labels(string $tag, string $titleUk, string $titleEn): array
+/** Footer line is "tag — title". Each language needs its own pair or the tag stays glued to the Ukrainian name. */
+function st_builder_footer_labels(string $tag, string $titleUk, string $titleEn, string $titleRu = ''): array
 {
     $tag = trim($tag);
     $titleUk = trim($titleUk);
     $titleEn = trim($titleEn);
+    $titleRu = trim($titleRu);
     $uk = $tag !== '' ? st_builder_clip($tag . ' — ' . $titleUk, 48) : st_builder_clip($titleUk, 48);
     $en = '';
     if ($titleEn !== '' && $titleEn !== $titleUk) {
         $en = $tag !== '' ? st_builder_clip($tag . ' — ' . $titleEn, 48) : st_builder_clip($titleEn, 48);
         if ($en === $uk) $en = '';
     }
-    return [$uk, $en];
+    $ru = '';
+    if ($titleRu !== '' && $titleRu !== $titleUk) {
+        $ru = $tag !== '' ? st_builder_clip($tag . ' — ' . $titleRu, 48) : st_builder_clip($titleRu, 48);
+        if ($ru === $uk) $ru = '';
+    }
+    return [$uk, $en, $ru];
 }
 
 function st_builder_footer_insert(string $html, string $url, string $label, array $siblingUrls): string
@@ -1404,6 +1410,7 @@ function st_builder_add_machine(array $data): array
     $parentOrig = (string) file_get_contents($parentPath);
     $newPath = ST_PAGES . '/' . $newId . '.html';
     st_cms_atomic_write($newPath, st_cms_dump($meta, $bodyHtml), false);
+    $layoutChanged = false;
     try {
         if (!$bare) {
             $inserted = st_builder_insert_tile($pbody, [
@@ -1431,9 +1438,10 @@ function st_builder_add_machine(array $data): array
             }
         }
         if ($slot !== 'hidden') $layout = st_builder_menu_apply($layout, $url, $slot, $position, $titleUk, $subUk);
-        [$footUk, $footEn] = st_builder_footer_labels($tagUk, $titleUk, $titleEn);
+        [$footUk, $footEn, $footRu] = st_builder_footer_labels($tagUk, $titleUk, $titleEn, $titleRu);
         $layout = st_builder_footer_insert($layout, $url, $footUk, $sibUrls);
-        if ($layout !== $layoutOrig) st_builder_write_layout($layout);
+        $layoutChanged = $layout !== $layoutOrig;
+        if ($layoutChanged) st_builder_write_layout($layout);
         $pairs = [];
         if ($titleEn !== '' && $titleEn !== $titleUk) {
             $titlePair = ['uk' => $titleUk, 'en' => $titleEn];
@@ -1445,7 +1453,17 @@ function st_builder_add_machine(array $data): array
         if ($textUk !== '' && $textEn !== '' && $textEn !== $textUk) $pairs[] = ['uk' => $textUk, 'en' => $textEn];
         if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) $pairs[] = ['uk' => $subUk, 'en' => $subEn];
         if ($titleEn !== '') $pairs[] = ['uk' => $linkUk, 'en' => st_builder_clip('See ' . $titleEn, 48)];
-        if ($footEn !== '') $pairs[] = ['uk' => $footUk, 'en' => $footEn];
+        if ($footEn !== '' || $footRu !== '') {
+            $footPair = ['uk' => $footUk];
+            if ($footEn !== '') $footPair['en'] = $footEn;
+            if ($footRu !== '') $footPair['ru'] = $footRu;
+            $pairs[] = $footPair;
+        }
+        $tabUk = $titleUk . ' | SMOLTECH';
+        $tabPair = ['uk' => $tabUk];
+        if ($titleEn !== '' && $titleEn !== $titleUk) $tabPair['en'] = $titleEn . ' | SMOLTECH';
+        if ($titleRu !== '' && $titleRu !== $titleUk) $tabPair['ru'] = $titleRu . ' | SMOLTECH';
+        if (isset($tabPair['en']) || isset($tabPair['ru'])) $pairs[] = $tabPair;
         foreach ($slotPairs as $row) $pairs[] = $row;
         if ($pairs !== []) {
             require_once __DIR__ . '/tlumacz.php';
@@ -1459,12 +1477,13 @@ function st_builder_add_machine(array $data): array
         if ((string) file_get_contents(ST_LAYOUT) !== $layoutOrig) st_cms_atomic_write(ST_LAYOUT, $layoutOrig, false);
         throw $e;
     }
-    $live = st_cms_publish_page($newId, !$bare);
+    $live = st_cms_publish_page($newId, !$bare || $layoutChanged);
     $where = $bare
         ? 'Created the page “' . $titleUk . '” at ' . $url . '. Save this page to publish the card that opens it.'
         : 'Added “' . $titleUk . '” as a new card. Its page is at ' . $url . '.';
-    if ($slot === 'hidden') $where .= ' Sibling pages are not in the menu, so this one is in the sitemap only.';
-    else $where .= ' It was added to the ' . st_builder_menu_label($slot) . '.';
+    if ($slot !== 'hidden') $where .= ' It was added to the ' . st_builder_menu_label($slot) . '.';
+    elseif ($layoutChanged) $where .= ' It was added to the footer.';
+    else $where .= ' Sibling pages are not in the menu, so this one is in the sitemap only.';
     $where .= ' The new page has the same sections as the others in this category, with empty text and photo slots.';
     return $live + [
         'ok' => true,
