@@ -260,7 +260,9 @@
           el.setAttribute('data-title', el.getAttribute('data-stb-title-uk'));
         }
       });
+      clearLangVisuals();
       var clone = doc.body.cloneNode(true);
+      paintAllLangStyles();
       swapped.forEach(function (row) { row[0].setAttribute(row[1], row[2] == null ? '' : row[2]); });
       clone.querySelectorAll('[contenteditable]').forEach(function (el) {
         el.removeAttribute('contenteditable');
@@ -293,6 +295,8 @@
       currentItem = null;
       currentField = null;
       showMarkedHosts();
+      if (mode === 'ru') paintAllRuMarks();
+      paintAllLangStyles();
       showAttrs(mode);
       renderPick();
       syncImageTools();
@@ -800,7 +804,7 @@
       if (!el) return '';
       var h = el.matches && el.matches('.faq > details') ? el.querySelector('summary') : el.querySelector('h1, h2, h3, .model-strip__name');
       var t = (h ? h.textContent : el.textContent) || '';
-      t = t.replace(/\s+/g, ' ').trim();
+      t = t.replace(/[\u200C\u200D]/g, '').replace(/\s+/g, ' ').trim();
       if (t.length > 72) t = t.slice(0, 72) + '…';
       return t;
     }
@@ -1565,6 +1569,7 @@
         return;
       }
       restoreRuSnaps();
+      clearLangVisuals();
       restoreMarkSnaps();
       if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
         mode = 'uk';
@@ -1594,6 +1599,7 @@
       }
       if (lang === 'ru') overlayLang('ru');
       if (lang === 'ru') paintAllRuMarks();
+      paintAllLangStyles();
       showAttrs(lang);
       heldRange = null;
       syncBanner();
@@ -1939,21 +1945,25 @@
       if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
       var block = textBlock();
       if (!block || !block.style) { say('Click the text first.', 'err'); return; }
-      if (mode === 'ru') {
+      if (mode === 'ru' || mode === 'en') {
         beforeChange();
         var sizeHost = (block.closest && block.closest(PHRASE_SEL)) || block;
-        var ruSize = readRuStyle(sizeHost);
-        if (size === 'inherit' || size === '1rem') delete ruSize.fontSize;
-        else ruSize.fontSize = size;
-        writeRuStyle(sizeHost, ruSize);
-        applyRuVisual(sizeHost);
+        var sizeSpec = mode === 'ru' ? readRuStyle(sizeHost) : readEnStyle(sizeHost);
+        if (size === 'inherit' || size === '1rem') delete sizeSpec.fontSize;
+        else sizeSpec.fontSize = size;
+        if (mode === 'ru') writeRuStyle(sizeHost, sizeSpec);
+        else writeEnStyle(sizeHost, sizeSpec);
+        applyLangVisual(sizeHost);
         markDirty(whereOf(sizeHost));
-        say('Text size applied to the Russian text only. The Ukrainian sentence is unchanged.');
+        say(mode === 'ru'
+          ? 'Text size applied to the Russian text only. The Ukrainian sentence is unchanged.'
+          : 'Text size applied to the English text only. The Ukrainian sentence is unchanged.');
         return;
       }
       beforeChange();
       if (size === 'inherit' || size === '1rem') block.style.fontSize = '';
       else block.style.fontSize = size;
+      if (block.stbBaseStyle) block.stbBaseStyle.fontSize = block.style.fontSize || '';
       markDirty(whereOf(block));
     }
 
@@ -2045,24 +2055,30 @@
       if (!doc) return;
       var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
       if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
-      if (mode === 'ru') {
+      if (mode === 'ru' || mode === 'en') {
         beforeChange();
         var colorHost = (hostEl.closest && hostEl.closest(PHRASE_SEL)) || hostEl;
-        var ruColor = readRuStyle(colorHost);
-        if (!color) delete ruColor.color;
-        else ruColor.color = color;
-        writeRuStyle(colorHost, ruColor);
-        applyRuVisual(colorHost);
+        var colorSpec = mode === 'ru' ? readRuStyle(colorHost) : readEnStyle(colorHost);
+        if (!color) delete colorSpec.color;
+        else colorSpec.color = color;
+        if (mode === 'ru') writeRuStyle(colorHost, colorSpec);
+        else writeEnStyle(colorHost, colorSpec);
+        applyLangVisual(colorHost);
         markDirty(whereOf(colorHost));
         say(color
-          ? 'Colour applied to the Russian text only. The Ukrainian sentence is unchanged.'
-          : 'Colour reset on the Russian text only. The Ukrainian sentence is unchanged.');
+          ? (mode === 'ru'
+            ? 'Colour applied to the Russian text only. The Ukrainian sentence is unchanged.'
+            : 'Colour applied to the English text only. The Ukrainian sentence is unchanged.')
+          : (mode === 'ru'
+            ? 'Colour reset on the Russian text only. The Ukrainian sentence is unchanged.'
+            : 'Colour reset on the English text only. The Ukrainian sentence is unchanged.'));
         return;
       }
       beforeChange();
       if (!color) hostEl.style.color = '';
       else hostEl.style.color = color;
       if (!hostEl.getAttribute('style')) hostEl.removeAttribute('style');
+      if (hostEl.stbBaseStyle) hostEl.stbBaseStyle.color = hostEl.style.color || '';
       markDirty(whereOf(hostEl));
       say(color ? 'Colour applied. Save to publish.' : 'Colour reset to the default. Save to publish.');
     }
@@ -2596,8 +2612,8 @@
       showRuHost(host);
     }
 
-    function readRuStyle(el) {
-      var raw = el && el.getAttribute ? (el.getAttribute('data-st-rustyle') || '') : '';
+    function readStyleJson(el, attr) {
+      var raw = el && el.getAttribute ? (el.getAttribute(attr) || '') : '';
       if (!raw) return {};
       try {
         var data = JSON.parse(raw);
@@ -2605,29 +2621,45 @@
       } catch (err) { return {}; }
     }
 
-    function writeRuStyle(el, data) {
+    function writeStyleJson(el, attr, data) {
       if (!el) return;
       var next = {};
       if (data && data.color) next.color = data.color;
       if (data && data.fontSize) next.fontSize = data.fontSize;
-      if (!next.color && !next.fontSize) el.removeAttribute('data-st-rustyle');
-      else el.setAttribute('data-st-rustyle', JSON.stringify(next));
+      if (!next.color && !next.fontSize) el.removeAttribute(attr);
+      else el.setAttribute(attr, JSON.stringify(next));
     }
 
-    function applyRuVisual(el) {
+    function readRuStyle(el) { return readStyleJson(el, 'data-st-rustyle'); }
+    function writeRuStyle(el, data) { writeStyleJson(el, 'data-st-rustyle', data); }
+    function readEnStyle(el) { return readStyleJson(el, 'data-st-enstyle'); }
+    function writeEnStyle(el, data) { writeStyleJson(el, 'data-st-enstyle', data); }
+
+    function applyLangVisual(el) {
       if (!el || !el.style) return;
       if (el.stbBaseStyle == null) el.stbBaseStyle = { color: el.style.color || '', fontSize: el.style.fontSize || '' };
-      var spec = mode === 'ru' ? readRuStyle(el) : {};
-      el.style.color = mode === 'ru' && spec.color ? spec.color : (el.stbBaseStyle.color || '');
-      el.style.fontSize = mode === 'ru' && spec.fontSize ? spec.fontSize : (el.stbBaseStyle.fontSize || '');
+      var spec = mode === 'en' ? readEnStyle(el) : (mode === 'ru' ? readRuStyle(el) : {});
+      var on = mode === 'en' || mode === 'ru';
+      el.style.color = on && spec.color ? spec.color : (el.stbBaseStyle.color || '');
+      el.style.fontSize = on && spec.fontSize ? spec.fontSize : (el.stbBaseStyle.fontSize || '');
       if (!String(el.getAttribute('style') || '').trim()) el.removeAttribute('style');
     }
 
-    function clearRuVisual(el) {
+    function clearLangVisual(el) {
       if (!el || !el.style || el.stbBaseStyle == null) return;
       el.style.color = el.stbBaseStyle.color || '';
       el.style.fontSize = el.stbBaseStyle.fontSize || '';
       if (!String(el.getAttribute('style') || '').trim()) el.removeAttribute('style');
+    }
+
+    function clearLangVisuals() {
+      if (!doc) return;
+      doc.querySelectorAll('[data-st-enstyle], [data-st-rustyle]').forEach(clearLangVisual);
+    }
+
+    function paintAllLangStyles() {
+      if (!doc) return;
+      doc.querySelectorAll('[data-st-enstyle], [data-st-rustyle]').forEach(applyLangVisual);
     }
 
     function paintRuMarks(host, items) {
@@ -2665,7 +2697,7 @@
         else if (node.stbRu) node.nodeValue = pad(node.stbUk, node.stbRu);
       });
       if (marks.length) paintRuMarks(host, marks);
-      applyRuVisual(host);
+      applyLangVisual(host);
     }
 
     function paintAllRuMarks() {
@@ -2683,7 +2715,7 @@
           host.stbRuSnap = null;
           host.stbRuFull = '';
         }
-        clearRuVisual(host);
+        clearLangVisual(host);
       });
       doc.querySelectorAll('[data-st-ru-only]').forEach(unwrapEl);
     }
@@ -2703,6 +2735,7 @@
 
     function stripRuPaint() {
       restoreRuSnaps();
+      clearLangVisuals();
     }
 
     function wrapCurrentUk(plan, tag) {

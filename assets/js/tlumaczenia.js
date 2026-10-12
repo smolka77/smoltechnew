@@ -3051,21 +3051,27 @@
     });
   }
 
-  function syncRuStyle(el, lang) {
-    if (!el || !el.hasAttribute('data-st-rustyle')) return;
-    if (el.stRuBase == null) el.stRuBase = { color: el.style.color || '', fontSize: el.style.fontSize || '' };
-    var spec = {};
-    if (lang === 'ru') {
-      try { spec = JSON.parse(el.getAttribute('data-st-rustyle') || '') || {}; } catch (e) { spec = {}; }
+  function syncLangStyle(el, lang) {
+    if (!el) return;
+    var hasEn = el.hasAttribute('data-st-enstyle');
+    var hasRu = el.hasAttribute('data-st-rustyle');
+    if (!hasEn && !hasRu) return;
+    if (el.stLangBase == null) el.stLangBase = { color: el.style.color || '', fontSize: el.style.fontSize || '' };
+    var spec = null;
+    var raw = '';
+    if (lang === 'en' && hasEn) raw = el.getAttribute('data-st-enstyle') || '';
+    else if (lang === 'ru' && hasRu) raw = el.getAttribute('data-st-rustyle') || '';
+    if (raw) {
+      try { spec = JSON.parse(raw); } catch (e) { spec = null; }
     }
     var color = '';
     var fontSize = '';
-    if (lang === 'ru' && spec && typeof spec === 'object') {
+    if (spec && typeof spec === 'object') {
       if (typeof spec.color === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(spec.color)) color = spec.color;
       if (typeof spec.fontSize === 'string' && /^(?:[\d.]+(?:px|rem|em|%))$/.test(spec.fontSize)) fontSize = spec.fontSize;
     }
-    el.style.color = color || el.stRuBase.color || '';
-    el.style.fontSize = fontSize || el.stRuBase.fontSize || '';
+    el.style.color = color || el.stLangBase.color || '';
+    el.style.fontSize = fontSize || el.stLangBase.fontSize || '';
     if (!String(el.getAttribute('style') || '').trim()) el.removeAttribute('style');
   }
 
@@ -3130,7 +3136,7 @@
     if (node.nodeType === 1) {
       if (SKIP.test(node.tagName)) return;
       if (node.classList && node.classList.contains('lang')) return;
-      if (node.hasAttribute('data-st-rustyle')) syncRuStyle(node, lang);
+      if (node.hasAttribute('data-st-rustyle') || node.hasAttribute('data-st-enstyle')) syncLangStyle(node, lang);
       if (node.stOrigPlain == null && /^(P|LI|H1|H2|H3|H4|DD|DT|FIGCAPTION|SUMMARY)$/.test(node.tagName)) {
         var plain = mixedPlain(node);
         if (plain && CYR.test(plain)) {
@@ -3154,7 +3160,7 @@
           } else if (node.firstElementChild && (!onlyOwnInline(node) || (lang !== 'en' && node.querySelector('a.st-link, a[data-st-link]')))) spreadTextNodes(node, whole);
           else node.textContent = whole;
           dropBlankUnmarkedLinks(node);
-          applyEnMarks(node);
+          if (lang === 'en') applyEnMarks(node);
           if (lang === 'ru') applyRuMarks(node);
           return;
         }
