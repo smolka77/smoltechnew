@@ -96,6 +96,8 @@
     var linkRange = null;
     var heldRange = null;
     var pickedEl = null;
+    var pendingLang = null;
+    var pendingPages = [];
 
     var oldBlocks = document.getElementById('stb-blocks');
     if (oldBlocks) oldBlocks.remove();
@@ -122,11 +124,13 @@
             '<button type="button" data-act="under" title="Underline"><u>U</u></button>' +
             '<label class="stb__mini" title="Text size">Size <select id="stb-size" title="Text size"><option value="">Size</option><option value="0.85rem">Small</option><option value="1rem">Normal</option><option value="1.25rem">Large</option><option value="1.6rem">Larger</option></select></label>' +
             '<label class="stb__mini" title="Text color">Color <input type="color" id="stb-color" value="#d10a11" title="Text color"></label>' +
+            '<button type="button" data-act="clearcolor" title="Default colour">Default colour</button>' +
+            '<button type="button" data-act="nosize" title="Remove size">Remove size</button>' +
             '<button type="button" data-act="left" title="Align left">Left</button>' +
             '<button type="button" data-act="center" title="Align center">Center</button>' +
             '<button type="button" data-act="right" title="Align right">Right</button>' +
-            '<button type="button" data-act="outdent" title="Decrease indent">Outdent</button>' +
-            '<button type="button" data-act="indent" title="Increase indent">Indent</button>' +
+            '<button type="button" data-act="outdent" title="← Move left">← Move left</button>' +
+            '<button type="button" data-act="indent" title="Move right →">Move right →</button>' +
             '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">Bullets</button>' +
             '<button type="button" data-act="link" title="Link the selected words">Link</button>' +
           '</div>' +
@@ -139,11 +143,11 @@
             '<button type="button" data-act="del" title="Delete the selected text, card, or whole section">Delete</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="media">' +
-            '<span class="stb__grp-h">Media</span>' +
-            '<button type="button" data-act="move" id="stb-move" title="Turn this on, then drag a photo inside its frame" aria-pressed="false">Move photo</button>' +
-            '<button type="button" data-act="img" title="Replace the selected photo" disabled>Replace</button>' +
+            '<span class="stb__grp-h">Photo</span>' +
+            '<button type="button" data-act="img" title="Change the selected photo" disabled>Change</button>' +
+            '<button type="button" data-act="move" id="stb-move" title="Move the photo inside its frame" aria-pressed="false">Move</button>' +
             '<button type="button" data-act="resetpos" title="Put the photo back in the middle of its frame" disabled>Reset</button>' +
-            '<button type="button" data-act="alt" title="Edit the photo description" disabled>Alt text</button>' +
+            '<button type="button" data-act="alt" title="Description (alt)" disabled>Description (alt)</button>' +
             '<button type="button" data-act="noimg" title="Remove the selected photo" disabled>Remove</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="page">' +
@@ -157,7 +161,11 @@
             '<button type="button" id="stb-pages" title="Add a page or change where a page sits in the menu">Add page</button>' +
             '<button type="button" id="stb-delpage" hidden title="Delete this page">Delete page</button>' +
             '<button type="button" id="stb-meta-btn" title="Google title and description">Page settings</button>' +
+            '<button type="button" data-act="desk" class="is-on" title="Desktop width">Desktop</button>' +
+            '<button type="button" data-act="tab" title="Tablet width">Tablet</button>' +
+            '<button type="button" data-act="phone" title="Phone width">Phone</button>' +
             '<a class="btn btn-ghost btn-sm" id="stb-live" target="_blank" rel="noopener" hidden title="Open the public page">Preview</a>' +
+            '<span class="stb__dirty" id="stb-dirty" hidden>Unsaved changes</span>' +
             '<button type="button" class="btn btn-sm" id="stb-save" title="Publish this page to the site">Save</button>' +
           '</div>' +
           '<label class="stb__mini" id="stb-ph-wrap" hidden>Field hint <input type="text" id="stb-ph" title="Placeholder shown in the empty field"></label>' +
@@ -166,10 +174,12 @@
           '<label>Google title <input type="text" id="stb-title"></label>' +
           '<label>Description <textarea id="stb-desc" rows="2"></textarea></label>' +
           '<label>Share title <input type="text" id="stb-og"></label>' +
+          '<p class="stb__meta-note">These fields are the Ukrainian page settings. English and Russian titles come from the translation of these words. Editing them here changes the Ukrainian source for every language.</p>' +
         '</div>' +
-        '<p class="stb__note" id="stb-note">Click text to edit it. Double-click a menu or card link to open that page. To crop a photo, click Move photo, then drag.</p>' +
+        '<p class="stb__banner" id="stb-banner" hidden></p>' +
+        '<p class="stb__note" id="stb-note">Click text to edit it. Double-click a menu or card link to open that page. Click a photo, then Change, to replace it.</p>' +
         '<div class="stb__pick" id="stb-pick" hidden></div>' +
-        '<iframe class="stb__frame" id="stb-frame" title="Page editor"></iframe>' +
+        '<div class="stb__stage" id="stb-stage"><iframe class="stb__frame" id="stb-frame" title="Page editor"></iframe></div>' +
         '<p class="stb__status" id="stb-status"></p>' +
       '</div>';
 
@@ -183,11 +193,43 @@
       status.className = 'stb__status' + (kind ? ' is-' + kind : '');
     }
 
+    function syncDirty() {
+      var badge = host.querySelector('#stb-dirty');
+      if (badge) badge.hidden = !(dirty || formDirty || chromeDirty || metaDirty);
+    }
+
+    function syncBanner() {
+      var banner = host.querySelector('#stb-banner');
+      if (!banner) return;
+      if (mode === 'en') {
+        banner.hidden = false;
+        banner.textContent = 'You are editing the English translation. The Ukrainian page is kept. Bold, italic, underline and links apply to the English text only.';
+      } else if (mode === 'ru') {
+        banner.hidden = false;
+        banner.textContent = 'You are editing the Russian translation. The Ukrainian page is kept. Bold, italic, underline and links apply to the Russian text only.';
+      } else {
+        banner.hidden = true;
+        banner.textContent = '';
+      }
+    }
+
     function markDirty(where) {
       dirty = true;
       if (where === 'form') formDirty = true;
       if (where === 'chrome') chromeDirty = true;
+      syncDirty();
       say('Unsaved changes.');
+    }
+
+    function dropPending(done) {
+      var ids = pendingPages.map(function (row) { return row && row.id; }).filter(Boolean);
+      pendingPages = [];
+      if (!ids.length) { if (done) done(); return; }
+      var left = ids.length;
+      function finish() { left -= 1; if (left <= 0 && done) done(); }
+      ids.forEach(function (pid) {
+        api({ action: 'cms.page.delete', id: pid }).then(finish, finish);
+      });
     }
 
     function syncHist() {
@@ -203,7 +245,23 @@
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         ph.push(el.stbUk != null ? String(el.stbUk) : null);
       });
+      var swapped = [];
+      doc.querySelectorAll('img[data-stb-alt-uk], [data-stb-aria-uk], [data-stb-title-uk]').forEach(function (el) {
+        if (el.hasAttribute('data-stb-alt-uk')) {
+          swapped.push([el, 'alt', el.getAttribute('alt')]);
+          el.setAttribute('alt', el.getAttribute('data-stb-alt-uk'));
+        }
+        if (el.hasAttribute('data-stb-aria-uk')) {
+          swapped.push([el, 'aria-label', el.getAttribute('aria-label')]);
+          el.setAttribute('aria-label', el.getAttribute('data-stb-aria-uk'));
+        }
+        if (el.hasAttribute('data-stb-title-uk')) {
+          swapped.push([el, 'data-title', el.getAttribute('data-title')]);
+          el.setAttribute('data-title', el.getAttribute('data-stb-title-uk'));
+        }
+      });
       var clone = doc.body.cloneNode(true);
+      swapped.forEach(function (row) { row[0].setAttribute(row[1], row[2] == null ? '' : row[2]); });
       clone.querySelectorAll('[contenteditable]').forEach(function (el) {
         el.removeAttribute('contenteditable');
         el.removeAttribute('spellcheck');
@@ -235,6 +293,7 @@
       currentItem = null;
       currentField = null;
       showMarkedHosts();
+      showAttrs(mode);
       renderPick();
       syncImageTools();
       syncPageTools();
@@ -297,6 +356,7 @@
       if (!(e.ctrlKey || e.metaKey)) return;
       var z = e.key === 'z' || e.key === 'Z';
       var y = e.key === 'y' || e.key === 'Y';
+      if (editing && (z || y)) return;
       if (z && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); }
       else if (y || (z && e.shiftKey)) { e.preventDefault(); e.stopPropagation(); redo(); }
     }
@@ -305,9 +365,18 @@
     document.addEventListener('keydown', onKey, true);
 
     host.querySelector('#stb-back').addEventListener('click', function () {
-      if (dirty && !window.confirm('There are unsaved changes. Leave without saving?')) return;
-      if (typeof ctx.back === 'function') ctx.back();
+      if ((dirty || formDirty || chromeDirty || metaDirty) && !window.confirm('There are unsaved changes. Leave without saving?')) return;
+      dropPending(function () {
+        if (typeof ctx.back === 'function') ctx.back();
+      });
     });
+    if (host._stbLeave) window.removeEventListener('beforeunload', host._stbLeave);
+    host._stbLeave = function (e) {
+      if (!(dirty || formDirty || chromeDirty || metaDirty)) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', host._stbLeave);
 
     host.querySelector('#stb-meta-btn').addEventListener('click', function () {
       host.querySelector('#stb-meta').classList.toggle('is-on');
@@ -323,8 +392,7 @@
 
     host.querySelectorAll('.stb__lang button').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        applyLang(btn.getAttribute('data-lang'));
-        resetHistory();
+        requestLang(btn.getAttribute('data-lang'));
       });
     });
 
@@ -370,7 +438,21 @@
       else if (act === 'resetpos') resetPhoto();
       else if (act === 'alt') editAlt();
       else if (act === 'noimg') removeImage();
+      else if (act === 'clearcolor') paint('');
+      else if (act === 'nosize') applySize('inherit');
+      else if (act === 'desk' || act === 'tab' || act === 'phone') setStage(act);
     });
+
+    function setStage(kind) {
+      var stage = host.querySelector('#stb-stage');
+      if (!stage) return;
+      stage.classList.toggle('is-tablet', kind === 'tab');
+      stage.classList.toggle('is-phone', kind === 'phone');
+      ['desk', 'tab', 'phone'].forEach(function (k) {
+        var b = host.querySelector('[data-act="' + k + '"]');
+        if (b) b.classList.toggle('is-on', k === kind);
+      });
+    }
 
     function load() {
       say('Loading the page…');
@@ -397,6 +479,8 @@
         formDirty = false;
         chromeDirty = false;
         metaDirty = false;
+        syncDirty();
+        syncBanner();
         frame.srcdoc = res.html;
       }).catch(function () { say('Connection error.', 'err'); });
     }
@@ -411,11 +495,16 @@
       field = null;
       syncImageTools();
       syncPageTools();
-      applyLang('en');
+      var nextLang = pendingLang || 'en';
+      pendingLang = null;
+      applyLang(nextLang);
+      labelSlots();
       resetHistory();
+      syncDirty();
       var hello = ctx.hello || '';
       ctx.hello = '';
-      say(hello || 'Click text to edit it. Double-click a menu link to open that page. Save publishes immediately.');
+      var langName = nextLang === 'uk' ? 'Ukrainian' : (nextLang === 'ru' ? 'Russian' : 'English');
+      say(hello || (nextLang !== 'en' ? 'Saved. Now editing ' + langName + '.' : 'Click text to edit it. Double-click a menu link to open that page. Save publishes immediately.'));
     });
 
     function injectChrome(d) {
@@ -440,8 +529,12 @@
         '[data-st-builder] .nav__item.is-open>.mega,[data-st-builder] .mega__fly.is-open>.mega--flyout{opacity:1;visibility:visible;transform:none;pointer-events:auto}',
         '[data-st-builder] .drawer.is-open{transform:none}',
         '[data-st-builder] .drawer__sub.is-open{max-height:80rem}',
+        '[data-st-builder] .hero__bg,[data-st-builder] .hero__bg img,[data-st-builder] .hero__shot,[data-st-builder] .hero__shot img{pointer-events:auto!important}',
+        '[data-st-builder] .hero__in{position:relative;z-index:2}',
         'html.stb-move .hero__in,html.stb-move .hero::before,html.stb-move .hero__emerge::after,html.stb-move .hero__bg::after,html.stb-move .grid-lines,html.stb-move .spark{pointer-events:none!important}',
         'html.stb-move .hero__bg,html.stb-move .hero__emerge,html.stb-move .hero__shot,html.stb-move figure,html.stb-move .tile__media,html.stb-move .card__media,html.stb-move .hero__bg img,html.stb-move .hero__emerge img,html.stb-move .hero__shot img,html.stb-move figure img,html.stb-move .tile__media img,html.stb-move .card__media img{pointer-events:auto!important;cursor:grab!important}',
+        '.stb-addone{display:inline-flex;margin:.4rem 0;padding:.28rem .7rem;border:1px dashed #d10a11;background:#fff;color:#9d1020;font:700 12px/1.2 Inter,system-ui,sans-serif;border-radius:999px;cursor:pointer}',
+        '.stb-slotlabel{display:block;margin:.2rem 0 .4rem;font:600 12px/1.3 Inter,system-ui,sans-serif;color:#8d1018}',
         'html.stb-move .hero,html.stb-move figure,html.stb-move a.tile,html.stb-move a.card{cursor:grab}',
         'html.stb-move body{user-select:none}'
       ].join('');
@@ -525,6 +618,8 @@
       d.addEventListener('submit', function (e) { e.preventDefault(); }, true);
       d.addEventListener('beforeinput', function (e) {
         if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
+          var box = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+          if (box || (e.target && e.target.isContentEditable)) return;
           e.preventDefault();
           return;
         }
@@ -656,8 +751,8 @@
       return null;
     }
 
-    var ITEM_SEL = 'a.tile, a.card, a.choice__card, a.area, article.area, article.vcard, article.mach, article.film-rail__i, article.feature-rail__i, li.partners__card, li.proof__i, li.stats__i, figure.stud-svc__shot, ul.model-strip > li, .faq > details, ul.ticks > li, ol.ticks > li, section ul > li, .grid > figure, .grid > article, .grid > a, .choice > a, .choice > .choice__card, .mach-list > article, .film-rail > article';
-    var REPEAT_SEL = 'ul.model-strip > li, article.mach, a.tile, article.film-rail__i, article.vcard, figure.stud-svc__shot, li.partners__card, article.feature-rail__i, a.choice__card, .faq > details, ul.ticks > li, ol.ticks > li, li.proof__i, section ul > li';
+    var ITEM_SEL = 'a.tile, a.card, a.choice__card, a.area, article.area, article.vcard, article.mach, article.film-rail__i, article.feature-rail__i, article.about-dir, li.partners__card, li.proof__i, li.stats__i, .client-wall > li, figure.stud-svc__shot, ul.model-strip > li, .faq > details, ul.ticks > li, ol.ticks > li, section ul > li, .grid > figure, .grid > article, .grid > a, .choice > a, .choice > .choice__card, .mach-list > article, .film-rail > article';
+    var REPEAT_SEL = 'ul.model-strip > li, article.mach, a.tile, article.film-rail__i, article.vcard, figure.stud-svc__shot, li.partners__card, article.feature-rail__i, article.about-dir, .client-wall > li, a.choice__card, .faq > details, ul.ticks > li, ol.ticks > li, li.proof__i, section ul > li';
 
     function itemOf(el) {
       if (!el || !el.closest) return null;
@@ -766,21 +861,23 @@
     function renderPick() {
       var bar = host.querySelector('#stb-pick');
       if (!bar) return;
-      if (!currentSection) { bar.hidden = true; bar.innerHTML = ''; return; }
+      if (!currentSection) { bar.hidden = true; bar.innerHTML = ''; placeInlineAdd(); return; }
       bar.hidden = false;
       var sName = labelOf(currentSection) || 'This section';
-      var html = '<button type="button" data-pick="section"' + (level === 'section' ? ' class="is-on"' : '') + '>Section: ' + esc(sName) + '</button>';
+      var html = '<button type="button" data-pick="section" title="' + esc(sName) + '"' + (level === 'section' ? ' class="is-on"' : '') + '>Section</button>';
+      html += '<span class="stb__pick-sep">›</span>';
       if (currentItem) {
         var kind = pickKind(currentItem);
-        html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="item"' + (level === 'item' ? ' class="is-on"' : '') + '>' + kind + ': ' + esc(labelOf(currentItem) || kind) + '</button>';
-      } else if (currentField) {
-        html += '<span class="stb__pick-sep">/</span><button type="button" data-pick="text"' + (level === 'text' ? ' class="is-on"' : '') + '>Text: ' + esc(labelOf(currentField) || 'field') + '</button>';
-      }
-      if (level === 'text' && currentField) html += '<span class="stb__pick-note">Delete removes only this text. Click the empty area of the section to select the whole block.</span>';
-      else if (level === 'text') html += '<span class="stb__pick-note">Click the empty area of the section to select the whole block.</span>';
-      else if (level === 'item') html += '<span class="stb__pick-note">Delete removes only this. Up and Down move it. Add another inserts one more.</span>';
-      else html += '<span class="stb__pick-note">The whole section is selected. Delete removes the whole block.</span>';
+        html += '<button type="button" data-pick="item" title="' + esc(labelOf(currentItem) || kind) + '"' + (level === 'item' ? ' class="is-on"' : '') + '>Card</button>';
+      } else html += '<button type="button" data-pick="item" disabled title="Click a card in this section">Card</button>';
+      html += '<span class="stb__pick-sep">›</span>';
+      if (currentField) html += '<button type="button" data-pick="text" title="' + esc(labelOf(currentField) || 'Text') + '"' + (level === 'text' ? ' class="is-on"' : '') + '>Text</button>';
+      else html += '<button type="button" data-pick="text" disabled title="Click a text field">Text</button>';
+      if (level === 'text' && currentField) html += '<span class="stb__pick-note">Delete removes only this text. Click Section to select the whole block.</span>';
+      else if (level === 'item') html += '<span class="stb__pick-note">Delete removes only this card. Click Section to select the whole block. Add another sits beside the card.</span>';
+      else html += '<span class="stb__pick-note">The whole section is selected.</span>';
       bar.innerHTML = html;
+      placeInlineAdd();
     }
 
     function clearEdit() {
@@ -810,14 +907,23 @@
 
     function syncImageTools() {
       var on = !!(image && image.tagName === 'IMG');
-      ['img', 'alt', 'noimg', 'resetpos'].forEach(function (act) {
+      ['img', 'alt', 'noimg', 'resetpos', 'move'].forEach(function (act) {
         var b = host.querySelector('[data-act="' + act + '"]');
-        if (b) b.disabled = !on;
+        if (b && act !== 'move') b.disabled = !on;
       });
-      ['up', 'down', 'dup', 'del'].forEach(function (act) {
+      var moveBtn = host.querySelector('#stb-move');
+      if (moveBtn) moveBtn.disabled = !on && !moveMode;
+      ['up', 'down', 'del'].forEach(function (act) {
         var b = host.querySelector('[data-act="' + act + '"]');
         if (b) b.disabled = !selected;
       });
+      var dup = host.querySelector('[data-act="dup"]');
+      if (dup) {
+        dup.disabled = mode !== 'uk' || !selected;
+        dup.title = mode === 'uk'
+          ? 'Duplicate the selected card or section'
+          : 'Switch to Українська to duplicate. English only changes the translation.';
+      }
     }
 
     function setNote(el) {
@@ -854,8 +960,8 @@
         say('This link is the page you already have open.');
         return;
       }
-      if (dirty && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
-      open(pid, host, ctx);
+      if ((dirty || formDirty || chromeDirty || metaDirty) && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
+      dropPending(function () { open(pid, host, ctx); });
     }
 
     function onDblClick(e) {
@@ -945,7 +1051,7 @@
         e.preventDefault();
         e.stopPropagation();
         var nextLang = langBtn.getAttribute('data-lang');
-        if (nextLang === 'en' || nextLang === 'uk' || nextLang === 'ru') applyLang(nextLang);
+        if (nextLang === 'en' || nextLang === 'uk' || nextLang === 'ru') requestLang(nextLang);
         return;
       }
       if (skipClick) {
@@ -1009,6 +1115,7 @@
       host.querySelector('#stb-ph-wrap').hidden = true;
       field = null;
       var img = t.closest('img');
+      if (!img || skipPhoto(img)) img = heroPhoto(t);
       image = img || null;
       syncImageTools();
       setSelection(t);
@@ -1053,11 +1160,22 @@
       return r.width < 64 || r.height < 64;
     }
 
+    function heroPhoto(node) {
+      var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+      var hero = el && el.closest && el.closest('section.hero, .hero');
+      if (!hero) return null;
+      var img = hero.querySelector('.hero__bg img, .hero__shot img, .hero__emerge img, .hero__poster img');
+      if (img && !skipPhoto(img)) return img;
+      return null;
+    }
+
     function photoFromEvent(e) {
       var t = e.target;
       if (!t || !t.closest) return null;
       var direct = t.closest('img');
       if (direct && !skipPhoto(direct)) return { kind: 'img', el: direct };
+      var heroImg = heroPhoto(t);
+      if (heroImg) return { kind: 'img', el: heroImg };
       if (!moveMode) return null;
       var frame = t.closest('.hero, figure, a.tile, .mach, .vcard, .area, .proof, .about-intro, .stud-stage, .showcase');
       if (!frame) {
@@ -1336,6 +1454,99 @@
       });
     }
 
+    function attrShown(uk, custom, lang) {
+      var base = slotBase(uk);
+      if (lang === 'uk') return uk;
+      if (custom) return custom;
+      var win = frame.contentWindow;
+      var tr = win && win.ST && typeof win.ST.lookup === 'function' ? win.ST.lookup(base || uk, lang) : '';
+      if (tr && tr !== (base || uk)) return tr;
+      if (lang === 'en' && SLOT_EN[base]) return SLOT_EN[base];
+      if (lang === 'ru' && SLOT_RU[base] && SLOT_RU[base] !== base) return SLOT_RU[base];
+      return uk;
+    }
+
+    function showAttrs(lang) {
+      if (!doc) return;
+      doc.querySelectorAll('img').forEach(function (img) {
+        if (img.closest && img.closest('.lang, .brand, svg')) return;
+        if (!img.hasAttribute('data-stb-alt-uk')) img.setAttribute('data-stb-alt-uk', img.getAttribute('alt') || '');
+        img.stbAltUk = img.getAttribute('data-stb-alt-uk') || '';
+        if (img.hasAttribute('data-stb-alt-en')) img.stbAltEn = img.getAttribute('data-stb-alt-en');
+        if (img.hasAttribute('data-stb-alt-ru')) img.stbAltRu = img.getAttribute('data-stb-alt-ru');
+        var custom = lang === 'en' ? (img.stbAltEn || '') : (lang === 'ru' ? (img.stbAltRu || '') : '');
+        img.setAttribute('alt', attrShown(img.stbAltUk, custom, lang));
+      });
+      doc.querySelectorAll('[aria-label], [data-title]').forEach(function (el) {
+        if (el.closest && el.closest('.lang')) return;
+        if (el.hasAttribute('aria-label')) {
+          if (!el.hasAttribute('data-stb-aria-uk')) el.setAttribute('data-stb-aria-uk', el.getAttribute('aria-label') || '');
+          el.stbAriaUk = el.getAttribute('data-stb-aria-uk') || '';
+          el.setAttribute('aria-label', attrShown(el.stbAriaUk, '', lang));
+        }
+        if (el.hasAttribute('data-title')) {
+          if (!el.hasAttribute('data-stb-title-uk')) el.setAttribute('data-stb-title-uk', el.getAttribute('data-title') || '');
+          el.stbTitleUk = el.getAttribute('data-stb-title-uk') || '';
+          el.setAttribute('data-title', attrShown(el.stbTitleUk, '', lang));
+        }
+      });
+    }
+
+    function labelSlots() {
+      if (!doc) return;
+      doc.querySelectorAll('.stb-slotlabel').forEach(function (n) { n.remove(); });
+      doc.querySelectorAll('img.is-slot').forEach(function (img) {
+        var s = doc.createElement('span');
+        s.className = 'stb-slotlabel';
+        s.setAttribute('data-stb-ui', '1');
+        s.textContent = 'Click to add a photo';
+        img.insertAdjacentElement('afterend', s);
+      });
+      doc.querySelectorAll('.film-rail__empty, .mach__film--empty').forEach(function (el) {
+        el.setAttribute('data-stb-empty', 'Click to add a video');
+      });
+    }
+
+    function placeInlineAdd() {
+      if (!doc) return;
+      doc.querySelectorAll('.stb-addone').forEach(function (n) { n.remove(); });
+      var item = level === 'item' && currentItem && currentItem.isConnected && currentItem.matches && currentItem.matches(REPEAT_SEL) ? currentItem : null;
+      if (!item) return;
+      var variant = item.matches('ul.model-strip > li');
+      var b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'stb-addone';
+      b.setAttribute('data-stb-ui', '1');
+      b.textContent = variant ? 'Add variant' : 'Add another';
+      b.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (variant) addVariant();
+        else addAnother();
+      });
+      item.insertAdjacentElement('afterend', b);
+    }
+
+    function requestLang(lang) {
+      if (!doc || !lang || lang === mode) return;
+      if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') return;
+      if (dirty || formDirty || chromeDirty || metaDirty) {
+        if (!window.confirm('Save first?')) return;
+        pendingLang = lang;
+        save(function () {
+          dirty = false;
+          formDirty = false;
+          chromeDirty = false;
+          metaDirty = false;
+          syncDirty();
+          load();
+        });
+        return;
+      }
+      applyLang(lang);
+      resetHistory();
+    }
+
     function applyLang(lang) {
       if (!doc) return;
       if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') lang = 'en';
@@ -1376,7 +1587,10 @@
       showUaOnlyHosts();
       repairPlainHosts();
       if (lang === 'ru') overlayLang('ru');
+      showAttrs(lang);
       heldRange = null;
+      syncBanner();
+      syncImageTools();
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
     }
 
@@ -1452,7 +1666,7 @@
       var name = labelOf(currentSection) || 'this section';
       var msg = form
         ? 'Remove the quote form from this page only? Other pages keep it.'
-        : 'Delete the whole section “' + name + '”? Everything inside it goes. The rest of the page stays.';
+        : 'Delete this whole section?';
       if (!window.confirm(msg)) return;
       beforeChange();
       var where = whereOf(currentSection);
@@ -1482,6 +1696,7 @@
       else main.appendChild(sec);
       stampTree(sec);
       uniquifySlots(sec);
+      labelSlots();
       setSelection(sec, 'section');
       var h = sec.querySelector('h1, h2, h3');
       if (h) startEdit(h);
@@ -1506,26 +1721,26 @@
           '<section class="sec"><div class="wrap"><div class="feature-rail"><article class="feature-rail__i"><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="feature-rail__i"><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="feature-rail__i"><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article></div></div></section>' },
         { id: 'films', name: 'Videos', blurb: 'A film row. Add another video in the same section', thumb: 'video', html:
           '<section class="sec sec-paper-2"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Відео</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="film-rail film-rail--2" style="--film-cols:2"><article class="film-rail__i">' + emptyVid + '<h3>Заголовок</h3></article><article class="film-rail__i">' + emptyVid + '<h3>Заголовок</h3></article></div></div></section>' },
-        { id: 'vcards', name: 'Video cards', blurb: 'Video cards, as on the video page', thumb: 'video', html:
-          '<section class="sec sec-dark-2"><div class="wrap"><div class="sec-head"><p class="eyebrow">Відео</p><h2 class="h-lg">Заголовок</h2></div><div class="grid g-2"><article class="vcard">' + emptyVid + '<div class="vcard__body"><span class="vcard__kind">Відео</span><h3>Заголовок</h3></div></article><article class="vcard">' + emptyVid + '<div class="vcard__body"><span class="vcard__kind">Відео</span><h3>Заголовок</h3></div></article></div></div></section>' },
         { id: 'gallery', name: 'Gallery', blurb: 'Grey gallery band with photo slots', thumb: 'cards', html:
           '<section class="stud-svc"><div class="wrap stud-svc__in"><div class="stud-svc__copy"><p class="eyebrow">Галерея</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p><p><a class="btn" href="#zapyt">Запросити пропозицію ' + arrow + '</a></p></div><div class="stud-svc__gallery"><figure class="stud-svc__shot stud-svc__shot--tall">' + slot + '<figcaption>Підпис</figcaption></figure><figure class="stud-svc__shot">' + slot + '<figcaption>Підпис</figcaption></figure><figure class="stud-svc__shot">' + slot + '<figcaption>Підпис</figcaption></figure></div></div></section>' },
-        { id: 'choice', name: 'Choices', blurb: 'Two linked choice cards', thumb: 'cards', html:
-          '<section class="sec sec-paper"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Підбір</p><h2 class="h-lg">Заголовок</h2></div><div class="choice"><a class="choice__card choice__card--link" href="#zapyt"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></a><a class="choice__card choice__card--link" href="#zapyt"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></a></div></div></section>' },
         { id: 'faq', name: 'Questions', blurb: 'Expanding questions and answers', thumb: 'faq', html:
           '<section class="sec sec-paper-2"><div class="wrap wrap-tight"><div class="sec-head"><p class="eyebrow">Питання</p><h2 class="h-lg">Заголовок</h2></div><div class="faq"><details><summary>Питання</summary><div class="faq__a"><p>Текст, який можна змінити.</p></div></details><details><summary>Питання</summary><div class="faq__a"><p>Текст, який можна змінити.</p></div></details></div></div></section>' },
-        { id: 'stats', name: 'Numbers', blurb: 'Figures in a row, as on About', thumb: 'stats', html:
-          '<section class="proof" aria-label="Цифри"><div class="wrap proof__in"><div class="proof__copy"><p class="eyebrow proof__eyebrow">Цифри</p><p class="proof__lead">Короткий опис, який можна змінити.</p></div><ul class="proof__stats"><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li></ul></div></section>' },
+        { id: 'stats', name: 'Numbers', blurb: 'Figures and a photo, as on About', thumb: 'stats', html:
+          '<section class="proof" aria-label="Цифри"><div class="wrap proof__in"><div class="proof__copy"><p class="eyebrow proof__eyebrow">Цифри</p><p class="proof__lead">Короткий опис, який можна змінити.</p><ul class="proof__stats"><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li></ul></div><figure class="proof__media">' + slot + '</figure></div></section>' },
         { id: 'partners', name: 'Partners', blurb: 'Centered partner logos', thumb: 'cards', html:
           '<section class="about-partners"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Партнери</p><h2 class="h-lg">Заголовок</h2></div><ul class="partners partners--rich"><li class="partners__card">' + slot + '<p>Текст, який можна змінити.</p></li><li class="partners__card">' + slot + '<p>Текст, який можна змінити.</p></li></ul></div></section>' },
         { id: 'tiles', name: 'Machine cards', blurb: 'Category cards with photo slots', thumb: 'cards', html:
           '<section class="sec sec-paper-2"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="grid g-2"><a class="tile" href="#zapyt"><div class="tile__media"><span class="tile__no">01</span>' + slot + '</div><div class="tile__body"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a><a class="tile" href="#zapyt"><div class="tile__media"><span class="tile__no">02</span>' + slot + '</div><div class="tile__body"><span class="tag">Позначка</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p><span class="arrow-link">Докладніше ' + arrow + '</span></div></a></div></div></section>' },
         { id: 'products', name: 'Products', blurb: 'A product row with an empty video', thumb: 'video', html:
           '<section class="sec"><div class="wrap"><div class="mach-list"><article class="mach mach--clip mach--prod"><div class="mach__side"><p class="mach__idx">01</p><h3>Заголовок</h3><div class="mach__film">' + emptyVid + '</div></div><div class="mach__text"><p>Текст, який можна змінити.</p></div></article></div></div></section>' },
-        { id: 'dark', name: 'Dark introduction', blurb: 'Dark band with text and photos, as on the homepage', thumb: 'split', html:
-          '<section class="sec sec-dark"><div class="wrap"><div class="split split--top split--media-mid"><div class="split__intro"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2></div><div class="frame-stack"><figure class="frame frame--wide" style="margin:0">' + slot + '</figure><figure class="frame" style="margin:0">' + slot + '</figure></div><div class="split__body"><p class="lead">Короткий опис, який можна змінити.</p><ul class="ticks ticks--2"><li>Пункт</li><li>Пункт</li></ul></div></div></div></section>' },
-        { id: 'cta', name: 'Call to action', blurb: 'A short pitch and a button', thumb: 'text', html:
-          '<section class="sec sec-dark"><div class="wrap"><p class="eyebrow">Наступний крок</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p><div class="hero__btns"><a class="btn" href="#zapyt">Запросити пропозицію</a></div></div></section>' },
+        { id: 'about', name: 'About introduction', blurb: 'Photo and story, as on About', thumb: 'split', html:
+          '<section class="about-intro"><div class="wrap about-intro__in"><figure class="about-intro__media">' + slot + '</figure><div class="about-intro__copy"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p>Текст, який можна змінити.</p><p>Текст, який можна змінити.</p><div class="about-intro__actions"><a class="btn" href="#zapyt">Запросити пропозицію</a><a class="btn btn-ghost" href="#zapyt">Докладніше</a></div></div></div></section>' },
+        { id: 'caps', name: 'About capabilities', blurb: 'Four directions, as on About', thumb: 'cards', html:
+          '<section class="about-caps"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="about-dirs"><article class="about-dir"><span class="about-dir__n">01</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir"><span class="about-dir__n">02</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir"><span class="about-dir__n">03</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir"><span class="about-dir__n">04</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article></div></div></section>' },
+        { id: 'clients', name: 'About clients', blurb: 'A logo wall, as on About', thumb: 'cards', html:
+          '<section class="about-clients"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Партнери</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><ul class="client-wall"><li>' + slot + '</li><li>' + slot + '</li><li>' + slot + '</li><li>' + slot + '</li></ul></div></section>' },
+        { id: 'cta', name: 'Call to action', blurb: 'The red band used above the quote form', thumb: 'text', html:
+          '<section class="sec cta"><div class="wrap cta__in"><div><p class="eyebrow">Наступний крок</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p><div class="cta__actions"><a class="btn" href="#zapyt">Запросити пропозицію</a></div><p class="cta__aside">Текст, який можна змінити.</p></div></div></section>' },
         { id: 'form', name: 'Quote form', blurb: 'The shared inquiry form', thumb: 'faq', html: quoteForm() }
       ];
     }
@@ -1618,8 +1833,9 @@
             else if (mode === 'ru' && (row.nameRu || row.titleRu)) h.firstChild.nodeValue = row.nameRu || row.titleRu;
           });
         }
+        made.forEach(function (row) { if (row && row.id) pendingPages.push({ id: row.id, url: row.url || '' }); });
         created = [];
-        say('Two machine pages were created. Save this page to publish the cards.');
+        say('Two machine pages were created. Save this page to keep them. Leaving without saving removes them.');
       }).catch(function (err) {
         created.forEach(function (row) {
           if (row && row.id) api({ action: 'cms.page.delete', id: row.id });
@@ -1635,11 +1851,25 @@
       var modal = document.createElement('div');
       modal.className = 'stb-modal';
       modal.id = 'stb-blocks';
-      var cards = blockTemplates().map(function (t) {
-        return '<button type="button" class="stb-card" data-id="' + t.id + '"><span class="stb-thumb">' + thumb(t.thumb) + '</span><b>' + t.name + '</b><span>' + t.blurb + '</span></button>';
+      var templates = blockTemplates();
+      var cards = templates.map(function (t) {
+        return '<button type="button" class="stb-card" data-id="' + t.id + '"><span class="stb-thumb stb-thumb--live"></span><b>' + t.name + '</b><span>' + t.blurb + '</span></button>';
       }).join('');
-      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-blocks-title"><h2 id="stb-blocks-title">Add a block</h2><p class="lead">Choose a section that already exists on the site. It is inserted with placeholder text you can edit, using the same styles as the live page.</p><div class="stb-grid">' + cards + '</div><div class="stb-actions"><button type="button" class="btn btn-ghost" id="stb-blocks-close">Cancel</button></div></div>';
+      modal.innerHTML = '<div class="stb-dialog stb-dialog--blocks" role="dialog" aria-modal="true" aria-labelledby="stb-blocks-title"><h2 id="stb-blocks-title">Add a block</h2><p class="lead">Choose a section that already exists on the site. The preview uses the same styles as the live page.</p><div class="stb-grid">' + cards + '</div><div class="stb-actions"><button type="button" class="btn btn-ghost" id="stb-blocks-close">Cancel</button></div></div>';
       document.body.appendChild(modal);
+      modal.querySelectorAll('.stb-card').forEach(function (btn) {
+        var idT = btn.getAttribute('data-id');
+        var tpl = null;
+        templates.forEach(function (t) { if (t.id === idT) tpl = t; });
+        var holder = btn.querySelector('.stb-thumb--live');
+        if (!holder || !tpl) return;
+        var preview = document.createElement('iframe');
+        preview.tabIndex = -1;
+        preview.title = '';
+        preview.setAttribute('sandbox', 'allow-same-origin');
+        preview.srcdoc = '<!DOCTYPE html><html><head><link rel="stylesheet" href="/assets/css/strona.css?v=20261012b"><style>html,body{margin:0;background:#fff}body{width:1100px;overflow:hidden}</style></head><body>' + tpl.html + '</body></html>';
+        holder.appendChild(preview);
+      });
       function close() { modal.remove(); }
       modal.addEventListener('click', function (e) {
         if (e.target === modal) close();
@@ -1762,16 +1992,21 @@
       }
       if (!made) { say('Those words could not be formatted.', 'err'); return; }
       markDirty(whereOf(made));
-      say('Formatting applied. Save to publish.');
+      say(mode === 'en'
+        ? 'Formatting applied to the English text only. The Ukrainian sentence is unchanged.'
+        : (mode === 'ru' ? 'Formatting applied to the Russian text only. The Ukrainian sentence is unchanged.' : 'Formatting applied. Save to publish.'));
     }
 
     function paint(color) {
-      if (!doc || !color) return;
+      if (!doc) return;
       var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
       if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
       beforeChange();
-      hostEl.style.color = color;
+      if (!color) hostEl.style.color = '';
+      else hostEl.style.color = color;
+      if (!hostEl.getAttribute('style')) hostEl.removeAttribute('style');
       markDirty(whereOf(hostEl));
+      say(color ? 'Colour applied. Save to publish.' : 'Colour reset to the default. Save to publish.');
     }
 
     function structuralLink(a) {
@@ -2537,7 +2772,11 @@
         if (!made) { say('Those words could not be linked.', 'err'); close(); return; }
         markDirty(whereOf(made));
         close();
-        say(existing ? 'Link updated. Save to publish.' : 'Link added. Save to publish.');
+        say(mode === 'en'
+          ? (existing ? 'English link updated. The Ukrainian sentence is unchanged.' : 'Link added on the English text only. The Ukrainian sentence is unchanged.')
+          : (mode === 'ru'
+            ? (existing ? 'Russian link updated. The Ukrainian sentence is unchanged.' : 'Link added on the Russian text only. The Ukrainian sentence is unchanged.')
+            : (existing ? 'Link updated. Save to publish.' : 'Link added. Save to publish.')));
       });
       urlInput.focus();
     }
@@ -2636,6 +2875,18 @@
         if (pic) pic.querySelectorAll('source').forEach(function (s) { s.remove(); });
         img.removeAttribute('srcset');
         img.setAttribute('src', url);
+        img.classList.remove('is-slot');
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.stbAltUk = '';
+        img.stbAltEn = '';
+        img.stbAltRu = '';
+        img.setAttribute('data-stb-alt-uk', '');
+        img.removeAttribute('data-stb-alt-en');
+        img.removeAttribute('data-stb-alt-ru');
+        img.setAttribute('alt', '');
+        var slotLabel = img.nextElementSibling;
+        if (slotLabel && slotLabel.classList && slotLabel.classList.contains('stb-slotlabel')) slotLabel.remove();
         markDirty(whereOf(img));
         say('Photo replaced. Save to publish it.');
       });
@@ -2645,9 +2896,27 @@
       if (!image) return;
       var next = window.prompt('Photo description (alt)', image.getAttribute('alt') || '');
       if (next == null) return;
+      next = next.trim();
       beforeChange();
-      image.setAttribute('alt', next.trim());
+      if (!image.hasAttribute('data-stb-alt-uk')) image.setAttribute('data-stb-alt-uk', image.stbAltUk != null ? image.stbAltUk : (image.getAttribute('alt') || ''));
+      if (mode === 'en') {
+        image.stbAltEn = next;
+        image.setAttribute('data-stb-alt-en', next);
+      } else if (mode === 'ru') {
+        image.stbAltRu = next;
+        image.setAttribute('data-stb-alt-ru', next);
+      } else {
+        image.stbAltUk = next;
+        image.setAttribute('data-stb-alt-uk', next);
+        image.stbAltEn = '';
+        image.stbAltRu = '';
+        image.removeAttribute('data-stb-alt-en');
+        image.removeAttribute('data-stb-alt-ru');
+      }
+      image.stbAltUk = image.getAttribute('data-stb-alt-uk') || '';
+      image.setAttribute('alt', next);
       markDirty(whereOf(image));
+      say(mode === 'uk' ? 'Photo description updated. Save to publish it.' : 'Photo description updated for this language. The Ukrainian description stays until you edit it in Українська.');
     }
 
     function removeImage() {
@@ -2691,8 +2960,36 @@
       say('Video set. Save to publish it.');
     }
 
+    function restoreAltAttrs(pairs) {
+      if (!doc) return;
+      doc.querySelectorAll('img').forEach(function (img) {
+        if (img.stbAltUk == null) return;
+        var uk = String(img.stbAltUk).replace(/\s+/g, ' ').trim();
+        var base = slotBase(uk);
+        var en = img.stbAltEn ? String(img.stbAltEn).trim() : '';
+        var ru = img.stbAltRu ? String(img.stbAltRu).trim() : '';
+        var knownEn = SLOT_EN[base] || '';
+        var knownRu = SLOT_RU[base] || '';
+        if (uk && en && en !== uk && en !== knownEn && looksEn(en)) {
+          var row = { uk: uk, en: en };
+          if (ru && ru !== uk && ru !== knownRu) row.ru = ru;
+          pairs.push(row);
+        } else if (uk && ru && ru !== uk && ru !== knownRu) {
+          pairs.push({ uk: uk, ru: ru });
+        }
+        img.setAttribute('alt', img.getAttribute('data-stb-alt-uk') || img.stbAltUk);
+      });
+      doc.querySelectorAll('[aria-label]').forEach(function (el) {
+        if (el.stbAriaUk != null) el.setAttribute('aria-label', el.stbAriaUk);
+      });
+      doc.querySelectorAll('[data-title]').forEach(function (el) {
+        if (el.stbTitleUk != null) el.setAttribute('data-title', el.stbTitleUk);
+      });
+    }
+
     function collectPairs() {
       var pairs = [];
+      restoreAltAttrs(pairs);
       pushMarkedSlots(pairs);
       var win = frame.contentWindow;
       if (mode === 'ru' && win.ST && typeof win.ST.lookup === 'function') {
@@ -2775,6 +3072,8 @@
       doc.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
       });
+      doc.querySelectorAll('.stb-addone, .stb-slotlabel').forEach(function (el) { el.remove(); });
+      doc.querySelectorAll('[data-stb-empty]').forEach(function (el) { el.removeAttribute('data-stb-empty'); });
       if (doc.documentElement) doc.documentElement.classList.remove('stb-move');
       doc.querySelectorAll('[draggable]').forEach(function (el) { el.removeAttribute('draggable'); });
       doc.querySelectorAll('a[title]').forEach(function (a) {
@@ -2844,6 +3143,16 @@
         formDirty = false;
         chromeDirty = false;
         metaDirty = false;
+        var mainHtml = '';
+        var mainEl = doc && doc.getElementById('main');
+        if (mainEl) mainHtml = mainEl.innerHTML;
+        pendingPages.forEach(function (row) {
+          if (!row || !row.id) return;
+          if (row.url && mainHtml.indexOf(row.url) >= 0) return;
+          api({ action: 'cms.page.delete', id: row.id });
+        });
+        pendingPages = [];
+        syncDirty();
         if (after) { after(res); return; }
         say('Saved. This version is on the site.', 'ok');
         flash('Saved. This version is on the site.');
@@ -2998,11 +3307,13 @@
           });
           tr.querySelector('[data-open]').addEventListener('click', function () {
             if (pid === id) { close(); return; }
-            if (dirty && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
-            var row = (cat.pages || []).filter(function (p) { return p.id === pid; })[0] || {};
-            ctx.hello = 'Now editing this page. ' + (row.menuLabel || 'Menu') + ', position ' + (row.position || '') + '. Address: ' + (row.url || '') + '.';
-            close();
-            open(pid, host, ctx);
+            if ((dirty || formDirty || chromeDirty || metaDirty) && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
+            dropPending(function () {
+              var row = (cat.pages || []).filter(function (p) { return p.id === pid; })[0] || {};
+              ctx.hello = 'Now editing this page. ' + (row.menuLabel || 'Menu') + ', position ' + (row.position || '') + '. Address: ' + (row.url || '') + '.';
+              close();
+              open(pid, host, ctx);
+            });
           });
         });
       }

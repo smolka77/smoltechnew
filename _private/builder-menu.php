@@ -507,7 +507,7 @@ function st_builder_place(array $data): array
     }
 
     [$titleUk, $titleEn] = st_builder_uk_title((string) ($data['title'] ?? ''));
-    $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleEn !== '' ? $titleEn : $titleUk);
+    $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleUk);
     $parentId = trim((string) ($data['parent'] ?? ''));
     $parent = null;
     if ($parentId !== '') {
@@ -1084,7 +1084,7 @@ function st_builder_blank_label(DOMElement $el, string $title, string $text): ?s
     if ($tag === 'figcaption') return 'Підпис';
     if ($tag === 'li') return 'Пункт';
     if ($tag === 'button' && str_contains($cls, ' yt ')) return 'Нове відео';
-    if ($tag === 'a' && str_contains($cls, ' btn ')) return 'Запросити пропозицію';
+    if ($tag === 'a' && str_contains($cls, ' btn ')) return null;
     if ($tag === 'a') return 'Докладніше';
     if (in_array($tag, ['p', 'td', 'th', 'div', 'span', 'strong'], true)) return 'Текст, який можна змінити.';
     return null;
@@ -1342,7 +1342,7 @@ function st_builder_add_machine(array $data): array
     }
     $srcPath = st_builder_type_template($children);
     if ($srcPath === null) throw new RuntimeException('This category has no machine page to copy. Add the first subpage from Add page, then new types can copy it.');
-    $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleEn !== '' ? $titleEn : $titleUk);
+    $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleUk);
     $pages = st_cms_pages();
     $usedId = [];
     $usedUrl = [];

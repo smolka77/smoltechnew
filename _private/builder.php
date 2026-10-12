@@ -107,12 +107,35 @@ function st_builder_clean(string $html): string
     };
     $html = preg_replace_callback('/\s(href|src|action|poster)\s*=\s*"([^"]*)"/i', $urlCb, $html) ?? $html;
     $html = preg_replace_callback("/\s(href|src|action|poster)\s*=\s*'([^']*)'/i", $urlCb, $html) ?? $html;
+    $html = st_builder_strip_filled_slots($html);
     $html = preg_replace_callback('/\sclass\s*=\s*"([^"]*)"/i', static function (array $m): string {
         $cls = preg_replace('/\b(?:stb-ink-light|stb-ink-dark|stb-on|cms-editing|cms-changed|cms-hover|cms-new-card)\b/', '', $m[1]) ?? $m[1];
         $cls = trim((string) preg_replace('/\s+/', ' ', $cls));
         return $cls === '' ? '' : ' class="' . $cls . '"';
     }, $html) ?? $html;
     return st_builder_strip_link_paint($html);
+}
+
+/** A real photo must not keep the empty-slot frame, size or placeholder description. */
+function st_builder_strip_filled_slots(string $html): string
+{
+    return preg_replace_callback('/<img\b[^>]*>/i', static function (array $m): string {
+        $tag = $m[0];
+        if (preg_match('/\bsrc\s*=\s*["\'][^"\']*slot\.svg/i', $tag)) return $tag;
+        if (!preg_match('/\bis-slot\b/', $tag)) return $tag;
+        $tag = preg_replace('/\bis-slot\b/', '', $tag) ?? $tag;
+        $tag = preg_replace('/\s(?:width|height)\s*=\s*["\'](?:800|600)["\']/', '', $tag) ?? $tag;
+        if (preg_match('/\balt\s*=\s*"([^"]*)"/u', $tag, $am)) {
+            $alt = html_entity_decode($am[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $base = str_replace(["\u{200C}", "\u{200D}"], '', $alt);
+            if (trim($base) === 'Фото' || preg_match('/[\x{200C}\x{200D}]/u', $alt)) {
+                $tag = preg_replace('/\salt\s*=\s*"[^"]*"/u', ' alt=""', $tag, 1) ?? $tag;
+            }
+        }
+        $tag = preg_replace('/\sclass\s*=\s*"\s*"/', '', $tag) ?? $tag;
+        $tag = preg_replace('/\s{2,}/', ' ', $tag) ?? $tag;
+        return $tag;
+    }, $html) ?? $html;
 }
 
 /** Linked words take their colour from CSS. Drop the editor’s inline paint on those anchors. */
