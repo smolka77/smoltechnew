@@ -3026,7 +3026,50 @@
     });
   }
 
-  function wrapPlainPhrase(el, phrase, tag) {
+  function applyRuMarks(el) {
+    var raw = el && el.getAttribute ? el.getAttribute('data-st-rumark') : '';
+    if (!raw) return;
+    var items;
+    try { items = JSON.parse(raw); } catch (e) { return; }
+    if (!items || !items.length) return;
+    items.forEach(function (item) {
+      if (!item || !item.t) return;
+      var tag = item.tag || 'a';
+      if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
+      if (tag === 'a' && !/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(item.h || '')) return;
+      var made = wrapPlainPhrase(el, item.t, tag, item.at);
+      if (!made) return;
+      made.setAttribute('data-st-ru-only', '');
+      if (tag !== 'a') return;
+      made.setAttribute('href', item.h);
+      made.className = 'st-link';
+      made.setAttribute('data-st-link', '');
+      if (item.b) {
+        made.setAttribute('target', '_blank');
+        made.setAttribute('rel', 'noopener');
+      }
+    });
+  }
+
+  function syncRuStyle(el, lang) {
+    if (!el || !el.hasAttribute('data-st-rustyle')) return;
+    if (el.stRuBase == null) el.stRuBase = { color: el.style.color || '', fontSize: el.style.fontSize || '' };
+    var spec = {};
+    if (lang === 'ru') {
+      try { spec = JSON.parse(el.getAttribute('data-st-rustyle') || '') || {}; } catch (e) { spec = {}; }
+    }
+    var color = '';
+    var fontSize = '';
+    if (lang === 'ru' && spec && typeof spec === 'object') {
+      if (typeof spec.color === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(spec.color)) color = spec.color;
+      if (typeof spec.fontSize === 'string' && /^(?:[\d.]+(?:px|rem|em|%))$/.test(spec.fontSize)) fontSize = spec.fontSize;
+    }
+    el.style.color = color || el.stRuBase.color || '';
+    el.style.fontSize = fontSize || el.stRuBase.fontSize || '';
+    if (!String(el.getAttribute('style') || '').trim()) el.removeAttribute('style');
+  }
+
+  function wrapPlainPhrase(el, phrase, tag, preferAt) {
     if (el.normalize) el.normalize();
     var nodes = [];
     var walker = document.createTreeWalker(el, 4, {
@@ -3045,8 +3088,24 @@
       spans.push({ n: node, a: full.length });
       full += node.nodeValue || '';
     });
-    var at = full.indexOf(phrase);
-    if (at < 0) return null;
+    var hits = [];
+    var from = 0;
+    var found;
+    while ((found = full.indexOf(phrase, from)) >= 0) {
+      hits.push(found);
+      from = found + Math.max(1, phrase.length);
+    }
+    if (!hits.length) return null;
+    var at = hits[0];
+    if (hits.length > 1 && preferAt != null && preferAt !== '' && !isNaN(Number(preferAt))) {
+      var best = hits[0];
+      var bestD = Infinity;
+      hits.forEach(function (h) {
+        var d = Math.abs(h - Number(preferAt));
+        if (d < bestD) { bestD = d; best = h; }
+      });
+      at = best;
+    }
     var end = at + phrase.length;
     var startNode = null;
     var startOff = 0;
@@ -3071,6 +3130,7 @@
     if (node.nodeType === 1) {
       if (SKIP.test(node.tagName)) return;
       if (node.classList && node.classList.contains('lang')) return;
+      if (node.hasAttribute('data-st-rustyle')) syncRuStyle(node, lang);
       if (node.stOrigPlain == null && /^(P|LI|H1|H2|H3|H4|DD|DT|FIGCAPTION|SUMMARY)$/.test(node.tagName)) {
         var plain = mixedPlain(node);
         if (plain && CYR.test(plain)) {
@@ -3095,6 +3155,7 @@
           else node.textContent = whole;
           dropBlankUnmarkedLinks(node);
           applyEnMarks(node);
+          if (lang === 'ru') applyRuMarks(node);
           return;
         }
         if (lang === 'en' && node.hasAttribute('data-st-enmark')) applyEnMarks(node);
@@ -3102,6 +3163,7 @@
       var ch = node.childNodes;
       var i;
       for (i = 0; i < ch.length; i++) walkText(ch[i], lang);
+      if (lang === 'ru' && node.hasAttribute('data-st-rumark')) applyRuMarks(node);
       return;
     }
     if (node.nodeType !== 3) return;

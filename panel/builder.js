@@ -1564,6 +1564,7 @@
         });
         return;
       }
+      restoreRuSnaps();
       restoreMarkSnaps();
       if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
         mode = 'uk';
@@ -1592,6 +1593,7 @@
         });
       }
       if (lang === 'ru') overlayLang('ru');
+      if (lang === 'ru') paintAllRuMarks();
       showAttrs(lang);
       heldRange = null;
       syncBanner();
@@ -1937,6 +1939,18 @@
       if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
       var block = textBlock();
       if (!block || !block.style) { say('Click the text first.', 'err'); return; }
+      if (mode === 'ru') {
+        beforeChange();
+        var sizeHost = (block.closest && block.closest(PHRASE_SEL)) || block;
+        var ruSize = readRuStyle(sizeHost);
+        if (size === 'inherit' || size === '1rem') delete ruSize.fontSize;
+        else ruSize.fontSize = size;
+        writeRuStyle(sizeHost, ruSize);
+        applyRuVisual(sizeHost);
+        markDirty(whereOf(sizeHost));
+        say('Text size applied to the Russian text only. The Ukrainian sentence is unchanged.');
+        return;
+      }
       beforeChange();
       if (size === 'inherit' || size === '1rem') block.style.fontSize = '';
       else block.style.fontSize = size;
@@ -1969,8 +1983,19 @@
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       var on = el && el.closest && el.closest(tag);
       if (on && phraseHost(on)) {
-        beforeChange();
         var host = phraseHost(on);
+        if (mode === 'ru' && !on.hasAttribute('data-st-ru-only')) {
+          say('That formatting is on the Ukrainian text. Switch to Українська to change it.', 'err');
+          return;
+        }
+        beforeChange();
+        if (on.hasAttribute('data-st-ru-only')) {
+          dropRuMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
+          showRuHost(host);
+          markDirty(whereOf(host));
+          say('Formatting removed. Save to publish.');
+          return;
+        }
         if (on.hasAttribute('data-st-en-only')) dropMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
         else unwrapEl(on);
         showHost(host);
@@ -1982,7 +2007,15 @@
       if (!plan) { say('Select words inside a single sentence.', 'err'); return; }
       beforeChange();
       var made = null;
-      if (plan.auto) {
+      if (plan.ruOnly) {
+        addRuMark(plan.host, plan.selected, plan.ruStart, tag, '', false);
+        made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
+        if (!made) {
+          dropRuMark(plan.host, plan.selected, plan.ruStart, tag);
+          showRuHost(plan.host);
+        }
+      }
+      if (!made && plan.auto) {
         made = wrapPhrase(plan.host, plan.ukPhrase, plan.ukStart, tag);
         if (made) {
           made.setAttribute('data-st-en', plan.enPhrase);
@@ -1992,7 +2025,7 @@
           if (!paintedPhrase(plan.host, tag, mode === 'en' ? plan.enPhrase : plan.ukPhrase)) made = null;
         }
       }
-      if (!made && mode !== 'en') made = wrapCurrentUk(plan, tag);
+      if (!made && mode === 'uk') made = wrapCurrentUk(plan, tag);
       if (!made && mode === 'en' && !plan.auto) {
         addEnMark(plan.host, plan.selected, plan.enStart, tag, '', false);
         made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
@@ -2012,6 +2045,20 @@
       if (!doc) return;
       var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
       if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
+      if (mode === 'ru') {
+        beforeChange();
+        var colorHost = (hostEl.closest && hostEl.closest(PHRASE_SEL)) || hostEl;
+        var ruColor = readRuStyle(colorHost);
+        if (!color) delete ruColor.color;
+        else ruColor.color = color;
+        writeRuStyle(colorHost, ruColor);
+        applyRuVisual(colorHost);
+        markDirty(whereOf(colorHost));
+        say(color
+          ? 'Colour applied to the Russian text only. The Ukrainian sentence is unchanged.'
+          : 'Colour reset on the Russian text only. The Ukrainian sentence is unchanged.');
+        return;
+      }
       beforeChange();
       if (!color) hostEl.style.color = '';
       else hostEl.style.color = color;
@@ -2210,6 +2257,21 @@
       var plain = hostPlain(host);
       var selected = flat(range.toString());
       if (!selected) return null;
+      if (mode === 'ru') {
+        var shown = normMap(rawTextNodes(host).map(function (n) { return n.nodeValue || ''; }).join('')).norm;
+        var atRu = displayedStart(host, range);
+        if (atRu < 0 || shown.slice(atRu, atRu + selected.length) !== selected) atRu = shown.indexOf(selected);
+        if (atRu < 0) return null;
+        return {
+          host: host,
+          ukFull: plain.uk,
+          enFull: plain.en,
+          selected: selected,
+          auto: false,
+          ruOnly: true,
+          ruStart: atRu
+        };
+      }
       var current = mode === 'en' ? plain.en : plain.uk;
       var other = mode === 'en' ? plain.uk : plain.en;
       var otherLang = mode === 'en' ? 'uk' : 'en';
@@ -2493,6 +2555,154 @@
       items.push(next);
       writeMarks(host, items);
       showHost(host);
+    }
+
+    function readRuMarks(host) {
+      var raw = host && host.getAttribute ? (host.getAttribute('data-st-rumark') || '') : '';
+      if (!raw) return [];
+      try {
+        var data = JSON.parse(raw);
+        return Array.isArray(data) ? data : [];
+      } catch (err) { return []; }
+    }
+
+    function writeRuMarks(host, items) {
+      if (!host) return;
+      if (!items || !items.length) host.removeAttribute('data-st-rumark');
+      else host.setAttribute('data-st-rumark', JSON.stringify(items));
+    }
+
+    function dropRuMark(host, phrase, at, tag) {
+      var want = String(tag || 'a');
+      var items = readRuMarks(host).filter(function (it) {
+        if ((it.tag || 'a') !== want) return true;
+        if (it.t !== phrase) return true;
+        if (at != null && at !== '' && it.at != null && String(it.at) !== String(at)) return true;
+        return false;
+      });
+      writeRuMarks(host, items);
+    }
+
+    function addRuMark(host, phrase, at, tag, href, blank) {
+      if (!flat(phrase)) return;
+      var tagName = tag || 'a';
+      var items = readRuMarks(host).filter(function (it) {
+        return !((it.tag || 'a') === tagName && it.t === phrase && String(it.at == null ? '' : it.at) === String(at == null ? '' : at));
+      });
+      var next = { t: phrase, at: at, tag: tagName };
+      if (tagName === 'a') { next.h = href; next.b = blank ? 1 : 0; }
+      items.push(next);
+      writeRuMarks(host, items);
+      showRuHost(host);
+    }
+
+    function readRuStyle(el) {
+      var raw = el && el.getAttribute ? (el.getAttribute('data-st-rustyle') || '') : '';
+      if (!raw) return {};
+      try {
+        var data = JSON.parse(raw);
+        return data && typeof data === 'object' ? data : {};
+      } catch (err) { return {}; }
+    }
+
+    function writeRuStyle(el, data) {
+      if (!el) return;
+      var next = {};
+      if (data && data.color) next.color = data.color;
+      if (data && data.fontSize) next.fontSize = data.fontSize;
+      if (!next.color && !next.fontSize) el.removeAttribute('data-st-rustyle');
+      else el.setAttribute('data-st-rustyle', JSON.stringify(next));
+    }
+
+    function applyRuVisual(el) {
+      if (!el || !el.style) return;
+      if (el.stbBaseStyle == null) el.stbBaseStyle = { color: el.style.color || '', fontSize: el.style.fontSize || '' };
+      var spec = mode === 'ru' ? readRuStyle(el) : {};
+      el.style.color = mode === 'ru' && spec.color ? spec.color : (el.stbBaseStyle.color || '');
+      el.style.fontSize = mode === 'ru' && spec.fontSize ? spec.fontSize : (el.stbBaseStyle.fontSize || '');
+      if (!String(el.getAttribute('style') || '').trim()) el.removeAttribute('style');
+    }
+
+    function clearRuVisual(el) {
+      if (!el || !el.style || el.stbBaseStyle == null) return;
+      el.style.color = el.stbBaseStyle.color || '';
+      el.style.fontSize = el.stbBaseStyle.fontSize || '';
+      if (!String(el.getAttribute('style') || '').trim()) el.removeAttribute('style');
+    }
+
+    function paintRuMarks(host, items) {
+      if (!host) return;
+      host.querySelectorAll('[data-st-ru-only]').forEach(unwrapEl);
+      if (host.normalize) host.normalize();
+      (items || []).forEach(function (item) {
+        if (!item || !item.t) return;
+        var tag = item.tag || (item.h ? 'a' : '');
+        if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
+        var el = wrapDisplayed(host, item.t, item.at, tag);
+        if (!el) return;
+        el.setAttribute('data-st-ru-only', '');
+        if (item.at != null) el.setAttribute('data-st-at', String(item.at));
+        if (tag === 'a' && item.h) styleLink(el, item.h, !!item.b);
+      });
+    }
+
+    function showRuHost(host) {
+      if (!host) return;
+      if (host.stbRuSnap != null) host.innerHTML = host.stbRuSnap;
+      revealUk(host);
+      var marks = readRuMarks(host);
+      var spec = readRuStyle(host);
+      if ((marks.length || spec.color || spec.fontSize) && host.stbRuSnap == null) {
+        host.stbRuSnap = host.innerHTML;
+        host.stbRuFull = rawUk(host);
+      }
+      var win = frame.contentWindow;
+      rawTextNodes(host).forEach(function (node) {
+        if (node.stbUk == null) node.stbUk = node.nodeValue;
+        var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
+        var tr = win && win.ST && typeof win.ST.lookup === 'function' ? win.ST.lookup(uk, 'ru') : '';
+        if (tr && tr !== uk) node.nodeValue = pad(node.stbUk, tr);
+        else if (node.stbRu) node.nodeValue = pad(node.stbUk, node.stbRu);
+      });
+      if (marks.length) paintRuMarks(host, marks);
+      applyRuVisual(host);
+    }
+
+    function paintAllRuMarks() {
+      if (mode !== 'ru' || !doc) return;
+      doc.querySelectorAll('[data-st-rumark], [data-st-rustyle]').forEach(function (el) {
+        showRuHost(el);
+      });
+    }
+
+    function restoreRuSnaps() {
+      if (!doc) return;
+      doc.querySelectorAll('[data-st-rumark], [data-st-rustyle]').forEach(function (host) {
+        if (host.stbRuSnap != null) {
+          host.innerHTML = host.stbRuSnap;
+          host.stbRuSnap = null;
+          host.stbRuFull = '';
+        }
+        clearRuVisual(host);
+      });
+      doc.querySelectorAll('[data-st-ru-only]').forEach(unwrapEl);
+    }
+
+    function takeRuEdits(pairs) {
+      if (mode !== 'ru' || !doc) return;
+      var win = frame.contentWindow;
+      if (!win || !win.ST || typeof win.ST.lookup !== 'function') return;
+      doc.querySelectorAll('[data-st-rumark]').forEach(function (host) {
+        var uk = flat(host.stbRuFull || host.stbUkFull || '');
+        if (!uk) return;
+        var cur = flat(host.textContent || '');
+        var known = String(win.ST.lookup(uk, 'ru') || '').trim();
+        if (cur && cur !== uk && cur !== known) pairs.push({ uk: uk, ru: cur });
+      });
+    }
+
+    function stripRuPaint() {
+      restoreRuSnaps();
     }
 
     function wrapCurrentUk(plan, tag) {
@@ -2794,11 +3004,23 @@
       modal.querySelector('#stb-link-x').addEventListener('click', close);
       modal.querySelector('#stb-link-rm').addEventListener('click', function () {
         if (!existing || !existing.isConnected) { close(); return; }
+        if (mode === 'ru' && !existing.hasAttribute('data-st-ru-only')) {
+          close();
+          say('That link is on the Ukrainian text. Switch to Українська to change it.', 'err');
+          return;
+        }
         beforeChange();
         var host = phraseHost(existing);
-        if (existing.hasAttribute('data-st-en-only')) dropMark(host, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a');
-        else unwrapLink(existing);
-        if (host) showHost(host);
+        if (existing.hasAttribute('data-st-ru-only')) {
+          dropRuMark(host, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a');
+          if (host) showRuHost(host);
+        } else if (existing.hasAttribute('data-st-en-only')) {
+          dropMark(host, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a');
+          if (host) showHost(host);
+        } else {
+          unwrapLink(existing);
+          if (host) showHost(host);
+        }
         markDirty(whereOf(host || existing));
         close();
         say('Link removed. Save to publish.');
@@ -2810,9 +3032,25 @@
           status.textContent = 'Use https://, a path that starts with /, mailto: or tel:.';
           return;
         }
+        if (existing && existing.isConnected && mode === 'ru' && !existing.hasAttribute('data-st-ru-only')) {
+          close();
+          say('That link is on the Ukrainian text. Switch to Українська to change it.', 'err');
+          return;
+        }
         beforeChange();
         var made = null;
-        if (existing && existing.isConnected && existing.hasAttribute('data-st-en-only')) {
+        if (existing && existing.isConnected && existing.hasAttribute('data-st-ru-only')) {
+          var hostRu = phraseHost(existing);
+          var phraseRu = flat(existing.textContent);
+          var atRuMark = existing.getAttribute('data-st-at');
+          dropRuMark(hostRu, phraseRu, atRuMark, 'a');
+          addRuMark(hostRu, phraseRu, atRuMark, 'a', href, blank.checked);
+          made = paintedPhrase(hostRu, 'a', phraseRu, href) ? hostRu : null;
+          if (!made) {
+            dropRuMark(hostRu, phraseRu, atRuMark, 'a');
+            showRuHost(hostRu);
+          }
+        } else if (existing && existing.isConnected && existing.hasAttribute('data-st-en-only')) {
           var hostOnly = phraseHost(existing);
           dropMark(hostOnly, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a');
           addEnMark(hostOnly, flat(existing.textContent), existing.getAttribute('data-st-at'), 'a', href, blank.checked);
@@ -2820,6 +3058,13 @@
         } else if (existing && existing.isConnected) {
           styleLink(existing, href, blank.checked);
           made = existing;
+        } else if (plan && plan.ruOnly) {
+          addRuMark(plan.host, plan.selected, plan.ruStart, 'a', href, blank.checked);
+          made = paintedPhrase(plan.host, 'a', plan.selected, href) ? plan.host : null;
+          if (!made) {
+            dropRuMark(plan.host, plan.selected, plan.ruStart, 'a');
+            showRuHost(plan.host);
+          }
         } else if (plan) {
           if (plan.auto) {
             made = wrapPhrase(plan.host, plan.ukPhrase, plan.ukStart, 'a');
@@ -2833,7 +3078,7 @@
               if (!paintedPhrase(plan.host, 'a', shown, href)) made = null;
             }
           }
-          if (!made && mode !== 'en') {
+          if (!made && mode === 'uk') {
             made = wrapCurrentUk(plan, 'a');
             if (made && made.tagName === 'A') styleLink(made, href, blank.checked);
           }
@@ -3068,6 +3313,8 @@
       var pairs = [];
       restoreAltAttrs(pairs);
       pushMarkedSlots(pairs);
+      takeRuEdits(pairs);
+      stripRuPaint();
       var win = frame.contentWindow;
       if (mode === 'ru' && win.ST && typeof win.ST.lookup === 'function') {
         walkText(doc, function (node) {
