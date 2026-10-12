@@ -1680,16 +1680,21 @@
     }
 
     function textBlock() {
+      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField || null;
       var sel = doc.getSelection();
-      var node = sel && sel.rangeCount ? sel.getRangeAt(0).commonAncestorContainer : null;
+      var live = sel && sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0) : null;
+      var saved = !live && heldRange && heldRange.startContainer && heldRange.startContainer.isConnected && !heldRange.collapsed ? heldRange : null;
+      var range = live || saved;
+      var node = null;
+      if (range && (!hostEl || hostEl.contains(range.startContainer))) node = range.commonAncestorContainer;
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       if (el && el.closest) {
         var fromSel = el.closest('li') || el.closest('p, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th');
         if (fromSel) return fromSel;
       }
-      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField || selected;
-      if (!hostEl || !hostEl.closest) return hostEl;
-      return hostEl.closest('li') || hostEl.closest('p, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th, ul, ol') || hostEl;
+      var base = hostEl || selected;
+      if (!base || !base.closest) return base;
+      return base.closest('li') || base.closest('p, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th, ul, ol') || base;
     }
 
     function applySize(size) {
