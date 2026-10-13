@@ -1,4 +1,5 @@
 _private/auth.env
+_private/tlumacz-klucz.php
 _private/data/
 _private/sessions/
 _private/*.log

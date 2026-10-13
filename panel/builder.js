@@ -1,4 +1,4 @@
-/* Visual editor. Ukrainian HTML is what gets saved. A link is applied to the words the user selected. The other language gets the same link only when the phrase matches on its own. */
+/* Visual editor. English is the source language. Saving changed English words translates them into Ukrainian and Russian. A direct Ukrainian or Russian edit stays until that English text changes. */
 (function () {
   var HOSTS = 'h1,h2,h3,h4,h5,h6,p,li,a,button,span,dt,dd,strong,em,b,i,u,figcaption,summary,td,th,div';
   var SKIP_HOST = 'li.proof__i, li.stats__i, section, article.vcard, article.mach, [data-st-region], button.yt, button.lang__btn, button.chip, a.skip, label';
@@ -71,6 +71,7 @@
     var frame = null;
     var mode = 'en';
     var page = null;
+    var pageUkMeta = null;
     var dirty = false;
     var formDirty = false;
     var chromeDirty = false;
@@ -174,7 +175,7 @@
           '<label>Google title <input type="text" id="stb-title"></label>' +
           '<label>Description <textarea id="stb-desc" rows="2"></textarea></label>' +
           '<label>Share title <input type="text" id="stb-og"></label>' +
-          '<p class="stb__meta-note">These fields are the Ukrainian page settings. English and Russian titles come from the translation of these words. Editing them here changes the Ukrainian source for every language.</p>' +
+          '<p class="stb__meta-note">These fields follow the language you are editing. English is the source: saving an English title translates it into Ukrainian and Russian. A Ukrainian or Russian edit stays until that English text changes.</p>' +
         '</div>' +
         '<p class="stb__banner" id="stb-banner" hidden></p>' +
         '<p class="stb__note" id="stb-note">Click text to edit it. Double-click a menu or card link to open that page. Click a photo, then Change, to replace it.</p>' +
@@ -203,13 +204,13 @@
       if (!banner) return;
       if (mode === 'en') {
         banner.hidden = false;
-        banner.textContent = 'You are editing the English translation. The Ukrainian page is kept. Bold, italic, underline and links apply to the English text only.';
+        banner.textContent = 'English is the source. Saving changed words translates them into Ukrainian and Russian. Formatting on those words is carried into the translation.';
       } else if (mode === 'ru') {
         banner.hidden = false;
-        banner.textContent = 'You are editing the Russian translation. The Ukrainian page is kept. Bold, italic, underline and links apply to the Russian text only.';
+        banner.textContent = 'You are editing the Russian wording only. It stays until the English text changes, and then it is translated again.';
       } else {
-        banner.hidden = true;
-        banner.textContent = '';
+        banner.hidden = false;
+        banner.textContent = 'You are editing the Ukrainian wording only. It stays until the English text changes, and then it is translated again.';
       }
     }
 
@@ -470,6 +471,7 @@
           return;
         }
         page = res;
+        pageUkMeta = { title: res.title || '', desc: res.desc || '', ogtitle: res.ogtitle || '' };
         nameEl.textContent = res.name || id;
         host.querySelector('#stb-title').value = res.title || '';
         host.querySelector('#stb-desc').value = res.desc || '';
@@ -528,6 +530,8 @@
         '.stb-ink-light,.stb-ink-light *:not([data-stb-paint]){color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
         '.stb-ink-dark,.stb-ink-dark *{background-color:#fff!important}',
         '.stb-ink-dark,.stb-ink-dark *:not([data-stb-paint]){color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
+        '[data-st-lock]{outline:1px dashed #b86e00!important;outline-offset:3px}',
+        '[data-st-untranslated]{outline:1px dashed #d10a11!important;outline-offset:3px}',
         'a.st-link,a[data-st-link]{color:#d10a11!important;-webkit-text-fill-color:#d10a11!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px}',
         '.stb-ink-light,.stb-ink-dark{border-radius:2px}',
         'a{cursor:text}',
@@ -935,10 +939,8 @@
       });
       var dup = host.querySelector('[data-act="dup"]');
       if (dup) {
-        dup.disabled = mode !== 'uk' || !selected;
-        dup.title = mode === 'uk'
-          ? 'Duplicate the selected card or section'
-          : 'Switch to Українська to duplicate. English only changes the translation.';
+        dup.disabled = !selected;
+        dup.title = 'Duplicate the selected card or section';
       }
     }
 
@@ -1397,6 +1399,7 @@
       if (el.firstChild && el.firstChild.nodeType === 3) {
         el.firstChild.stbUk = value;
         el.stbUkLeaf = value;
+        if (mode === 'en' && looksEn(value) && !/[\u0400-\u04FF]/.test(value)) el.firstChild.stbFresh = true;
       }
     }
 
@@ -1525,7 +1528,7 @@
       if (win && win.ST_RU) return Promise.resolve();
       return new Promise(function (ok, bad) {
         var s = doc.createElement('script');
-        s.src = '/assets/js/ru-slovnyk.js?v=20261012c';
+        s.src = '/assets/js/ru-slovnyk.js?v=20261013a';
         s.onload = function () { ok(); };
         s.onerror = function () { bad(); };
         (doc.head || doc.documentElement).appendChild(s);
@@ -1628,6 +1631,51 @@
       resetHistory();
     }
 
+    function holdSourceSnaps() {
+      if (!doc) return;
+      doc.querySelectorAll('[data-st-enhtml], [data-st-ruhtml]').forEach(function (host) {
+        if (host.stbUkSnap != null) return;
+        host.stbUkSnap = host.innerHTML;
+        host.stbUkFull = flat(host.textContent);
+      });
+    }
+
+    function showStoredLangHtml(lang) {
+      if (!doc || (lang !== 'en' && lang !== 'ru')) return;
+      var attr = lang === 'en' ? 'data-st-enhtml' : 'data-st-ruhtml';
+      doc.querySelectorAll('[' + attr + ']').forEach(function (host) {
+        var html = host.getAttribute(attr) || '';
+        if (!html) return;
+        if (host.stbUkSnap == null) {
+          host.stbUkSnap = host.innerHTML;
+          host.stbUkFull = flat(host.textContent);
+        }
+        host.innerHTML = html;
+      });
+    }
+
+    function showMeta(lang) {
+      if (metaDirty || !pageUkMeta) return;
+      var win = frame && frame.contentWindow;
+      function tr(s) {
+        if (!s || lang === 'uk') return s || '';
+        var g = win && win.ST && typeof win.ST.lookup === 'function' ? win.ST.lookup(s, lang) : s;
+        return g || s;
+      }
+      host.querySelector('#stb-title').value = tr(pageUkMeta.title);
+      host.querySelector('#stb-desc').value = tr(pageUkMeta.desc);
+      host.querySelector('#stb-og').value = tr(pageUkMeta.ogtitle);
+    }
+
+    function markLocks() {
+      if (!doc) return;
+      doc.querySelectorAll('[data-st-lock], [data-st-untranslated]').forEach(function (el) {
+        if (el.hasAttribute('data-st-untranslated')) el.setAttribute('title', 'Not translated yet. Ukrainian and Russian still show the previous wording.');
+        else if (el.getAttribute('data-st-lock') === 'ru') el.setAttribute('title', 'Manual Russian wording. It stays until the English changes.');
+        else el.setAttribute('title', 'Manual Ukrainian wording. It stays until the English changes.');
+      });
+    }
+
     function applyLang(lang) {
       if (!doc) return;
       if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') lang = 'en';
@@ -1655,6 +1703,7 @@
         return;
       }
       mode = lang;
+      holdSourceSnaps();
       if (lang === 'uk') {
         walkText(doc, function (node) {
           if (node.stbUk != null) node.nodeValue = node.stbUk;
@@ -1676,7 +1725,10 @@
       }
       if (lang === 'ru') overlayLang('ru');
       if (lang === 'ru') paintAllRuMarks();
+      showStoredLangHtml(lang);
       paintAllLangStyles();
+      showMeta(lang);
+      markLocks();
       showAttrs(lang);
       heldRange = null;
       syncBanner();
@@ -1703,7 +1755,6 @@
     }
 
     function duplicate() {
-      if (!requireUk()) return;
       var node = level === 'item' ? currentItem : selected;
       if (!node || !node.parentElement) { say('Click the block you want to copy.', 'err'); return; }
       if (node.id === 'zapyt' || node.querySelector('#zapyt')) {
@@ -1715,7 +1766,7 @@
         return;
       }
       beforeChange();
-      var copy = node.cloneNode(true);
+      var copy = withUkClone(node);
       if (copy.id) copy.removeAttribute('id');
       copy.querySelectorAll('[id]').forEach(function (n) { n.removeAttribute('id'); });
       copy.classList.remove('stb-on');
@@ -3103,6 +3154,7 @@
       if (!host) return;
       if (!items || !items.length) host.removeAttribute('data-st-enmark');
       else host.setAttribute('data-st-enmark', JSON.stringify(items));
+      if (mode === 'en') host.stbEnEdited = true;
     }
 
     function dropMark(host, phrase, at, tag) {
@@ -3316,7 +3368,10 @@
         if (!uk) return;
         var cur = flat(host.textContent || '');
         var known = String(win.ST.lookup(uk, 'ru') || '').trim();
-        if (cur && cur !== uk && cur !== known) pairs.push({ uk: uk, ru: cur });
+        if (cur && cur !== uk && cur !== known) {
+          var hostRu = host.closest ? host : null;
+          pairs.push({ role: 'ru', uk: uk, ru: cur, xid: markXid(hostRu), prevEn: String(win.ST.lookup(uk, 'en') || '').trim() });
+        }
       });
     }
 
@@ -3906,11 +3961,11 @@
         var knownEn = SLOT_EN[base] || '';
         var knownRu = SLOT_RU[base] || '';
         if (uk && en && en !== uk && en !== knownEn && looksEn(en)) {
-          var row = { uk: uk, en: en };
+          var row = { role: 'en', uk: uk, en: en, prevEn: knownEn };
           if (ru && ru !== uk && ru !== knownRu) row.ru = ru;
           pairs.push(row);
         } else if (uk && ru && ru !== uk && ru !== knownRu) {
-          pairs.push({ uk: uk, ru: ru });
+          pairs.push({ role: 'ru', uk: uk, ru: ru, prevEn: knownEn });
         }
         img.setAttribute('alt', img.getAttribute('data-stb-alt-uk') || img.stbAltUk);
       });
@@ -3941,7 +3996,10 @@
           var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
           var known = String(win.ST.lookup(uk, 'ru') || '').trim();
           if (cur && cur !== uk && cur !== known) {
-            var row = { uk: uk, ru: cur };
+            var host = node.parentElement && node.parentElement.closest(PHRASE_SEL);
+            var row = { role: 'ru', uk: uk, ru: cur, xid: markXid(host || node.parentElement) };
+            var prevEn = String(win.ST.lookup(uk, 'en') || '').trim();
+            if (prevEn && prevEn !== uk) row.prevEn = prevEn;
             if (node.stbEn && looksEn(node.stbEn)) row.en = slotBase(node.stbEn);
             pairs.push(row);
           }
@@ -3952,8 +4010,22 @@
           var uk = String(el.stbUk).trim();
           var cur = String(el.getAttribute('placeholder') || '').trim();
           var known = String(win.ST.lookup(uk, 'ru') || '').trim();
-          if (cur && cur !== uk && cur !== known) pairs.push({ uk: uk, ru: cur });
+          if (cur && cur !== uk && cur !== known) pairs.push({ role: 'ru', uk: uk, ru: cur, prevEn: String(win.ST.lookup(uk, 'en') || '').trim() });
           el.setAttribute('placeholder', el.stbUk);
+        });
+        return pairs;
+      }
+      if (mode === 'uk') {
+        walkText(doc, function (node) {
+          if (node.stbUk == null) return;
+          var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
+          var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
+          if (!cur || cur === uk) return;
+          if (uk.indexOf('\u200C') >= 0 || uk.indexOf('\u200D') >= 0) return;
+          var prevEn = win.ST && typeof win.ST.lookup === 'function' ? String(win.ST.lookup(uk, 'en') || '').trim() : '';
+          if (prevEn === uk) prevEn = '';
+          var host = node.parentElement && node.parentElement.closest(PHRASE_SEL);
+          pairs.push({ role: 'uk', xid: markXid(host || node.parentElement), uk: uk, nextUk: cur, prevEn: prevEn, en: prevEn });
         });
         return pairs;
       }
@@ -3965,7 +4037,20 @@
         if (host.stbUkSnap == null && !synthetic) return;
         var cur = flat(host.textContent);
         var known = uk ? String(win.ST.lookup(uk, 'en') || '').trim() : '';
-        if (host.stbEnEdited && cur && uk && cur !== uk && looksEn(cur) && cur !== known) pairs.push({ uk: uk, en: cur });
+        var prevEn = known;
+        if (host.hasAttribute('data-st-enhtml')) {
+          var box = doc.createElement('div');
+          box.innerHTML = host.getAttribute('data-st-enhtml') || '';
+          prevEn = flat(box.textContent) || known;
+        }
+        var htmlNow = richHtml(host);
+        var htmlWas = host.getAttribute('data-st-enhtml') || '';
+        var changed = !!(host.stbEnEdited && cur && uk && looksEn(cur) && cur !== uk && cur !== prevEn);
+        var fresh = !!(host.stbEnEdited && cur && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk) && flat(uk) === cur);
+        var formatChanged = !!(host.stbEnEdited && htmlNow && htmlNow !== htmlWas && cur && looksEn(cur));
+        if (changed || fresh || formatChanged) {
+          pairs.push({ role: 'en', xid: markXid(host), uk: uk, en: cur, prevEn: prevEn, enHtml: htmlNow, fresh: fresh ? 1 : 0 });
+        }
         if (host.stbUkSnap != null) {
           host.innerHTML = host.stbUkSnap;
           host.stbUkSnap = null;
@@ -3992,7 +4077,15 @@
         var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
         var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
         var known = String(win.ST.lookup(uk, 'en') || '').trim();
-        if (cur && cur !== uk && looksEn(cur) && cur !== known) pairs.push({ uk: uk, en: cur });
+        var host = node.parentElement && node.parentElement.closest(PHRASE_SEL);
+        if (host && host.getAttribute('data-st-xid')) {
+          node.nodeValue = node.stbUk;
+          return;
+        }
+        var freshNode = !!(node.stbFresh && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk));
+        if ((cur && cur !== uk && looksEn(cur) && cur !== known) || freshNode) {
+          pairs.push({ role: 'en', xid: markXid(host || node.parentElement), uk: uk, en: cur, prevEn: known, fresh: freshNode ? 1 : 0 });
+        }
         node.nodeValue = node.stbUk;
       });
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
@@ -4000,10 +4093,25 @@
         var uk = String(el.stbUk).trim();
         var cur = String(el.getAttribute('placeholder') || '').trim();
         var known = String(win.ST.lookup(uk, 'en') || '').trim();
-        if (cur && cur !== uk && looksEn(cur) && cur !== known) pairs.push({ uk: uk, en: cur });
+        if (cur && cur !== uk && looksEn(cur) && cur !== known) pairs.push({ role: 'en', uk: uk, en: cur, prevEn: known });
         el.setAttribute('placeholder', el.stbUk);
       });
       return pairs;
+    }
+
+    var sourceSeq = 1;
+    function markXid(el) {
+      if (!el || !el.setAttribute) return '';
+      var have = el.getAttribute('data-st-xid');
+      if (have) return have;
+      var idv = 'e' + (sourceSeq++);
+      el.setAttribute('data-st-xid', idv);
+      return idv;
+    }
+    function richHtml(el) {
+      var html = el && el.innerHTML ? el.innerHTML : '';
+      if (!/<(strong|em|u|b|i|a|span)\b/i.test(html)) return '';
+      return html;
     }
 
     function cleanup() {
@@ -4019,6 +4127,10 @@
         if (el.getAttribute('title') === 'Change icon') el.removeAttribute('title');
       });
       doc.querySelectorAll('[data-stb-empty]').forEach(function (el) { el.removeAttribute('data-stb-empty'); });
+      doc.querySelectorAll('[data-st-lock], [data-st-untranslated]').forEach(function (el) {
+        var t = el.getAttribute('title') || '';
+        if (t.indexOf('Manual ') === 0 || t.indexOf('Not translated') === 0) el.removeAttribute('title');
+      });
       if (doc.documentElement) doc.documentElement.classList.remove('stb-move');
       doc.querySelectorAll('[draggable]').forEach(function (el) { el.removeAttribute('draggable'); });
       doc.querySelectorAll('a[title]').forEach(function (a) {
@@ -4075,6 +4187,8 @@
           desc: host.querySelector('#stb-desc').value,
           ogtitle: host.querySelector('#stb-og').value
         };
+        payload.metaLang = mode;
+        payload.metaUk = pageUkMeta || {};
       }
       api(payload).then(function (res) {
         btn.disabled = false;
@@ -4098,9 +4212,14 @@
         });
         pendingPages = [];
         syncDirty();
-        if (after) { after(res); return; }
-        say('Saved. This version is on the site.', 'ok');
-        flash('Saved. This version is on the site.');
+        var noteText = res.i18nNote || 'Saved. This version is on the site.';
+        if (after) {
+          ctx.hello = noteText;
+          after(res);
+          return;
+        }
+        say(noteText, res.i18nPending ? 'err' : 'ok');
+        flash(noteText);
         load();
       }).catch(function () {
         btn.disabled = false;
@@ -4129,7 +4248,7 @@
       modal.id = 'stb-pages-dlg';
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-pages-title">' +
         '<h2 id="stb-pages-title">Add a page</h2>' +
-        '<p class="lead">Set the title, the address, and where the link appears. Choose a template to start from a copy of a page that is already on the site, or leave it blank. After you create it, this editor opens that page.</p>' +
+        '<p class="lead">Type the title in English. Ukrainian and Russian are filled in automatically. Choose a template to start from a copy of a page that is already on the site, or leave it blank. After you create it, this editor opens that page.</p>' +
         '<div class="stb-form">' +
           '<label>Page title<input type="text" id="stb-np-title" placeholder="For example: Service"></label>' +
           '<label>URL slug<input type="text" id="stb-np-slug" placeholder="service"></label>' +
@@ -4448,7 +4567,7 @@
         if (!en || !looksEn(en)) en = SLOT_EN[base] || '';
         var key = uk.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
         if (!key || !en || !looksEn(en)) return;
-        var row = { uk: key, en: en };
+        var row = { role: 'slot', uk: key, en: en };
         if (ru && ru !== base) row.ru = ru;
         pairs.push(row);
       });
@@ -4457,7 +4576,7 @@
         Object.keys(el.stbAttrs).forEach(function (name) {
           var row = el.stbAttrs[name];
           if (!row || !row.uk || !row.en || !looksEn(row.en)) return;
-          pairs.push({ uk: row.uk, en: row.en });
+          pairs.push({ role: 'slot', uk: row.uk, en: row.en });
         });
       });
     }
@@ -5005,16 +5124,17 @@
       modal.id = 'stb-type-dlg';
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-type-title">' +
         '<h2 id="stb-type-title">Add a machine type</h2>' +
-        '<p class="lead">A new card is added to this category. Its page keeps every section the other machines use, with empty text and photo slots. English fields are optional: leave one empty and the English site keeps the Ukrainian wording.</p>' +
+        '<p class="lead">A new card is added to this category. Type the name in English. Ukrainian and Russian are filled in automatically. Leave a Ukrainian or Russian field empty to use the translation, or type your own wording.</p>' +
         '<div class="stb-form">' +
-          '<label class="wide">Name (Ukrainian)<input type="text" id="stb-type-name" placeholder="Наприклад: Машини 40 кВА"></label>' +
-          '<label class="wide">English name (optional)<input type="text" id="stb-type-name-en" placeholder="Mesh line LS-3000"></label>' +
+          '<label class="wide">Name (English)<input type="text" id="stb-type-name" placeholder="For example: 40 kVA machines"></label>' +
+          '<label class="wide">Ukrainian name (optional)<input type="text" id="stb-type-name-uk" placeholder="Машини 40 кВА"></label>' +
+          '<label class="wide">Russian name (optional)<input type="text" id="stb-type-name-ru" placeholder="Машины 40 кВА"></label>' +
           '<label>Address slug<input type="text" id="stb-type-slug" placeholder="mashyny-40-kva"></label>' +
           '<label>Short tag<input type="text" id="stb-type-tag" maxlength="60" placeholder="TECNA"></label>' +
-          '<label class="wide">Menu subtitle (Ukrainian, optional)<input type="text" id="stb-type-sub" maxlength="80" placeholder="Короткий рядок у меню"></label>' +
-          '<label class="wide">English menu subtitle (optional)<input type="text" id="stb-type-sub-en" maxlength="80" placeholder="Short menu line"></label>' +
-          '<label class="wide">Short description<textarea id="stb-type-text" rows="3" maxlength="400" placeholder="Потужність, процес і типові деталі."></textarea></label>' +
-          '<label class="wide">English short description (optional)<textarea id="stb-type-text-en" rows="2" maxlength="400" placeholder="Used on the English site when the Ukrainian description is filled in."></textarea></label>' +
+          '<label class="wide">Menu subtitle (English, optional)<input type="text" id="stb-type-sub-en" maxlength="80" placeholder="Short menu line"></label>' +
+          '<label class="wide">Ukrainian menu subtitle (optional)<input type="text" id="stb-type-sub" maxlength="80" placeholder="Короткий рядок у меню"></label>' +
+          '<label class="wide">Short description (English)<textarea id="stb-type-text-en" rows="3" maxlength="400" placeholder="Power, process and typical parts."></textarea></label>' +
+          '<label class="wide">Ukrainian description (optional)<textarea id="stb-type-text" rows="2" maxlength="400" placeholder="Потужність, процес і типові деталі."></textarea></label>' +
           '<div class="wide stb-actions" style="margin-top:0"><button type="button" class="btn btn-ghost" id="stb-type-img">Upload card image</button><span id="stb-type-img-name">Empty photo slot if you skip this.</span></div>' +
           '<p class="wide" id="stb-type-status"></p>' +
         '</div>' +
@@ -5041,7 +5161,7 @@
         var status = modal.querySelector('#stb-type-status');
         var title = nameInput.value.trim();
         if (title.length < 2) { status.textContent = 'Enter the machine type name.'; return; }
-        var titleEn = modal.querySelector('#stb-type-name-en').value.trim();
+        var titleEn = title;
         var taken = false;
         doc.querySelectorAll('#main a.tile h3').forEach(function (h) {
           var have = String(h.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -5054,7 +5174,9 @@
           action: 'cms.page.add-machine',
           parent: id,
           title: title,
-          titleEn: titleEn,
+          titleEn: title,
+          titleUk: modal.querySelector('#stb-type-name-uk').value.trim(),
+          titleRu: modal.querySelector('#stb-type-name-ru').value.trim(),
           slug: slugInput.value.trim(),
           tag: modal.querySelector('#stb-type-tag').value.trim(),
           subtitle: modal.querySelector('#stb-type-sub').value.trim(),
@@ -5088,10 +5210,10 @@
       modal.id = 'stb-mach-dlg';
       modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-mach-title">' +
         '<h2 id="stb-mach-title">Add a product</h2>' +
-        '<p class="lead">A new product card is added to this page, in the same style as the others. Change its photo or video after it appears, then Save.</p>' +
+        '<p class="lead">A new product card is added to this page. Type the name in English, then Save. Ukrainian and Russian are translated from that English. A name you type in Ukrainian stays Ukrainian until you change the English.</p>' +
         '<div class="stb-form">' +
-          '<label class="wide">Product name<input type="text" id="stb-mach-name" placeholder="Назва машини"></label>' +
-          '<label class="wide">Short description<textarea id="stb-mach-text" rows="3" placeholder="Короткий опис."></textarea></label>' +
+          '<label class="wide">Product name (English)<input type="text" id="stb-mach-name" placeholder="Machine name"></label>' +
+          '<label class="wide">Short description<textarea id="stb-mach-text" rows="3" placeholder="Short description."></textarea></label>' +
           '<p class="wide" id="stb-mach-status"></p>' +
         '</div>' +
         '<div class="stb-actions"><button type="button" class="btn" id="stb-mach-ok">Add product</button><button type="button" class="btn btn-ghost" id="stb-mach-x">Cancel</button></div></div>';

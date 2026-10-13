@@ -375,6 +375,15 @@ function st_cms_add_child_page(array $data): array
     $textRaw = trim((string) ($data['text'] ?? ''));
     $linkRaw = trim((string) ($data['link'] ?? ''));
     $image = trim((string) ($data['image'] ?? ''));
+    $titleEn = '';
+    $tagEn = '';
+    $textEn = '';
+    $linkEn = '';
+    $titleRu = '';
+    $tagRu = '';
+    $textRu = '';
+    $linkRu = '';
+    $titlePending = false;
     if (preg_match('/\p{Cyrillic}/u', $titleRaw)) {
         $titleUk = $titleRaw;
         $tagUk = $tagRaw !== '' ? $tagRaw : $titleUk;
@@ -386,15 +395,20 @@ function st_cms_add_child_page(array $data): array
         $tagEn = $tagRaw !== '' ? $tagRaw : $titleEn;
         $textEn = $textRaw;
         $linkEn = $linkRaw !== '' ? $linkRaw : ('See ' . $titleEn);
-        $uk = [$titleEn => $titleEn, $tagEn => $tagEn, $textEn => $textEn, $linkEn => $linkEn];
-        if (function_exists('st_i18n_many')) {
-            require_once __DIR__ . '/tlumacz.php';
-            $uk = st_i18n_many([$titleEn, $tagEn, $textEn, $linkEn], 'en', 'uk');
-        }
-        $titleUk = $uk[$titleEn] ?? $titleEn;
-        $tagUk = $uk[$tagEn] ?? $tagEn;
-        $textUk = $uk[$textEn] ?? $textEn;
-        $linkUk = $uk[$linkEn] ?? $linkEn;
+        require_once __DIR__ . '/tlumacz.php';
+        $titleR = st_i18n_resolve_en($titleEn);
+        $tagR = st_i18n_resolve_en($tagEn);
+        $textR = $textEn !== '' ? st_i18n_resolve_en($textEn) : ['uk' => '', 'en' => '', 'ru' => '', 'pending' => false];
+        $linkR = st_i18n_resolve_en($linkEn);
+        $titleUk = $titleR['uk'];
+        $tagUk = $tagR['uk'];
+        $textUk = $textR['uk'];
+        $linkUk = $linkR['uk'];
+        $titleRu = $titleR['ru'];
+        $tagRu = $tagR['ru'];
+        $textRu = $textR['ru'];
+        $linkRu = $linkR['ru'];
+        $titlePending = !empty($titleR['pending']) || !empty($textR['pending']);
         $slug = st_cms_slugify($titleEn);
     }
     $used = [];
@@ -438,7 +452,11 @@ function st_cms_add_child_page(array $data): array
     $meta['ogtitle'] = $titleUk;
     $meta['crumbs'] = $crumbs;
     if (empty($meta['prio'])) $meta['prio'] = '0.75';
-    $body = preg_replace('/(<h1\b[^>]*>)(.*?)(<\/h1>)/s', '$1' . st_cms_esc($titleUk) . '$3', $srcBody, 1) ?? $srcBody;
+    $body = preg_replace_callback('/<h1\b([^>]*)>.*?<\/h1>/s', static function (array $m) use ($titleUk, $titlePending): string {
+        $attrs = $m[1];
+        if ($titlePending && !str_contains($attrs, 'data-st-untranslated')) $attrs .= ' data-st-untranslated="1"';
+        return '<h1' . $attrs . '>' . st_cms_esc($titleUk) . '</h1>';
+    }, $srcBody, 1) ?? $srcBody;
     st_cms_atomic_write(ST_PAGES . '/' . $newId . '.html', st_cms_dump($meta, $body), true);
     [$pmeta, $pbody] = st_cms_parse((string) file_get_contents($parentPath));
     if ($image === '') {
@@ -451,10 +469,16 @@ function st_cms_add_child_page(array $data): array
     ]);
     st_cms_atomic_write($parentPath, st_cms_dump($pmeta, $pbody), true);
     $i18n = ['translated' => 0];
-    if (function_exists('st_i18n_safe')) {
-        require_once __DIR__ . '/tlumacz.php';
-        $i18n = st_i18n_safe([$titleUk, $tagUk, $textUk, $linkUk, $titleEn, $tagEn, $textEn, $linkEn]);
+    require_once __DIR__ . '/tlumacz.php';
+    $pairs = [];
+    foreach ([[$titleUk, $titleEn, $titleRu], [$tagUk, $tagEn, $tagRu], [$textUk, $textEn, $textRu], [$linkUk, $linkEn, $linkRu]] as [$uk, $en, $ru]) {
+        if ($uk === '' || $en === '' || $uk === $en) continue;
+        $row = ['uk' => $uk, 'en' => $en];
+        if ($ru !== '' && $ru !== $uk) $row['ru'] = $ru;
+        $pairs[] = $row;
     }
+    if ($pairs !== []) st_i18n_author_pairs($pairs);
+    $i18n = st_i18n_safe([$titleUk, $tagUk, $textUk, $linkUk, $titleEn, $tagEn, $textEn, $linkEn]);
     st_cms_mark_pending('page.add-child:' . $newId);
     $live = st_cms_publish();
     return $live + [

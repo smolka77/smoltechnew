@@ -13,6 +13,18 @@
   ];
   var D = {
     /* chrome */
+    'Заголовок': 'Heading',
+    'Короткий опис, який можна змінити.': 'A short description you can change.',
+    'Текст, який можна змінити.': 'Text you can change.',
+    'Підпис': 'Label',
+    'Розділ': 'Section',
+    'Цифри': 'Figures',
+    'Нова модель': 'New model',
+    'Нова машина': 'New machine',
+    'Позначка': 'Tag',
+    'Докладніше': 'Read more',
+    'Короткий опис сторінки. Його можна змінити.': 'A short page description. You can change it.',
+    'Фото': 'Photo',
     'Перейти до основного вмісту': 'Skip to content',
     'Мова сайту': 'Site language',
     'Українська': 'Ukrainian',
@@ -3190,6 +3202,18 @@
       if (SKIP.test(node.tagName)) return;
       if (node.classList && node.classList.contains('lang')) return;
       if (node.hasAttribute('data-st-rustyle') || node.hasAttribute('data-st-enstyle')) syncLangStyle(node, lang);
+      if (node.hasAttribute('data-st-enhtml') || node.hasAttribute('data-st-ruhtml')) {
+        if (node.stLangHtml == null) node.stLangHtml = node.innerHTML;
+        if (lang === 'uk') {
+          if (node.innerHTML !== node.stLangHtml) node.innerHTML = node.stLangHtml;
+        } else {
+          var langHtml = node.getAttribute(lang === 'ru' ? 'data-st-ruhtml' : 'data-st-enhtml') || '';
+          if (langHtml) {
+            node.innerHTML = langHtml;
+            return;
+          }
+        }
+      }
       if (node.stOrigPlain == null && /^(P|LI|H1|H2|H3|H4|DD|DT|FIGCAPTION|SUMMARY)$/.test(node.tagName)) {
         var plain = mixedPlain(node);
         if (plain && CYR.test(plain)) {
@@ -3200,6 +3224,13 @@
       if (node.stOrigPlain && node.stOrigHTML != null) {
         if (node.innerHTML !== node.stOrigHTML) node.innerHTML = node.stOrigHTML;
         if (lang === 'uk') return;
+        if ((lang === 'en' && node.hasAttribute('data-st-enhtml')) || (lang === 'ru' && node.hasAttribute('data-st-ruhtml'))) {
+          var storedHtml = node.getAttribute(lang === 'en' ? 'data-st-enhtml' : 'data-st-ruhtml') || '';
+          if (storedHtml) {
+            node.innerHTML = storedHtml;
+            return;
+          }
+        }
         var whole = lookup(node.stOrigPlain, lang);
         var paints = styleSpanRecords(node);
         if (whole !== node.stOrigPlain && paints.length && !node.querySelector('[data-st-en], a.st-link, a[data-st-link]')) {
@@ -3305,7 +3336,7 @@
     if (ruScript) return ruScript;
     ruScript = new Promise(function (ok, bad) {
       var s = document.createElement('script');
-      s.src = '/assets/js/ru-slovnyk.js?v=20261012c';
+      s.src = '/assets/js/ru-slovnyk.js?v=20261013a';
       s.onload = function () { ok(); };
       s.onerror = function () { ruScript = null; bad(); };
       document.head.appendChild(s);

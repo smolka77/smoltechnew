@@ -253,20 +253,25 @@ function st_builder_uk_title(string $title): array
     $title = trim(preg_replace('/\s+/', ' ', $title) ?? $title);
     if ($title === '') throw new RuntimeException('Enter a page title.');
     if (mb_strlen($title) > 140) $title = mb_substr($title, 0, 140);
-    if (preg_match('/\p{Cyrillic}/u', $title)) return [$title, ''];
-    $uk = $title;
-    try {
-        require_once __DIR__ . '/tlumacz.php';
-        if (function_exists('st_i18n_many')) {
-            $map = st_i18n_many([$title], 'en', 'uk');
-            $got = trim((string) ($map[$title] ?? ''));
-            if ($got !== '') $uk = $got;
+    require_once __DIR__ . '/tlumacz.php';
+    if (preg_match('/\p{Cyrillic}/u', $title) && !preg_match('/[A-Za-z]/', $title)) {
+        $en = st_i18n_sense_uk_en($title);
+        if ($en === '') {
+            $got = st_i18n_auto_from($title, 'uk', 'en');
+            if ($got['ok']) $en = st_i18n_plain($got['text']);
         }
-    } catch (Throwable) {
-        $uk = $title;
+        $ru = '';
+        $pending = $en === '';
+        if ($en !== '') {
+            $ruGot = st_i18n_auto($en, 'ru', false);
+            if ($ruGot['ok']) $ru = st_i18n_plain($ruGot['text']);
+            else $pending = true;
+            st_i18n_remember_source($en, $title, $ru, true, false, $pending);
+        }
+        return [$title, $en, $ru, $pending];
     }
-    $en = ($uk !== $title) ? $title : '';
-    return [$uk, $en];
+    $resolved = st_i18n_resolve_en($title, '', '');
+    return [$resolved['uk'], $resolved['en'], $resolved['ru'], $resolved['pending']];
 }
 
 function st_builder_slug(string $raw, string $fallbackTitle): string
@@ -506,7 +511,7 @@ function st_builder_place(array $data): array
         ];
     }
 
-    [$titleUk, $titleEn] = st_builder_uk_title((string) ($data['title'] ?? ''));
+    [$titleUk, $titleEn, $titleRu, $titlePending] = st_builder_uk_title((string) ($data['title'] ?? ''));
     $slug = st_builder_slug((string) ($data['slug'] ?? ''), $titleUk);
     $parentId = trim((string) ($data['parent'] ?? ''));
     $parent = null;
@@ -573,6 +578,9 @@ function st_builder_place(array $data): array
     $desc = 'Короткий опис сторінки. Його можна змінити.';
     $og = '';
     $bodyHtml = st_builder_page_html($titleUk);
+    if (!empty($titlePending)) {
+        $bodyHtml = preg_replace('/<h1\b/', '<h1 data-st-untranslated="1"', $bodyHtml, 1) ?? $bodyHtml;
+    }
     $tileImage = '/assets/img/company-hall-1.jpg';
     $tileText = $desc;
     $tileTag = 'SMOLTECH';
@@ -584,6 +592,7 @@ function st_builder_place(array $data): array
         if (!is_file($tpath)) throw new RuntimeException('That template page was not found.');
         [$tm, $tbody] = st_cms_parse((string) file_get_contents($tpath));
         $bodyHtml = st_builder_retarget_links(st_builder_set_h1($tbody, $titleUk), (string) ($tm['url'] ?? ''), $url);
+        if (!empty($titlePending)) $bodyHtml = preg_replace('/<h1\b/', '<h1 data-st-untranslated="1"', $bodyHtml, 1) ?? $bodyHtml;
         $og = trim((string) ($tm['og'] ?? ''));
         $desc = $titleUk . '. Опис для пошуку можна змінити.';
         $hero = st_cms_hero($bodyHtml);
@@ -630,9 +639,9 @@ function st_builder_place(array $data): array
     }
     $next = st_builder_menu_apply($layout, $url, $menu, $position, $titleUk);
     if ($next !== $layout) st_builder_write_layout($next);
-    if ($titleEn !== '') {
+    if ($titleEn !== '' && $titleRu !== '' && $titleRu !== $titleUk) {
         require_once __DIR__ . '/tlumacz.php';
-        st_i18n_author_pairs([['uk' => $titleUk, 'en' => $titleEn]]);
+        st_i18n_author_pairs([['uk' => $titleUk, 'en' => $titleEn, 'ru' => $titleRu]]);
     }
     $place = st_builder_menu_find((string) file_get_contents(ST_LAYOUT), $url);
     st_cms_publish_page($newId, true);
@@ -1313,11 +1322,26 @@ function st_builder_add_machine(array $data): array
     [$pmeta, $pbody] = st_cms_parse((string) file_get_contents($parentPath));
     $tiles = st_cms_tiles($pbody);
     if ($tiles === [] && !$bare) throw new RuntimeException('This page has no machine-type cards. Open a category such as Stationary spot welders or Stud welding.');
-    [$titleUk, $titleEn] = st_builder_uk_title((string) ($data['title'] ?? ''));
+    [$titleUk, $titleEn, $titleRu, $titlePending] = st_builder_uk_title((string) ($data['title'] ?? ''));
     if (mb_strlen($titleUk) < 2) throw new RuntimeException('Enter the machine type name.');
     $givenEn = trim((string) ($data['titleEn'] ?? ''));
-    if ($givenEn !== '') $titleEn = $givenEn;
-    $titleRu = trim((string) ($data['titleRu'] ?? ''));
+    $givenUk = trim((string) ($data['titleUk'] ?? ''));
+    $givenRu = trim((string) ($data['titleRu'] ?? ''));
+    if ($givenEn !== '' && $givenEn !== $titleEn) {
+        $ukOver = $givenUk !== '' ? $givenUk : (preg_match('/\p{Cyrillic}/u', $titleUk) ? $titleUk : '');
+        $resolved = st_i18n_resolve_en($givenEn, $ukOver, $givenRu);
+        $titleUk = $resolved['uk'];
+        $titleEn = $resolved['en'];
+        $titleRu = $resolved['ru'];
+        $titlePending = $resolved['pending'];
+    } else {
+        if ($givenEn !== '') $titleEn = $givenEn;
+        if ($givenUk !== '') $titleUk = $givenUk;
+        if ($givenRu !== '') $titleRu = $givenRu;
+        if ($titleEn !== '' && ($givenUk !== '' || $givenRu !== '')) {
+            st_i18n_remember_source($titleEn, $titleUk, $titleRu, $givenUk !== '', $givenRu !== '', !empty($titlePending));
+        }
+    }
     if (mb_strlen($titleRu) > 140) $titleRu = mb_substr($titleRu, 0, 140);
     $tagRaw = trim((string) ($data['tag'] ?? ''));
     $textRaw = trim((string) ($data['text'] ?? ''));
@@ -1378,12 +1402,31 @@ function st_builder_add_machine(array $data): array
     [$tm, $tbody] = st_cms_parse((string) file_get_contents($srcPath));
     $tagUk = $tagRaw;
     $textUk = $textRaw;
+    $textRu = '';
+    if ($textEn !== '' || ($textUk !== '' && !preg_match('/\p{Cyrillic}/u', $textUk))) {
+        $src = $textEn !== '' ? $textEn : $textUk;
+        $ukOver = ($textEn !== '' && preg_match('/\p{Cyrillic}/u', $textUk)) ? $textUk : '';
+        $resolvedText = st_i18n_resolve_en($src, $ukOver, '');
+        $textUk = $resolvedText['uk'];
+        $textEn = $resolvedText['en'];
+        $textRu = $resolvedText['ru'];
+    }
+    $subRu = '';
+    if ($subEn !== '' || ($subUk !== '' && !preg_match('/\p{Cyrillic}/u', $subUk))) {
+        $src = $subEn !== '' ? $subEn : $subUk;
+        $ukOver = ($subEn !== '' && preg_match('/\p{Cyrillic}/u', $subUk)) ? $subUk : '';
+        $resolvedSub = st_i18n_resolve_en($src, $ukOver, '');
+        $subUk = $resolvedSub['uk'];
+        $subEn = $resolvedSub['en'];
+        $subRu = $resolvedSub['ru'];
+    }
     $linkUk = st_builder_clip('Дивитись ' . $titleUk, 48);
     if ($image === '') {
         $image = (string) ($tiles[array_key_last($tiles)]['image'] ?? '');
         if ($image === '') $image = (string) (st_cms_hero($tbody)['image'] ?? '/assets/img/company-hall-1.jpg');
     }
     $bodyHtml = st_builder_retarget_links(st_builder_set_h1($tbody, $titleUk), (string) ($tm['url'] ?? ''), $url);
+    if (!empty($titlePending)) $bodyHtml = preg_replace('/<h1\b/', '<h1 data-st-untranslated="1"', $bodyHtml, 1) ?? $bodyHtml;
     $bodyHtml = st_builder_neutral_body($bodyHtml, $titleUk, $textUk);
     $bodyHtml = st_builder_set_hero_kicker($bodyHtml, $tagUk);
     $bodyHtml = st_builder_swap_hero_image($bodyHtml, $image);
@@ -1450,8 +1493,16 @@ function st_builder_add_machine(array $data): array
         } elseif ($titleRu !== '' && $titleRu !== $titleUk) {
             $pairs[] = ['uk' => $titleUk, 'ru' => $titleRu];
         }
-        if ($textUk !== '' && $textEn !== '' && $textEn !== $textUk) $pairs[] = ['uk' => $textUk, 'en' => $textEn];
-        if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) $pairs[] = ['uk' => $subUk, 'en' => $subEn];
+        if ($textUk !== '' && $textEn !== '' && $textEn !== $textUk) {
+            $textPair = ['uk' => $textUk, 'en' => $textEn];
+            if ($textRu !== '' && $textRu !== $textUk) $textPair['ru'] = $textRu;
+            $pairs[] = $textPair;
+        }
+        if ($subUk !== '' && $subEn !== '' && $subEn !== $subUk) {
+            $subPair = ['uk' => $subUk, 'en' => $subEn];
+            if ($subRu !== '' && $subRu !== $subUk) $subPair['ru'] = $subRu;
+            $pairs[] = $subPair;
+        }
         if ($titleEn !== '') $pairs[] = ['uk' => $linkUk, 'en' => st_builder_clip('See ' . $titleEn, 48)];
         if ($footEn !== '' || $footRu !== '') {
             $footPair = ['uk' => $footUk];

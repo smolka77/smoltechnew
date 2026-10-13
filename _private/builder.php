@@ -382,23 +382,42 @@ function st_builder_commit(array $data): array
         $main = str_replace('{{FORMULARZ}}', '', $main);
     }
 
+    $authored = 0;
+    $i18nNote = '';
+    $i18nPending = 0;
+    require_once __DIR__ . '/tlumacz.php';
+    $docs = ['main' => $main];
+    if (isset($data['chrome']) && is_array($data['chrome'])) {
+        foreach ($data['chrome'] as $key => $html) {
+            if (is_string($html) && is_string($key)) $docs['chrome:' . $key] = $html;
+        }
+    }
+    $metaIn = (isset($data['meta']) && is_array($data['meta'])) ? $data['meta'] : null;
+    $metaLang = (string) ($data['metaLang'] ?? 'en');
+    $metaUk = (isset($data['metaUk']) && is_array($data['metaUk'])) ? $data['metaUk'] : [];
+    $pairs = is_array($data['i18nPairs'] ?? null) ? $data['i18nPairs'] : [];
+    if ($pairs !== [] || $metaIn !== null) {
+        $applied = st_i18n_apply_documents($docs, $pairs, $metaIn, $metaLang, $metaUk);
+        $docs = $applied['docs'];
+        $main = (string) ($docs['main'] ?? $main);
+        if (isset($data['chrome']) && is_array($data['chrome'])) {
+            foreach ($data['chrome'] as $key => $_) {
+                if (isset($docs['chrome:' . $key])) $data['chrome'][$key] = $docs['chrome:' . $key];
+            }
+        }
+        if (is_array($applied['meta'] ?? null)) {
+            foreach (['title', 'desc', 'ogtitle'] as $key) {
+                if (!empty($applied['meta'][$key])) $meta[$key] = st_builder_plain_meta((string) $applied['meta'][$key]);
+            }
+        }
+        $authored = (int) ($applied['translated'] ?? 0) + (int) ($applied['locked'] ?? 0);
+        $i18nNote = (string) ($applied['note'] ?? '');
+        $i18nPending = (int) ($applied['pending'] ?? 0);
+    }
+
     if (isset($data['chrome']) && is_array($data['chrome'])) {
         st_builder_apply_chrome($data['chrome']);
         $shared = true;
-    }
-
-    if (isset($data['meta']) && is_array($data['meta'])) {
-        foreach (['title', 'desc', 'ogtitle'] as $key) {
-            if (!array_key_exists($key, $data['meta'])) continue;
-            $val = st_builder_plain_meta((string) $data['meta'][$key]);
-            if ($val !== '') $meta[$key] = $val;
-        }
-    }
-
-    $authored = 0;
-    if (is_array($data['i18nPairs'] ?? null) && $data['i18nPairs'] !== []) {
-        require_once __DIR__ . '/tlumacz.php';
-        $authored = st_i18n_author_pairs($data['i18nPairs']);
     }
 
     if (!str_ends_with($main, "\n")) $main .= "\n";
@@ -414,6 +433,8 @@ function st_builder_commit(array $data): array
         'url' => (string) ($meta['url'] ?? ''),
         'shared' => $shared,
         'i18n' => $authored,
+        'i18nPending' => $i18nPending,
+        'i18nNote' => $i18nNote,
     ];
 }
 

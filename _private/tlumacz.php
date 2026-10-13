@@ -6,6 +6,7 @@ const ST_I18N_JSON = ST_ROOT . '/_build/nakladka-jezyk.json';
 const ST_I18N_JS = ST_ROOT . '/assets/js/nakladka-jezyk.js';
 
 require_once __DIR__ . '/sens-tlumaczenia.php';
+require_once __DIR__ . '/zrodlo-en.php';
 
 function st_i18n_skip(string $text, string $source = 'uk'): bool
 {
