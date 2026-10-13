@@ -3003,19 +3003,41 @@
     }
   }
 
-  function applyEnMarks(el) {
-    var raw = el.getAttribute('data-st-enmark');
-    if (!raw) return;
-    var items;
-    try { items = JSON.parse(raw); } catch (e) { return; }
-    if (!items || !items.length) return;
+  function dropEmptyStyledSpans(root) {
+    if (!root || !root.querySelectorAll) return;
+    var list = root.querySelectorAll('span');
+    var i, sp;
+    for (i = list.length - 1; i >= 0; i--) {
+      sp = list[i];
+      if ((sp.textContent || '').replace(/\s/g, '')) continue;
+      if (sp.parentNode) sp.parentNode.removeChild(sp);
+    }
+  }
+
+  function paintMarkStyle(el, item) {
+    if (!el || !item) return;
+    if (typeof item.c === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(item.c)) el.style.color = item.c;
+    if (typeof item.z === 'string' && /^(?:[\d.]+(?:px|rem|em|%))$/.test(item.z)) el.style.fontSize = item.z;
+  }
+
+  function applyMarkList(el, items, onlyAttr) {
+    var spans = [];
+    var rest = [];
     items.forEach(function (item) {
+      if (item && (item.tag || '') === 'span') spans.push(item);
+      else rest.push(item);
+    });
+    spans.concat(rest).forEach(function (item) {
       if (!item || !item.t) return;
       var tag = item.tag || 'a';
-      if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
+      if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u' && tag !== 'span') return;
+      if (tag === 'span' && !item.c && !item.z) return;
       if (tag === 'a' && !/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(item.h || '')) return;
-      var made = wrapPlainPhrase(el, item.t, tag);
-      if (!made || tag !== 'a') return;
+      var made = wrapPlainPhrase(el, item.t, tag, item.at);
+      if (!made) return;
+      if (onlyAttr) made.setAttribute(onlyAttr, '');
+      if (tag === 'span') { paintMarkStyle(made, item); return; }
+      if (tag !== 'a') return;
       made.setAttribute('href', item.h);
       made.className = 'st-link';
       made.setAttribute('data-st-link', '');
@@ -3026,29 +3048,52 @@
     });
   }
 
+  function applyEnMarks(el) {
+    var raw = el.getAttribute('data-st-enmark');
+    if (!raw) return;
+    var items;
+    try { items = JSON.parse(raw); } catch (e) { return; }
+    if (!items || !items.length) return;
+    applyMarkList(el, items, '');
+  }
+
   function applyRuMarks(el) {
     var raw = el && el.getAttribute ? el.getAttribute('data-st-rumark') : '';
     if (!raw) return;
     var items;
     try { items = JSON.parse(raw); } catch (e) { return; }
     if (!items || !items.length) return;
-    items.forEach(function (item) {
-      if (!item || !item.t) return;
-      var tag = item.tag || 'a';
-      if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
-      if (tag === 'a' && !/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(item.h || '')) return;
-      var made = wrapPlainPhrase(el, item.t, tag, item.at);
-      if (!made) return;
-      made.setAttribute('data-st-ru-only', '');
-      if (tag !== 'a') return;
-      made.setAttribute('href', item.h);
-      made.className = 'st-link';
-      made.setAttribute('data-st-link', '');
-      if (item.b) {
-        made.setAttribute('target', '_blank');
-        made.setAttribute('rel', 'noopener');
-      }
-    });
+    applyMarkList(el, items, 'data-st-ru-only');
+  }
+
+  function styleSpanRecords(node) {
+    var list = node.querySelectorAll('span');
+    var out = [];
+    var i, sp, style;
+    for (i = 0; i < list.length; i++) {
+      sp = list[i];
+      if (sp.hasAttribute('data-st-en-only') || sp.hasAttribute('data-st-ru-only')) continue;
+      if (sp.querySelector('a, strong, em, u, span')) continue;
+      style = sp.getAttribute('style') || '';
+      if (!/(?:^|;)\s*(?:color|font-size)\s*:/i.test(style)) continue;
+      if (!(sp.textContent || '')) continue;
+      out.push({ text: sp.textContent, style: style });
+    }
+    return out;
+  }
+
+  function reapplyStyleSpans(node, paints) {
+    var i, made, seen;
+    for (i = 0; i < paints.length; i++) {
+      if (!paints[i].text || (node.textContent || '').indexOf(paints[i].text) < 0) continue;
+      seen = false;
+      node.querySelectorAll('span').forEach(function (sp) {
+        if (sp.textContent === paints[i].text && (sp.getAttribute('style') || '') === paints[i].style) seen = true;
+      });
+      if (seen) continue;
+      made = wrapPlainPhrase(node, paints[i].text, 'span');
+      if (made) made.setAttribute('style', paints[i].style);
+    }
   }
 
   function syncLangStyle(el, lang) {
@@ -3128,7 +3173,15 @@
     range.setEnd(endNode, endOff);
     var made = document.createElement(tag);
     try { range.surroundContents(made); }
-    catch (err) { return null; }
+    catch (err) {
+      try {
+        var frag = range.extractContents();
+        if (!frag || !String(frag.textContent || '').replace(/\s/g, '')) return null;
+        made.appendChild(frag);
+        range.insertNode(made);
+        dropEmptyStyledSpans(el);
+      } catch (err2) { return null; }
+    }
     return made;
   }
 
@@ -3148,6 +3201,15 @@
         if (node.innerHTML !== node.stOrigHTML) node.innerHTML = node.stOrigHTML;
         if (lang === 'uk') return;
         var whole = lookup(node.stOrigPlain, lang);
+        var paints = styleSpanRecords(node);
+        if (whole !== node.stOrigPlain && paints.length && !node.querySelector('[data-st-en], a.st-link, a[data-st-link]')) {
+          node.textContent = whole;
+          reapplyStyleSpans(node, paints);
+          dropBlankUnmarkedLinks(node);
+          if (lang === 'en') applyEnMarks(node);
+          if (lang === 'ru') applyRuMarks(node);
+          return;
+        }
         if (whole !== node.stOrigPlain && lang !== 'en' && node.querySelector('[data-st-en], [data-st-enmark]')) {
           /* Keep the link markup and translate the Ukrainian pieces below. */
         } else if (whole !== node.stOrigPlain) {

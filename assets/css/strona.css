@@ -3717,7 +3717,8 @@ a[data-st-link]:hover { text-decoration-thickness: 2px; }
   color: var(--brand-300);
   opacity: .95;
 }
-.proof__ico svg { width: 100%; height: 100%; display: block; }
+.proof__ico svg, .proof__ico img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.proof__ico:empty { display: none; }
 .proof__n {
   font-family: var(--f-display);
   font-size: clamp(2.2rem, 4.2vw, 3.15rem);
@@ -3834,7 +3835,8 @@ a[data-st-link]:hover { text-decoration-thickness: 2px; }
   margin-bottom: .15rem;
   transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
 }
-.about-dir__ico svg { width: 1.55rem; height: 1.55rem; display: block; }
+.about-dir__ico svg, .about-dir__ico img { width: 1.55rem; height: 1.55rem; display: block; object-fit: contain; }
+.about-dir__ico:empty { display: none; }
 .about-dir:hover .about-dir__ico {
   background: var(--brand);
   color: #fff;

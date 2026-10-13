@@ -400,6 +400,10 @@
       });
     });
 
+    host.querySelector('#stb-color').addEventListener('mousedown', armStyleRange);
+    host.querySelector('#stb-size').addEventListener('mousedown', armStyleRange);
+    host.querySelector('[data-act="clearcolor"]').addEventListener('mousedown', armStyleRange);
+    host.querySelector('[data-act="nosize"]').addEventListener('mousedown', armStyleRange);
     host.querySelector('#stb-color').addEventListener('input', function (e) {
       paint(e.target.value);
     });
@@ -520,8 +524,10 @@
       style.textContent = [
         '.stb-on{outline:2px solid #d10a11;outline-offset:3px}',
         'html{scroll-behavior:auto!important}',
-        '.stb-ink-light,.stb-ink-light *{background-color:#1a1a1a!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
-        '.stb-ink-dark,.stb-ink-dark *{background-color:#fff!important;color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
+        '.stb-ink-light,.stb-ink-light *{background-color:#1a1a1a!important}',
+        '.stb-ink-light,.stb-ink-light *:not([data-stb-paint]){color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
+        '.stb-ink-dark,.stb-ink-dark *{background-color:#fff!important}',
+        '.stb-ink-dark,.stb-ink-dark *:not([data-stb-paint]){color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
         'a.st-link,a[data-st-link]{color:#d10a11!important;-webkit-text-fill-color:#d10a11!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px}',
         '.stb-ink-light,.stb-ink-dark{border-radius:2px}',
         'a{cursor:text}',
@@ -539,6 +545,10 @@
         'html.stb-move .hero__bg,html.stb-move .hero__emerge,html.stb-move .hero__shot,html.stb-move figure,html.stb-move .tile__media,html.stb-move .card__media,html.stb-move .hero__bg img,html.stb-move .hero__emerge img,html.stb-move .hero__shot img,html.stb-move figure img,html.stb-move .tile__media img,html.stb-move .card__media img{pointer-events:auto!important;cursor:grab!important}',
         '.stb-addone{display:inline-flex;margin:.4rem 0;padding:.28rem .7rem;border:1px dashed #d10a11;background:#fff;color:#9d1020;font:700 12px/1.2 Inter,system-ui,sans-serif;border-radius:999px;cursor:pointer}',
         '.stb-slotlabel{display:block;margin:.2rem 0 .4rem;font:600 12px/1.3 Inter,system-ui,sans-serif;color:#8d1018}',
+        '.proof__ico,.about-dir__ico{cursor:pointer}',
+        '.proof__ico:hover,.about-dir__ico:hover{outline:2px solid #d10a11;outline-offset:3px}',
+        '.proof__ico:empty,.about-dir__ico:empty{display:grid!important;place-items:center;border:1px dashed currentColor;opacity:.85}',
+        '.proof__ico:empty::before,.about-dir__ico:empty::before{content:"+";font:700 16px/1 Inter,system-ui,sans-serif}',
         'html.stb-move .hero,html.stb-move figure,html.stb-move a.tile,html.stb-move a.card{cursor:grab}',
         'html.stb-move body{user-select:none}'
       ].join('');
@@ -610,7 +620,9 @@
       d.addEventListener('selectionchange', function () {
         var live = d.getSelection();
         if (live && live.rangeCount && !live.isCollapsed) {
-          try { heldRange = live.getRangeAt(0).cloneRange(); } catch (err) { heldRange = null; }
+        try { heldRange = live.getRangeAt(0).cloneRange(); } catch (err) { heldRange = null; }
+        var sameArmed = armedStyle && flat(live.toString()) === armedStyle.text;
+        if ((!armedStyle || armedStyle.used) && !sameArmed) armedStyle = null;
         }
         if (!pickedEl || !pickedEl.isConnected) { pickedEl = null; return; }
         if (!live || !live.rangeCount || live.isCollapsed) return;
@@ -1050,6 +1062,15 @@
       var t = e.target;
       if (!t || t.nodeType !== 1) t = t && t.parentElement;
       if (!t) return;
+      var iconSlot = t.closest && t.closest('.proof__ico, .about-dir__ico');
+      if (iconSlot && iconSlot.closest && iconSlot.closest('#main')) {
+        e.preventDefault();
+        e.stopPropagation();
+        openIconPicker(iconSlot);
+        return;
+      }
+      var clickSel = doc.getSelection();
+      if (!clickSel || !clickSel.rangeCount || clickSel.isCollapsed) heldRange = null;
       var langBtn = t.closest && t.closest('.lang__btn[data-lang]');
       if (langBtn) {
         e.preventDefault();
@@ -1425,8 +1446,44 @@
       });
     }
 
+    function replaySharedFromSnap(host) {
+      var html = host && host.stbUkSnap != null ? host.stbUkSnap : (host && host.stbRuSnap != null ? host.stbRuSnap : null);
+      if (html == null) return;
+      var box = doc.createElement('div');
+      box.innerHTML = html;
+      var recs = [];
+      box.querySelectorAll('span[style]').forEach(function (sp) {
+        var style = sp.getAttribute('style') || '';
+        if (!/(?:^|;)\s*(?:color|font-size)\s*:/i.test(style)) return;
+        var text = flat(sp.textContent);
+        if (text) recs.push({ text: text, style: style });
+      });
+      if (!recs.length) return;
+      host.querySelectorAll('span[data-stb-shared]').forEach(function (sp) { unwrapEl(sp); });
+      host.querySelectorAll('span').forEach(function (sp) {
+        if (sp.hasAttribute('data-st-en-only') || sp.hasAttribute('data-st-ru-only')) return;
+        if (!flat(sp.textContent)) unwrapEl(sp);
+      });
+      if (host.normalize) host.normalize();
+      var shown = host.textContent || '';
+      recs.forEach(function (rec) {
+        if (shown.indexOf(rec.text) < 0) return;
+        var made = wrapDisplayed(host, rec.text, shown.indexOf(rec.text), 'span');
+        if (!made) return;
+        made.setAttribute('style', rec.style);
+        made.setAttribute('data-stb-shared', '');
+        made.setAttribute('data-stb-paint', '');
+      });
+    }
+
     function overlayLang(lang) {
       var win = frame.contentWindow;
+      var sharedHosts = [];
+      if (doc) {
+        doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote').forEach(function (host) {
+          if (host.querySelector('span[style]')) sharedHosts.push(host);
+        });
+      }
       walkText(doc, function (node) {
         if (node.stbUk == null) node.stbUk = node.nodeValue;
         var parent = node.parentElement;
@@ -1436,6 +1493,23 @@
         if (tr && tr !== uk) node.nodeValue = pad(node.stbUk, tr);
         else if (lang === 'en' && node.stbEn) node.nodeValue = pad(node.stbUk, node.stbEn);
         else if (lang === 'ru' && node.stbRu) node.nodeValue = pad(node.stbUk, node.stbRu);
+      });
+      sharedHosts.forEach(function (host) {
+        if (!host.isConnected) return;
+        revealUk(host);
+        if (host.stbUkSnap == null) {
+          host.stbUkSnap = host.innerHTML;
+          host.stbUkFull = rawUk(host);
+        }
+        var ukFull = flat(host.stbUkFull || '');
+        var trFull = ukFull && win && win.ST && typeof win.ST.lookup === 'function' ? win.ST.lookup(ukFull, lang) : '';
+        if (!trFull || flat(trFull) === ukFull) return;
+        host.textContent = trFull;
+        if (host.firstChild && host.firstChild.nodeType === 3) {
+          host.firstChild.stbUk = host.stbUkFull || ukFull;
+          host.stbUkLeaf = host.stbUkFull || ukFull;
+        }
+        replaySharedFromSnap(host);
       });
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         if (el.stbUk == null) el.stbUk = el.getAttribute('placeholder') || '';
@@ -1508,6 +1582,9 @@
       });
       doc.querySelectorAll('.film-rail__empty, .mach__film--empty').forEach(function (el) {
         el.setAttribute('data-stb-empty', 'Click to add a video');
+      });
+      doc.querySelectorAll('.proof__ico, .about-dir__ico').forEach(function (el) {
+        el.setAttribute('title', 'Change icon');
       });
     }
 
@@ -1717,6 +1794,161 @@
       return sec;
     }
 
+    function iconCatalog() {
+      var stroke = 'fill="none" stroke="currentColor" stroke-width="1.6"';
+      function svg(body) { return '<svg viewBox="0 0 48 48" ' + stroke + '>' + body + '</svg>'; }
+      return [
+        { id: 'sun', name: 'Sun', svg: svg('<circle cx="24" cy="24" r="7"/><path d="M24 8v4M24 36v4M8 24h4M36 24h4"/><path d="m14 14 3 3M31 31l3 3M31 14l3-3M14 34l3-3"/>') },
+        { id: 'machine', name: 'Machine', svg: svg('<rect x="8" y="16" width="32" height="22" rx="2"/><path d="M14 16V11h8v5M32 16v-6h6v6"/><circle cx="19" cy="28" r="3"/><circle cx="29" cy="28" r="3"/>') },
+        { id: 'cycle', name: 'Cycle', svg: svg('<path d="M24 8v8l6 4-6 4v8"/><path d="M14 18a14 14 0 1 0 12-9"/><path d="M14 18h-6v-6"/>') },
+        { id: 'person', name: 'Person', svg: svg('<circle cx="24" cy="16" r="6"/><path d="M10 38c2.5-7 8-11 14-11s11.5 4 14 11"/><path d="m18 8 2.2-3.2L24 6l3.8-1.2L30 8"/><path d="M20 8.5 24 6l4 2.5"/>') },
+        { id: 'draft', name: 'Draft', svg: svg('<path d="M8 34 24 10l16 24H8Z"/><path d="M18 34v-8h12v8"/><path d="M24 10v8"/>') },
+        { id: 'factory', name: 'Factory', svg: svg('<rect x="8" y="14" width="32" height="22" rx="2"/><path d="M14 14V10h20v4M16 26h6M26 26h6M19 32h10"/>') },
+        { id: 'controls', name: 'Controls', svg: svg('<rect x="9" y="10" width="18" height="28" rx="2"/><path d="M15 16h6M15 22h6M15 28h4"/><circle cx="34" cy="24" r="7"/><path d="M34 17v3M34 28v3M27 24h3M38 24h3"/>') },
+        { id: 'robot', name: 'Robot', svg: svg('<circle cx="24" cy="18" r="6"/><path d="M14 36c2-7 6.5-11 10-11s8 4 10 11"/><path d="m18 18-6 2M30 18l6 2M24 12V7"/><path d="M12 28h8l2 6h4l2-6h8"/>') },
+        { id: 'check', name: 'Check', svg: svg('<path d="M10 25l9 9L38 14"/>') },
+        { id: 'star', name: 'Star', svg: svg('<path d="m24 8 4.5 9.2 10.2 1.5-7.4 7.2 1.8 10.1L24 31.2 14.9 36l1.8-10.1L9.3 18.7l10.2-1.5L24 8Z"/>') },
+        { id: 'bolt', name: 'Bolt', svg: svg('<path d="M26 6 12 26h10l-2 16 16-22H26V6Z"/>') },
+        { id: 'shield', name: 'Shield', svg: svg('<path d="M24 6 10 12v12c0 9 6 14 14 16 8-2 14-7 14-16V12L24 6Z"/>') },
+        { id: 'clock', name: 'Clock', svg: svg('<circle cx="24" cy="24" r="14"/><path d="M24 14v11l7 4"/>') },
+        { id: 'pin', name: 'Pin', svg: svg('<path d="M24 42s12-12 12-20a12 12 0 1 0-24 0c0 8 12 20 12 20Z"/><circle cx="24" cy="22" r="4"/>') },
+        { id: 'chart', name: 'Chart', svg: svg('<path d="M8 38V10M8 38h32"/><path d="M14 30v8M22 22v16M30 26v12M38 16v22"/>') },
+        { id: 'wrench', name: 'Wrench', svg: svg('<path d="M30 10a8 8 0 0 0-10 10L8 32l8 8 12-12a8 8 0 0 0 10-10l-6 6-6-6 4-8Z"/>') }
+      ];
+    }
+
+    function sectionIcon(cls, id) {
+      var item = null;
+      iconCatalog().forEach(function (row) { if (row.id === id) item = row; });
+      if (!item) item = iconCatalog()[0];
+      return '<span class="' + cls + '" aria-hidden="true" data-st-icon="' + item.id + '">' + item.svg + '</span>';
+    }
+
+    function rememberIcon(ico) {
+      var host = ico && ico.closest ? ico.closest(PHRASE_SEL) : null;
+      if (!host || !host.querySelectorAll) return;
+      ['stbUkSnap', 'stbRuSnap'].forEach(function (key) {
+        if (host[key] == null) return;
+        var box = doc.createElement('div');
+        box.innerHTML = host[key];
+        var live = host.querySelectorAll('.proof__ico, .about-dir__ico');
+        var saved = box.querySelectorAll('.proof__ico, .about-dir__ico');
+        var idx = Array.prototype.indexOf.call(live, ico);
+        if (idx < 0 || !saved[idx]) return;
+        saved[idx].innerHTML = ico.innerHTML;
+        if (ico.hasAttribute('data-st-icon')) saved[idx].setAttribute('data-st-icon', ico.getAttribute('data-st-icon'));
+        else saved[idx].removeAttribute('data-st-icon');
+        host[key] = box.innerHTML;
+      });
+    }
+
+    function paintIcon(ico, html, id) {
+      if (!ico) return;
+      beforeChange();
+      ico.innerHTML = html || '';
+      if (id) ico.setAttribute('data-st-icon', id);
+      else ico.removeAttribute('data-st-icon');
+      if (!ico.getAttribute('aria-hidden')) ico.setAttribute('aria-hidden', 'true');
+      ico.setAttribute('title', 'Change icon');
+      rememberIcon(ico);
+      markDirty(whereOf(ico));
+      say(html ? 'Icon updated. It is the same on Ukrainian, English and Russian. Save to publish.' : 'Icon removed. Save to publish.');
+    }
+
+    function cleanIconSvg(markup) {
+      var parsed;
+      try { parsed = new DOMParser().parseFromString(String(markup || ''), 'image/svg+xml'); }
+      catch (err) { return ''; }
+      if (!parsed || parsed.querySelector('parsererror')) return '';
+      var svg = parsed.querySelector('svg');
+      if (!svg) return '';
+      var allowed = { svg: 1, g: 1, path: 1, circle: 1, rect: 1, line: 1, polyline: 1, polygon: 1, ellipse: 1 };
+      var keep = { viewbox: 1, fill: 1, stroke: 1, 'stroke-width': 1, 'stroke-linecap': 1, 'stroke-linejoin': 1, d: 1, cx: 1, cy: 1, r: 1, x: 1, y: 1, width: 1, height: 1, rx: 1, ry: 1, points: 1, transform: 1, opacity: 1, 'aria-hidden': 1 };
+      function scrub(el) {
+        Array.prototype.slice.call(el.attributes || []).forEach(function (at) {
+          var name = String(at.name || '').toLowerCase();
+          if (name.indexOf('on') === 0 || !keep[name]) el.removeAttribute(at.name);
+        });
+        Array.prototype.slice.call(el.children || []).forEach(function (kid) {
+          if (!allowed[String(kid.tagName || '').toLowerCase()]) { kid.remove(); return; }
+          scrub(kid);
+        });
+      }
+      scrub(svg);
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 48 48');
+      if (!svg.querySelector('path, circle, rect, line, polyline, polygon, ellipse')) return '';
+      var out = svg.outerHTML;
+      if (!out || out.length > 20000) return '';
+      return out;
+    }
+
+    function openIconPicker(ico) {
+      if (!ico || !ico.isConnected) return;
+      var old = document.getElementById('stb-icon-dlg');
+      if (old) old.remove();
+      var modal = document.createElement('div');
+      modal.className = 'stb-modal';
+      modal.id = 'stb-icon-dlg';
+      var current = ico.getAttribute('data-st-icon') || '';
+      var buttons = iconCatalog().map(function (row) {
+        return '<button type="button" class="stb-icon' + (row.id === current ? ' is-on' : '') + '" data-icon="' + row.id + '" title="' + row.name + '">' + row.svg + '</button>';
+      }).join('');
+      modal.innerHTML = '<div class="stb-dialog" role="dialog" aria-modal="true" aria-labelledby="stb-icon-title">' +
+        '<h2 id="stb-icon-title">Change icon</h2>' +
+        '<p class="lead">Pick a line icon, upload an SVG or PNG, or remove it. The same icon shows in Ukrainian, English and Russian.</p>' +
+        '<div class="stb-icons">' + buttons + '</div>' +
+        '<div class="stb-actions"><label class="btn btn-ghost">Upload SVG or PNG<input type="file" id="stb-icon-file" accept="image/svg+xml,image/png,image/jpeg,image/webp,image/gif,.svg" hidden></label>' +
+        '<button type="button" class="btn btn-ghost" id="stb-icon-rm">Remove icon</button>' +
+        '<button type="button" class="btn btn-ghost" id="stb-icon-x">Cancel</button></div></div>';
+      document.body.appendChild(modal);
+      function close() { modal.remove(); }
+      modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+      modal.querySelector('#stb-icon-x').addEventListener('click', close);
+      modal.querySelectorAll('[data-icon]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-icon');
+          var item = null;
+          iconCatalog().forEach(function (row) { if (row.id === id) item = row; });
+          if (!item || !ico.isConnected) { close(); return; }
+          paintIcon(ico, item.svg, item.id);
+          close();
+        });
+      });
+      modal.querySelector('#stb-icon-rm').addEventListener('click', function () {
+        if (ico.isConnected) paintIcon(ico, '', '');
+        close();
+      });
+      modal.querySelector('#stb-icon-file').addEventListener('change', function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file || !ico.isConnected) return;
+        var name = String(file.name || '').toLowerCase();
+        var isSvg = file.type === 'image/svg+xml' || /\.svg$/.test(name);
+        if (file.size > (isSvg ? 200000 : 8 * 1024 * 1024)) {
+          say(isSvg ? 'Use an SVG smaller than 200 KB.' : 'Use an image smaller than 8 MB.', 'err');
+          close();
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () {
+          if (isSvg) {
+            var clean = cleanIconSvg(String(reader.result || ''));
+            if (!clean) { say('That SVG could not be used. Choose a line icon or a PNG.', 'err'); close(); return; }
+            paintIcon(ico, clean, '');
+            close();
+            return;
+          }
+          api({ action: 'cms.media.upload', name: file.name || 'icon.png', data: String(reader.result || '') }).then(function (res) {
+            if (!res || !res.ok || !res.url) { say((res && res.error) || 'The image was not uploaded.', 'err'); close(); return; }
+            if (!ico.isConnected) { close(); return; }
+            paintIcon(ico, '<img src="' + res.url + '" alt="" width="48" height="48">', '');
+            close();
+          }, function () { say('The image was not uploaded.', 'err'); close(); });
+        };
+        if (isSvg) reader.readAsText(file);
+        else reader.readAsDataURL(file);
+      });
+    }
+
     function blockTemplates() {
       var arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
       var slot = '<img class="is-slot" src="/assets/img/slot.svg" alt="Фото" width="800" height="600" loading="lazy" decoding="async">';
@@ -1739,7 +1971,7 @@
         { id: 'faq', name: 'Questions', blurb: 'Expanding questions and answers', thumb: 'faq', html:
           '<section class="sec sec-paper-2"><div class="wrap wrap-tight"><div class="sec-head"><p class="eyebrow">Питання</p><h2 class="h-lg">Заголовок</h2></div><div class="faq"><details><summary>Питання</summary><div class="faq__a"><p>Текст, який можна змінити.</p></div></details><details><summary>Питання</summary><div class="faq__a"><p>Текст, який можна змінити.</p></div></details></div></div></section>' },
         { id: 'stats', name: 'Numbers', blurb: 'Figures and a photo, as on About', thumb: 'stats', html:
-          '<section class="proof" aria-label="Цифри"><div class="wrap proof__in"><div class="proof__copy"><p class="eyebrow proof__eyebrow">Цифри</p><p class="proof__lead">Короткий опис, який можна змінити.</p><ul class="proof__stats"><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i"><strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li></ul></div><figure class="proof__media">' + slot + '</figure></div></section>' },
+          '<section class="proof" aria-label="Цифри"><div class="wrap proof__in"><div class="proof__copy"><p class="eyebrow proof__eyebrow">Цифри</p><p class="proof__lead">Короткий опис, який можна змінити.</p><ul class="proof__stats"><li class="proof__i">' + sectionIcon('proof__ico', 'sun') + '<strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i">' + sectionIcon('proof__ico', 'machine') + '<strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i">' + sectionIcon('proof__ico', 'cycle') + '<strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li><li class="proof__i">' + sectionIcon('proof__ico', 'person') + '<strong class="proof__n">—</strong><span class="proof__l">Підпис</span></li></ul></div><figure class="proof__media">' + slot + '</figure></div></section>' },
         { id: 'partners', name: 'Partners', blurb: 'Centered partner logos', thumb: 'cards', html:
           '<section class="about-partners"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Партнери</p><h2 class="h-lg">Заголовок</h2></div><ul class="partners partners--rich"><li class="partners__card">' + slot + '<p>Текст, який можна змінити.</p></li><li class="partners__card">' + slot + '<p>Текст, який можна змінити.</p></li></ul></div></section>' },
         { id: 'tiles', name: 'Machine cards', blurb: 'Category cards with photo slots', thumb: 'cards', html:
@@ -1749,7 +1981,7 @@
         { id: 'about', name: 'About introduction', blurb: 'Photo and story, as on About', thumb: 'split', html:
           '<section class="about-intro"><div class="wrap about-intro__in"><figure class="about-intro__media">' + slot + '</figure><div class="about-intro__copy"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p>Текст, який можна змінити.</p><p>Текст, який можна змінити.</p><div class="about-intro__actions"><a class="btn" href="#zapyt">Запросити пропозицію</a><a class="btn btn-ghost" href="#zapyt">Докладніше</a></div></div></div></section>' },
         { id: 'caps', name: 'About capabilities', blurb: 'Four directions, as on About', thumb: 'cards', html:
-          '<section class="about-caps"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="about-dirs"><article class="about-dir"><span class="about-dir__n">01</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir"><span class="about-dir__n">02</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir"><span class="about-dir__n">03</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir"><span class="about-dir__n">04</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article></div></div></section>' },
+          '<section class="about-caps"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Розділ</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><div class="about-dirs"><article class="about-dir">' + sectionIcon('about-dir__ico', 'draft') + '<span class="about-dir__n">01</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir">' + sectionIcon('about-dir__ico', 'factory') + '<span class="about-dir__n">02</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir">' + sectionIcon('about-dir__ico', 'controls') + '<span class="about-dir__n">03</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article><article class="about-dir">' + sectionIcon('about-dir__ico', 'robot') + '<span class="about-dir__n">04</span><h3>Заголовок</h3><p>Текст, який можна змінити.</p></article></div></div></section>' },
         { id: 'clients', name: 'About clients', blurb: 'A logo wall, as on About', thumb: 'cards', html:
           '<section class="about-clients"><div class="wrap"><div class="sec-head sec-head-wide"><p class="eyebrow">Партнери</p><h2 class="h-lg">Заголовок</h2><p class="lead">Короткий опис, який можна змінити.</p></div><ul class="client-wall"><li>' + slot + '</li><li>' + slot + '</li><li>' + slot + '</li><li>' + slot + '</li></ul></div></section>' },
         { id: 'cta', name: 'Call to action', blurb: 'The red band used above the quote form', thumb: 'text', html:
@@ -1880,7 +2112,7 @@
         preview.tabIndex = -1;
         preview.title = '';
         preview.setAttribute('sandbox', 'allow-same-origin');
-        preview.srcdoc = '<!DOCTYPE html><html data-st-builder="1"><head><link rel="stylesheet" href="/assets/css/strona.css?v=20261012g"><style>html,body{margin:0;background:#fff}body{width:1100px;overflow:hidden}</style></head><body>' + tpl.html + '</body></html>';
+        preview.srcdoc = '<!DOCTYPE html><html data-st-builder="1"><head><link rel="stylesheet" href="/assets/css/strona.css?v=20261012h"><style>html,body{margin:0;background:#fff}body{width:1100px;overflow:hidden}</style></head><body>' + tpl.html + '</body></html>';
         holder.appendChild(preview);
       });
       function close() { modal.remove(); }
@@ -1940,16 +2172,65 @@
       return base.closest('li') || base.closest('p, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th, ul, ol') || base;
     }
 
+    var armedStyle = null;
+
+    function activeRange() {
+      var sel = doc.getSelection();
+      var live = sel && sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0) : null;
+      if (live && flat(live.toString())) return live;
+      if (heldRange && heldRange.startContainer && heldRange.startContainer.isConnected && !heldRange.collapsed && flat(heldRange.toString())) {
+        try { return heldRange.cloneRange(); } catch (err) { return null; }
+      }
+      return null;
+    }
+
+    function armStyleRange() {
+      var range = activeRange();
+      armedStyle = null;
+      if (!range) return;
+      var host = phraseHost(range.commonAncestorContainer);
+      if (!host || (range.endContainer && phraseHost(range.endContainer) !== host)) return;
+      try { armedStyle = { host: host, text: flat(range.toString()), mode: mode, range: range.cloneRange(), used: false }; }
+      catch (err) { armedStyle = null; }
+    }
+
+    function stylePhrase(prop, value) {
+      var armed = armedStyle && armedStyle.mode === mode && armedStyle.host && armedStyle.host.isConnected ? armedStyle : null;
+      if (armed && armed.used) {
+        if (!updateArmedStyle(armed, prop, value)) {
+          say(prop === 'color' ? 'Those words could not be coloured.' : 'Those words could not be resized.', 'err');
+          return 'failed';
+        }
+        return 'applied';
+      }
+      var range = armed && armed.range && armed.range.startContainer && armed.range.startContainer.isConnected && !armed.range.collapsed
+        ? armed.range : activeRange();
+      if (!range || !flat(range.toString())) return '';
+      var ok = applySelectionStyle(range, prop, value);
+      if (ok && armed) armed.used = true;
+      if (!ok) {
+        say(prop === 'color' ? 'Those words could not be coloured.' : 'Those words could not be resized.', 'err');
+        return 'failed';
+      }
+      return 'applied';
+    }
+
     function applySize(size) {
       if (!doc || !size) return;
       if (!/^(?:inherit|[\d.]+(?:px|rem|em|%))$/.test(size)) return;
+      var clearing = size === 'inherit' || size === '1rem';
+      var sized = stylePhrase('fontSize', clearing ? '' : size);
+      if (sized) {
+        if (sized === 'applied') say(sizeMessage(clearing));
+        return;
+      }
       var block = textBlock();
       if (!block || !block.style) { say('Click the text first.', 'err'); return; }
       if (mode === 'ru' || mode === 'en') {
         beforeChange();
         var sizeHost = (block.closest && block.closest(PHRASE_SEL)) || block;
         var sizeSpec = mode === 'ru' ? readRuStyle(sizeHost) : readEnStyle(sizeHost);
-        if (size === 'inherit' || size === '1rem') delete sizeSpec.fontSize;
+        if (clearing) delete sizeSpec.fontSize;
         else sizeSpec.fontSize = size;
         if (mode === 'ru') writeRuStyle(sizeHost, sizeSpec);
         else writeEnStyle(sizeHost, sizeSpec);
@@ -1961,10 +2242,20 @@
         return;
       }
       beforeChange();
-      if (size === 'inherit' || size === '1rem') block.style.fontSize = '';
+      if (clearing) block.style.fontSize = '';
       else block.style.fontSize = size;
       if (block.stbBaseStyle) block.stbBaseStyle.fontSize = block.style.fontSize || '';
       markDirty(whereOf(block));
+    }
+
+    function sizeMessage(clearing) {
+      if (mode === 'en') return clearing
+        ? 'Text size removed from the selected English text only. The Ukrainian sentence is unchanged.'
+        : 'Text size applied to the selected English text only. The Ukrainian sentence is unchanged.';
+      if (mode === 'ru') return clearing
+        ? 'Text size removed from the selected Russian text only. The Ukrainian sentence is unchanged.'
+        : 'Text size applied to the selected Russian text only. The Ukrainian sentence is unchanged.';
+      return clearing ? 'Text size removed from the selected text. Save to publish.' : 'Text size applied to the selected text. Save to publish.';
     }
 
     function indentBlock(dir) {
@@ -2053,6 +2344,11 @@
 
     function paint(color) {
       if (!doc) return;
+      var painted = stylePhrase('color', color || '');
+      if (painted) {
+        if (painted === 'applied') say(colorMessage(!!color));
+        return;
+      }
       var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
       if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
       if (mode === 'ru' || mode === 'en') {
@@ -2081,6 +2377,256 @@
       if (hostEl.stbBaseStyle) hostEl.stbBaseStyle.color = hostEl.style.color || '';
       markDirty(whereOf(hostEl));
       say(color ? 'Colour applied. Save to publish.' : 'Colour reset to the default. Save to publish.');
+    }
+
+    function colorMessage(on) {
+      if (mode === 'en') return on
+        ? 'Colour applied to the selected English text only. The Ukrainian sentence is unchanged.'
+        : 'Colour removed from the selected English text only. The Ukrainian sentence is unchanged.';
+      if (mode === 'ru') return on
+        ? 'Colour applied to the selected Russian text only. The Ukrainian sentence is unchanged.'
+        : 'Colour removed from the selected Russian text only. The Ukrainian sentence is unchanged.';
+      return on ? 'Colour applied to the selected text. Save to publish.' : 'Colour removed from the selected text. Save to publish.';
+    }
+
+    function applySelectionStyle(range, prop, value) {
+      if (mode === 'uk') return applyUaInline(range, prop, value);
+      return applyMarkInline(range, prop, value);
+    }
+
+    function markSpan(el, prop, value) {
+      if (!el) return;
+      if (prop === 'color') {
+        el.style.color = value || '';
+        el.style.webkitTextFillColor = value || '';
+      } else if (value) el.style.fontSize = value;
+      else el.style.fontSize = '';
+      if (value) el.setAttribute('data-stb-paint', '');
+      if (!String(el.getAttribute('style') || '').trim()) {
+        el.removeAttribute('style');
+        el.removeAttribute('data-stb-paint');
+        unwrapEl(el);
+      }
+    }
+
+    function exactSpan(range) {
+      var node = range.commonAncestorContainer;
+      var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+      if (!el || el.tagName !== 'SPAN') return null;
+      if (flat(el.textContent) !== flat(range.toString())) return null;
+      if (el.querySelector('a, img, svg')) return null;
+      return el;
+    }
+
+    function applyUaInline(range, prop, value) {
+      var host = phraseHost(range.commonAncestorContainer);
+      if (!host || (range.endContainer && phraseHost(range.endContainer) !== host)) return false;
+      beforeChange();
+      if (!value) return clearUaProp(host, range, prop);
+      var span = exactSpan(range);
+      if (!span) {
+        span = doc.createElement('span');
+        if (!wrapRange(range, span)) return false;
+      }
+      markSpan(span, prop, value);
+      if (value) selectPainted(host, flat(span.textContent));
+      markDirty(whereOf(host));
+      return true;
+    }
+
+    function rangeOutside(textNode, range) {
+      var len = textNode.nodeValue.length;
+      if (!len) return [];
+      var startPos, endPos;
+      try {
+        startPos = range.comparePoint(textNode, 0);
+        endPos = range.comparePoint(textNode, len);
+      } catch (err) { return []; }
+      if (startPos === 1 || endPos === -1) return [[0, len]];
+      if (startPos >= 0 && endPos <= 0) return [];
+      var cutStart = range.startContainer === textNode ? range.startOffset : 0;
+      var cutEnd = range.endContainer === textNode ? range.endOffset : len;
+      var parts = [];
+      if (cutStart > 0) parts.push([0, cutStart]);
+      if (cutEnd < len) parts.push([cutEnd, len]);
+      return parts;
+    }
+
+    function wrapSlice(textNode, from, to, prop, value) {
+      if (!textNode || to <= from || !textNode.parentNode) return;
+      var target = textNode;
+      if (to < target.nodeValue.length) target.splitText(to);
+      if (from > 0) target = target.splitText(from);
+      var span = doc.createElement('span');
+      markSpan(span, prop, value);
+      target.parentNode.insertBefore(span, target);
+      span.appendChild(target);
+    }
+
+    function clearUaProp(host, range, prop) {
+      var node = range.startContainer;
+      var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
+      var carrier = null;
+      while (el && host.contains(el)) {
+        if (el.style && el.style[prop]) { carrier = el; break; }
+        if (el === host) break;
+        el = el.parentElement;
+      }
+      if (!carrier && host.style && host.style[prop]) carrier = host;
+      if (!carrier) return false;
+      var kept = carrier.style[prop];
+      var coversAll = flat(range.toString()) === flat(carrier.textContent);
+      carrier.style[prop] = '';
+      if (prop === 'color') carrier.style.webkitTextFillColor = '';
+      if (carrier === host && carrier.stbBaseStyle) carrier.stbBaseStyle[prop] = '';
+      if (!String(carrier.getAttribute('style') || '').trim()) {
+        if (carrier === host) carrier.removeAttribute('style');
+        else if (coversAll) unwrapEl(carrier);
+      }
+      if (!coversAll) {
+        rawTextNodes(carrier === host ? host : carrier).slice().forEach(function (n) {
+          var parts = rangeOutside(n, range);
+          for (var i = parts.length - 1; i >= 0; i--) wrapSlice(n, parts[i][0], parts[i][1], prop, kept);
+        });
+        if (carrier !== host && carrier.parentNode && !String(carrier.getAttribute('style') || '').trim()) unwrapEl(carrier);
+      }
+      markDirty(whereOf(host));
+      return true;
+    }
+
+    function shownOf(host) {
+      return normMap(rawTextNodes(host).map(function (n) { return n.nodeValue || ''; }).join('')).norm;
+    }
+
+    function pushSpanPiece(next, source, text, at, prop, value) {
+      if (!text) return;
+      var copy = { t: text, at: at, tag: 'span' };
+      if (source && source.c) copy.c = source.c;
+      if (source && source.z) copy.z = source.z;
+      if (value !== null) {
+        if (prop === 'c') { if (value) copy.c = value; else delete copy.c; }
+        if (prop === 'z') { if (value) copy.z = value; else delete copy.z; }
+      }
+      if (copy.c || copy.z) next.push(copy);
+    }
+
+    function retargetSpans(items, full, start, end, prop, value) {
+      var next = [];
+      var covered = [];
+      (items || []).forEach(function (it) {
+        if (!it || (it.tag || '') !== 'span' || !it.t) { next.push(it); return; }
+        var a = Number(it.at);
+        if (isNaN(a)) a = 0;
+        var b = a + it.t.length;
+        if (b <= start || a >= end) { next.push(it); return; }
+        var leftLen = Math.max(0, start - a);
+        var rightFrom = Math.max(0, end - a);
+        pushSpanPiece(next, it, it.t.slice(0, leftLen), a, prop, null);
+        pushSpanPiece(next, it, it.t.slice(leftLen, rightFrom), a + leftLen, prop, value);
+        pushSpanPiece(next, it, it.t.slice(rightFrom), a + rightFrom, prop, null);
+        covered.push([Math.max(a, start), Math.min(b, end)]);
+      });
+      if (value) {
+        var cursor = start;
+        covered.sort(function (x, y) { return x[0] - y[0]; });
+        covered.forEach(function (seg) {
+          if (seg[0] > cursor) pushSpanPiece(next, null, full.slice(cursor, seg[0]), cursor, prop, value);
+          cursor = Math.max(cursor, seg[1]);
+        });
+        if (cursor < end) pushSpanPiece(next, null, full.slice(cursor, end), cursor, prop, value);
+      }
+      return next;
+    }
+
+    function applyMarkInline(range, prop, value) {
+      var plan = planPhrase(range);
+      if (!plan) return false;
+      var host = plan.host;
+      var phrase = plan.selected;
+      var start = mode === 'ru' ? plan.ruStart : plan.enStart;
+      if (start == null || start < 0) start = displayedStart(host, range);
+      if (start == null || start < 0) return false;
+      beforeChange();
+      var full = shownOf(host);
+      var read = mode === 'ru' ? readRuMarks : readMarks;
+      var write = mode === 'ru' ? writeRuMarks : writeMarks;
+      var key = prop === 'color' ? 'c' : 'z';
+      var items = retargetSpans(read(host), full, start, start + phrase.length, key, value || '');
+      if (!value) {
+        var spec = mode === 'ru' ? readRuStyle(host) : readEnStyle(host);
+        var field = prop === 'color' ? spec.color : spec.fontSize;
+        if (field && phrase !== full) {
+          if (start > 0) items = retargetSpans(items, full, 0, start, key, field);
+          if (start + phrase.length < full.length) items = retargetSpans(items, full, start + phrase.length, full.length, key, field);
+          if (prop === 'color') delete spec.color;
+          else delete spec.fontSize;
+          if (mode === 'ru') writeRuStyle(host, spec);
+          else writeEnStyle(host, spec);
+          applyLangVisual(host);
+        }
+      }
+      write(host, items);
+      if (armedStyle) armedStyle.at = start;
+      if (mode === 'ru') showRuHost(host);
+      else showHost(host);
+      if (value) selectPainted(host, phrase);
+      markDirty(whereOf(host));
+      return true;
+    }
+
+    function selectPainted(host, text) {
+      if (!host || !text) return;
+      var spans = host.querySelectorAll('span');
+      var el = null;
+      var i;
+      for (i = spans.length - 1; i >= 0; i--) {
+        if (flat(spans[i].textContent) === text) { el = spans[i]; break; }
+      }
+      if (!el) return;
+      try {
+        var range = doc.createRange();
+        range.selectNodeContents(el);
+        var sel = doc.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        heldRange = range.cloneRange();
+      } catch (err) { /* the style is already stored */ }
+    }
+
+    function updateArmedStyle(armed, prop, value) {
+      if (mode === 'uk') {
+        var spans = armed.host.querySelectorAll('span[data-stb-paint], span[style]');
+        var i, hit = null;
+        for (i = 0; i < spans.length; i++) {
+          if (flat(spans[i].textContent) === armed.text) { hit = spans[i]; break; }
+        }
+        if (!hit) return false;
+        beforeChange();
+        markSpan(hit, prop, value);
+        markDirty(whereOf(armed.host));
+        return true;
+      }
+      var read = mode === 'ru' ? readRuMarks : readMarks;
+      var write = mode === 'ru' ? writeRuMarks : writeMarks;
+      var items = read(armed.host);
+      var found = false;
+      items.forEach(function (it) {
+        if (!it || (it.tag || '') !== 'span' || it.t !== armed.text) return;
+        if (armed.at != null && Number(it.at) !== Number(armed.at)) return;
+        found = true;
+        if (prop === 'color') { if (value) it.c = value; else delete it.c; }
+        else { if (value) it.z = value; else delete it.z; }
+      });
+      items = items.filter(function (it) { return !it || (it.tag || '') !== 'span' || it.c || it.z; });
+      if (!found) return false;
+      beforeChange();
+      write(armed.host, items);
+      if (mode === 'ru') showRuHost(armed.host);
+      else showHost(armed.host);
+      markDirty(whereOf(armed.host));
+      return true;
     }
 
     function structuralLink(a) {
@@ -2167,6 +2713,11 @@
           if (!frag || !String(frag.textContent || '').trim()) return false;
           a.appendChild(frag);
           range.insertNode(a);
+          if (a.parentNode && a.parentNode.querySelectorAll) {
+            a.parentNode.querySelectorAll('span').forEach(function (sp) {
+              if (!flat(sp.textContent) && sp.parentNode) sp.parentNode.removeChild(sp);
+            });
+          }
           return true;
         } catch (err2) { return false; }
       }
@@ -2431,12 +2982,17 @@
 
     function ownInline(host) {
       var els = host.querySelectorAll('*');
-      var i, el, tag;
+      var i, el, tag, style;
       for (i = 0; i < els.length; i++) {
         el = els[i];
         if (el.hasAttribute('data-st-en')) return false;
         tag = el.tagName;
-        if (tag !== 'A' && tag !== 'STRONG' && tag !== 'EM' && tag !== 'U' && tag !== 'B' && tag !== 'I') return false;
+        if (tag === 'A' || tag === 'STRONG' || tag === 'EM' || tag === 'U' || tag === 'B' || tag === 'I') continue;
+        if (tag === 'SPAN') {
+          style = el.getAttribute('style') || '';
+          if (/(?:^|;)\s*(?:color|font-size)\s*:/i.test(style) && !el.querySelector('a, img, svg, video')) continue;
+        }
+        return false;
       }
       return true;
     }
@@ -2662,25 +3218,49 @@
       doc.querySelectorAll('[data-st-enstyle], [data-st-rustyle]').forEach(applyLangVisual);
     }
 
+    function paintStyledMark(el, item) {
+      if (!el || !item) return;
+      if (item.c && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(item.c)) {
+        el.style.color = item.c;
+        el.style.webkitTextFillColor = item.c;
+      }
+      if (item.z && /^(?:[\d.]+(?:px|rem|em|%))$/.test(item.z)) el.style.fontSize = item.z;
+      if (item.c || item.z) el.setAttribute('data-stb-paint', '');
+    }
+
+    function paintMarkList(host, items, onlyAttr) {
+      if (!host) return;
+      var spans = [];
+      var rest = [];
+      (items || []).forEach(function (item) {
+        if (item && (item.tag || '') === 'span') spans.push(item);
+        else rest.push(item);
+      });
+      spans.concat(rest).forEach(function (item) {
+        if (!item || !item.t) return;
+        var tag = item.tag || (item.h ? 'a' : '');
+        if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u' && tag !== 'span') return;
+        if (tag === 'span' && !item.c && !item.z) return;
+        var el = wrapDisplayed(host, item.t, item.at, tag);
+        if (!el) return;
+        el.setAttribute(onlyAttr, '');
+        if (item.at != null) el.setAttribute('data-st-at', String(item.at));
+        if (tag === 'span') paintStyledMark(el, item);
+        else if (tag === 'a' && item.h) styleLink(el, item.h, !!item.b);
+      });
+    }
+
     function paintRuMarks(host, items) {
       if (!host) return;
       host.querySelectorAll('[data-st-ru-only]').forEach(unwrapEl);
       if (host.normalize) host.normalize();
-      (items || []).forEach(function (item) {
-        if (!item || !item.t) return;
-        var tag = item.tag || (item.h ? 'a' : '');
-        if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
-        var el = wrapDisplayed(host, item.t, item.at, tag);
-        if (!el) return;
-        el.setAttribute('data-st-ru-only', '');
-        if (item.at != null) el.setAttribute('data-st-at', String(item.at));
-        if (tag === 'a' && item.h) styleLink(el, item.h, !!item.b);
-      });
+      paintMarkList(host, items, 'data-st-ru-only');
     }
 
     function showRuHost(host) {
       if (!host) return;
       if (host.stbRuSnap != null) host.innerHTML = host.stbRuSnap;
+      else if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
       var marks = readRuMarks(host);
       var spec = readRuStyle(host);
@@ -2696,6 +3276,13 @@
         if (tr && tr !== uk) node.nodeValue = pad(node.stbUk, tr);
         else if (node.stbRu) node.nodeValue = pad(node.stbUk, node.stbRu);
       });
+      var ukFull = flat(host.stbRuFull || host.stbUkFull || rawUk(host));
+      var trFull = ukFull && win && win.ST && typeof win.ST.lookup === 'function' ? win.ST.lookup(ukFull, 'ru') : '';
+      if (trFull && flat(trFull) !== ukFull) {
+        host.textContent = trFull;
+        if (host.firstChild && host.firstChild.nodeType === 3) host.firstChild.stbUk = host.stbRuFull || host.stbUkFull || ukFull;
+      }
+      replaySharedFromSnap(host);
       if (marks.length) paintRuMarks(host, marks);
       applyLangVisual(host);
     }
@@ -2799,16 +3386,7 @@
       if (!host) return;
       host.querySelectorAll('[data-st-en-only]').forEach(unwrapEl);
       if (host.normalize) host.normalize();
-      (items || []).forEach(function (item) {
-        if (!item || !item.t) return;
-        var tag = item.tag || (item.h ? 'a' : '');
-        if (tag !== 'a' && tag !== 'strong' && tag !== 'em' && tag !== 'u') return;
-        var el = wrapDisplayed(host, item.t, item.at, tag);
-        if (!el) return;
-        el.setAttribute('data-st-en-only', '');
-        if (item.at != null) el.setAttribute('data-st-at', String(item.at));
-        if (tag === 'a' && item.h) styleLink(el, item.h, !!item.b);
-      });
+      paintMarkList(host, items, 'data-st-en-only');
     }
 
     function paintAllEnMarks() {
@@ -2923,6 +3501,7 @@
         if (!host.querySelector('*') || ownInline(host)) showWholeEn(host, plain.en);
         else showEnIgnoringInline(host, plain.en);
         dropEmptyAnchors(host);
+        replaySharedFromSnap(host);
         if (marks.length) paintMarks(host, marks);
         pinEnFragments(host);
         return;
@@ -2931,6 +3510,7 @@
         revealUk(host);
         if (ownInline(host)) showWholeEn(host, plain.en);
         dropEmptyAnchors(host);
+        replaySharedFromSnap(host);
         if (marks.length) paintMarks(host, marks);
         return;
       }
@@ -3350,6 +3930,11 @@
       stripRuPaint();
       var win = frame.contentWindow;
       if (mode === 'ru' && win.ST && typeof win.ST.lookup === 'function') {
+        doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+          if (host.stbUkSnap == null) return;
+          host.innerHTML = host.stbUkSnap;
+          host.stbUkSnap = null;
+        });
         walkText(doc, function (node) {
           if (node.stbUk == null) return;
           var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
@@ -3430,6 +4015,9 @@
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
       });
       doc.querySelectorAll('.stb-addone, .stb-slotlabel').forEach(function (el) { el.remove(); });
+      doc.querySelectorAll('.proof__ico, .about-dir__ico').forEach(function (el) {
+        if (el.getAttribute('title') === 'Change icon') el.removeAttribute('title');
+      });
       doc.querySelectorAll('[data-stb-empty]').forEach(function (el) { el.removeAttribute('data-stb-empty'); });
       if (doc.documentElement) doc.documentElement.classList.remove('stb-move');
       doc.querySelectorAll('[draggable]').forEach(function (el) { el.removeAttribute('draggable'); });

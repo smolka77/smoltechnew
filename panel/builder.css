@@ -263,6 +263,23 @@
 .stb-form { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem .8rem; }
 .stb-form .wide { grid-column: 1 / -1; }
 .stb-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .85rem; }
+.stb-icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: .4rem; }
+.stb-icons button {
+  display: grid;
+  place-items: center;
+  height: 2.8rem;
+  border: 1px solid rgba(22, 22, 22, .12);
+  border-radius: 8px;
+  background: #fff;
+  color: #d10a11;
+  cursor: pointer;
+}
+.stb-icons button:hover, .stb-icons button.is-on { border-color: #d10a11; background: #fff5f5; }
+.stb-icons svg { width: 1.45rem; height: 1.45rem; display: block; }
+.stb-actions label.btn { cursor: pointer; }
+@media (max-width: 720px) {
+  .stb-icons { grid-template-columns: repeat(4, 1fr); }
+}
 .stb-pages { margin-top: 1rem; max-height: 280px; overflow: auto; border-top: 1px solid rgba(22, 22, 22, .08); }
 .stb-pages table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .stb-pages th, .stb-pages td { text-align: left; padding: .35rem .3rem; border-bottom: 1px solid rgba(22, 22, 22, .06); vertical-align: middle; }

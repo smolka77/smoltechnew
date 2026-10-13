@@ -79,6 +79,7 @@ function st_builder_clean(string $html): string
     }
     $html = st_builder_restore_nav($html);
     $html = preg_replace('/<style\b[^>]*data-stb-ui[^>]*>.*?<\/style>/is', '', $html) ?? $html;
+    $html = preg_replace('/<foreignObject\b[^>]*>.*?<\/foreignObject>/is', '', $html) ?? $html;
     $html = preg_replace_callback('/<script\b([^>]*)>(.*?)<\/script>/is', static function (array $m): string {
         if (preg_match('/type\s*=\s*["\']application\/ld\+json["\']/i', $m[1])) return $m[0];
         return '';
