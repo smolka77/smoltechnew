@@ -167,6 +167,7 @@
             '<button type="button" data-act="phone" title="Phone width">Phone</button>' +
             '<a class="btn btn-ghost btn-sm" id="stb-live" target="_blank" rel="noopener" hidden title="Open the public page">Preview</a>' +
             '<span class="stb__dirty" id="stb-dirty" hidden>Unsaved changes</span>' +
+            '<button type="button" class="btn btn-sm" id="stb-retry" title="Translate every English sentence that is still waiting">Retry translations</button>' +
             '<button type="button" class="btn btn-sm" id="stb-save" title="Publish this page to the site">Save</button>' +
           '</div>' +
           '<label class="stb__mini" id="stb-ph-wrap" hidden>Field hint <input type="text" id="stb-ph" title="Placeholder shown in the empty field"></label>' +
@@ -4048,7 +4049,8 @@
         var changed = !!(host.stbEnEdited && cur && uk && looksEn(cur) && cur !== uk && cur !== prevEn);
         var fresh = !!(host.stbEnEdited && cur && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk) && flat(uk) === cur);
         var formatChanged = !!(host.stbEnEdited && htmlNow && htmlNow !== htmlWas && cur && looksEn(cur));
-        if (changed || fresh || formatChanged) {
+        var waiting = !!(host.hasAttribute('data-st-untranslated') && cur && looksEn(cur));
+        if (changed || fresh || formatChanged || waiting) {
           pairs.push({ role: 'en', xid: markXid(host), uk: uk, en: cur, prevEn: prevEn, enHtml: htmlNow, fresh: fresh ? 1 : 0 });
         }
         if (host.stbUkSnap != null) {
@@ -4083,7 +4085,8 @@
           return;
         }
         var freshNode = !!(node.stbFresh && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk));
-        if ((cur && cur !== uk && looksEn(cur) && cur !== known) || freshNode) {
+        var waitingNode = !!(host && host.hasAttribute('data-st-untranslated') && cur && looksEn(cur));
+        if ((cur && cur !== uk && looksEn(cur) && cur !== known) || freshNode || waitingNode) {
           pairs.push({ role: 'en', xid: markXid(host || node.parentElement), uk: uk, en: cur, prevEn: known, fresh: freshNode ? 1 : 0 });
         }
         node.nodeValue = node.stbUk;
@@ -5266,6 +5269,34 @@
     host.querySelector('#stb-add-var').addEventListener('click', addVariant);
     host.querySelector('#stb-add-one').addEventListener('click', addAnother);
     host.querySelector('#stb-save').addEventListener('click', save);
+    host.querySelector('#stb-retry').addEventListener('click', function () {
+      if (dirty || formDirty || chromeDirty || metaDirty) {
+        if (!window.confirm('Save this page first, then retry the translations that are still waiting?')) return;
+        save(function () { retryTranslations(); });
+        return;
+      }
+      retryTranslations();
+    });
+    function retryTranslations() {
+      var btn = host.querySelector('#stb-retry');
+      if (btn) btn.disabled = true;
+      say('Translating sentences that are still waiting…');
+      api({ action: 'cms.i18n.retry' }).then(function (res) {
+        if (btn) btn.disabled = false;
+        if (!res || !res.ok) {
+          say((res && res.error) || 'Translations were not retried.', 'err');
+          return;
+        }
+        var noteText = res.i18nNote || res.note || 'Translations retried.';
+        ctx.hello = noteText;
+        say(noteText, res.i18nPending ? 'err' : 'ok');
+        flash(noteText);
+        load();
+      }).catch(function () {
+        if (btn) btn.disabled = false;
+        say('Connection error — translations were not retried.', 'err');
+      });
+    }
     host.querySelector('#stb-pages').addEventListener('click', openPages);
     host.querySelector('#stb-delpage').addEventListener('click', function () {
       var label = (page && page.name) || id;

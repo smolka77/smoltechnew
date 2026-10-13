@@ -704,6 +704,87 @@ function st_i18n_fragment_pairs(array &$overlay, string $ukHtml, string $enHtml,
     }
 }
 
+/** English sentences that failed last time, found in this HTML or in the ledger. */
+function st_i18n_harvest_pending(array &$docs, array $ledger, array $overlay, array $seen): array
+{
+    $pairs = [];
+    $seq = 1;
+    foreach ($docs as $key => $html) {
+        if (!is_string($html) || !str_contains($html, 'data-st-untranslated')) continue;
+        $offset = 0;
+        $len = strlen($html);
+        while ($offset < $len && preg_match('/<([a-z0-9]+)\b[^>]*\sdata-st-untranslated="1"[^>]*>/i', $html, $m, PREG_OFFSET_CAPTURE, $offset)) {
+            $open = $m[0][0];
+            $at = (int) $m[0][1];
+            if (preg_match('/\sdata-st-xid="([a-z][a-z0-9]{0,11})"/i', $open, $xm)) {
+                $xid = $xm[1];
+            } else {
+                $xid = 'r' . $seq++;
+                if (!preg_match('/^[a-z][a-z0-9]{0,11}$/', $xid)) $xid = 'r' . substr(md5((string) $seq), 0, 8);
+                $open2 = preg_replace('/>$/', ' data-st-xid="' . $xid . '">', $open, 1) ?? $open;
+                $html = substr($html, 0, $at) . $open2 . substr($html, $at + strlen($open));
+                $len = strlen($html);
+            }
+            $span = st_i18n_xid_span($html, $xid);
+            if ($span === null) {
+                $offset = $at + strlen($open);
+                continue;
+            }
+            $uk = st_i18n_plain(substr($html, $span['inner'], $span['innerEnd'] - $span['inner']));
+            $enHtml = '';
+            if (preg_match('/\sdata-st-enhtml="([^"]*)"/i', $span['open'], $hm)) {
+                $enHtml = html_entity_decode($hm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+            $en = $enHtml !== '' ? st_i18n_plain($enHtml) : '';
+            if ($en === '' && isset($overlay[$uk]) && is_array($overlay[$uk])) {
+                $en = st_i18n_plain((string) ($overlay[$uk]['en'] ?? ''));
+            }
+            if ($en === '') {
+                foreach ($ledger['byEn'] as $row) {
+                    if (!is_array($row) || empty($row['pending'])) continue;
+                    if (st_i18n_plain((string) ($row['uk'] ?? '')) === $uk) {
+                        $en = st_i18n_plain((string) ($row['en'] ?? ''));
+                        break;
+                    }
+                }
+            }
+            if ($en === '' && $uk !== '' && preg_match('/[A-Za-z]/', $uk) && !preg_match('/\p{Cyrillic}/u', $uk)) $en = $uk;
+            $sig = st_i18n_norm_en($en) . "\n" . $uk;
+            if ($en !== '' && !isset($seen[$sig])) {
+                $item = ['role' => 'en', 'xid' => $xid, 'uk' => $uk, 'en' => $en, 'prevEn' => $en, 'retry' => 1];
+                if ($enHtml !== '') $item['enHtml'] = $enHtml;
+                if ($uk !== '' && !preg_match('/\p{Cyrillic}/u', $uk) && st_i18n_norm_en($uk) === st_i18n_norm_en($en)) $item['fresh'] = 1;
+                $pairs[] = $item;
+                $seen[$sig] = true;
+            }
+            $offset = $span['end'];
+        }
+        $docs[$key] = $html;
+    }
+    foreach ($ledger['byEn'] as $row) {
+        if (!is_array($row) || empty($row['pending'])) continue;
+        $en = st_i18n_plain((string) ($row['en'] ?? ''));
+        $uk = st_i18n_plain((string) ($row['uk'] ?? ''));
+        if ($en === '') continue;
+        $sig = st_i18n_norm_en($en) . "\n" . $uk;
+        if (isset($seen[$sig])) continue;
+        $hit = false;
+        foreach ($docs as $html) {
+            if (!is_string($html)) continue;
+            if (($uk !== '' && str_contains($html, $uk)) || str_contains($html, $en)) {
+                $hit = true;
+                break;
+            }
+        }
+        if (!$hit) continue;
+        $item = ['role' => 'en', 'uk' => $uk, 'en' => $en, 'prevEn' => $en, 'retry' => 1];
+        if ($uk !== '' && !preg_match('/\p{Cyrillic}/u', $uk) && st_i18n_norm_en($uk) === st_i18n_norm_en($en)) $item['fresh'] = 1;
+        $pairs[] = $item;
+        $seen[$sig] = true;
+    }
+    return $pairs;
+}
+
 function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null, string $metaLang = '', array $metaUk = []): array
 {
     $warnings = [];
@@ -726,6 +807,14 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $overlay = st_i18n_overlay_load();
     }
     $pairs = $rest;
+    $seen = [];
+    foreach ($pairs as $row) {
+        if (!is_array($row)) continue;
+        $seenEn = st_i18n_plain((string) ($row['en'] ?? ''));
+        $seenUk = st_i18n_plain((string) ($row['uk'] ?? ''));
+        if ($seenEn !== '') $seen[st_i18n_norm_en($seenEn) . "\n" . $seenUk] = true;
+    }
+    foreach (st_i18n_harvest_pending($docs, $ledger, $overlay, $seen) as $extra) $pairs[] = $extra;
 
     $put = static function (string $uk, string $en, string $ru, bool $untranslated) use (&$overlay, &$touch): void {
         if ($uk === '') return;
@@ -789,10 +878,27 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $enHtml = st_i18n_clean_rich((string) ($row['enHtml'] ?? ''));
         $rich = $enHtml !== '' && preg_match('/<(?:strong|em|u|b|i|a|span)\b/i', $enHtml);
         $fresh = !empty($row['fresh']) || (!preg_match('/\p{Cyrillic}/u', $uk) && st_i18n_norm_en($uk) === st_i18n_norm_en($en));
-        $sameWords = !$fresh && $prev !== '' && st_i18n_norm_en($en) === st_i18n_norm_en($prev);
-        if ($sameWords && !$rich) continue;
+        $normEn = st_i18n_norm_en($en);
+        $normPrev = st_i18n_norm_en($prev);
+        $pendingRow = $ledger['byEn'][$normEn] ?? ($normPrev !== '' ? ($ledger['byEn'][$normPrev] ?? null) : null);
+        $marked = !empty($row['retry']);
+        if (!$marked && $xid !== '') {
+            foreach ($docs as $html) {
+                if (!is_string($html) || !str_contains($html, 'data-st-xid="' . $xid . '"')) continue;
+                $span = st_i18n_xid_span($html, $xid);
+                if ($span !== null && str_contains($span['open'], 'data-st-untranslated')) $marked = true;
+                break;
+            }
+        }
+        if (!$marked && $uk !== '' && isset($overlay[$uk]) && is_array($overlay[$uk]) && ($overlay[$uk]['u'] ?? '') === '1') {
+            $ovEn = st_i18n_norm_en((string) ($overlay[$uk]['en'] ?? ''));
+            if ($ovEn !== '' && ($ovEn === $normEn || ($normPrev !== '' && $ovEn === $normPrev))) $marked = true;
+        }
+        $retry = $marked || (is_array($pendingRow) && !empty($pendingRow['pending']));
+        $sameWords = !$fresh && $prev !== '' && $normEn === $normPrev;
+        if ($sameWords && !$rich && !$retry) continue;
         if (preg_match('/\p{Cyrillic}/u', $en) && !preg_match('/[A-Za-z]/', $en)) continue;
-        if ($sameWords && $rich) {
+        if ($sameWords && $rich && !$retry) {
             $held = $ledger['byEn'][st_i18n_norm_en($prev)] ?? null;
             if (is_array($held) && (!empty($held['ukLock']) || !empty($held['ruLock']))) {
                 if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, ['data-st-enhtml' => $enHtml]);
@@ -811,7 +917,7 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $ruOk = !empty($ruGot['ok']) && st_i18n_plain((string) ($ruGot['text'] ?? '')) !== '';
         if (!$ukOk) {
             $pending++;
-            $keepWords = $sameWords && preg_match('/\p{Cyrillic}/u', $uk);
+            $keepWords = $sameWords && !$retry && preg_match('/\p{Cyrillic}/u', $uk);
             $failAttrs = [];
             if ($rich) $failAttrs['data-st-enhtml'] = $enHtml;
             if (!$keepWords) $failAttrs['data-st-untranslated'] = '1';
@@ -891,7 +997,13 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
                 continue;
             }
             $prev = $uk !== '' ? st_i18n_current_en($uk, $overlay) : '';
-            if ($prev !== '' && st_i18n_norm_en($prev) === st_i18n_norm_en($val)) {
+            $normVal = st_i18n_norm_en($val);
+            $metaRetry = !empty($metaUk['_retry']);
+            if (!$metaRetry) $metaRetry = is_array($ledger['byEn'][$normVal] ?? null) && !empty($ledger['byEn'][$normVal]['pending']);
+            if (!$metaRetry && $uk !== '' && isset($overlay[$uk]) && is_array($overlay[$uk]) && ($overlay[$uk]['u'] ?? '') === '1') {
+                if (st_i18n_norm_en((string) ($overlay[$uk]['en'] ?? '')) === $normVal) $metaRetry = true;
+            }
+            if ($prev !== '' && st_i18n_norm_en($prev) === $normVal && !$metaRetry) {
                 unset($meta[$key]);
                 continue;
             }
@@ -900,6 +1012,14 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
             if (!$ukGot['ok'] || !$ruGot['ok']) {
                 $pending++;
                 if ($uk !== '') $put($uk, $val, st_i18n_current_ru($uk, $overlay), true);
+                $ledger['byEn'][$normVal] = [
+                    'en' => $val,
+                    'uk' => $uk !== '' ? $uk : $val,
+                    'ru' => $uk !== '' ? st_i18n_current_ru($uk, $overlay) : '',
+                    'ukLock' => 0,
+                    'ruLock' => 0,
+                    'pending' => 1,
+                ];
                 unset($meta[$key]);
                 continue;
             }
@@ -927,8 +1047,8 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
     }
     if ($pending > 0) {
         $warnings[] = $pending === 1
-            ? 'One English change could not be fully translated, so it is marked. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php) and save the English again.'
-            : $pending . ' English changes could not be fully translated, so they are marked. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php) and save the English again.';
+            ? 'One English change could not be fully translated, so it is marked. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.'
+            : $pending . ' English changes could not be fully translated, so they are marked. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.';
     }
     $note = 'Saved. This version is on the site.';
     if ($translated > 0) $note = 'Saved. English changes were translated into Ukrainian and Russian.';
@@ -945,4 +1065,168 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         'locked' => $locked,
         'note' => $note,
     ];
+}
+
+/** English stored for a Ukrainian string that is still waiting on a translation. */
+function st_i18n_pending_en_for(string $uk, array $ledger, array $overlay): string
+{
+    $uk = st_i18n_plain($uk);
+    if ($uk === '') return '';
+    if (isset($overlay[$uk]) && is_array($overlay[$uk]) && ($overlay[$uk]['u'] ?? '') === '1') {
+        $en = st_i18n_plain((string) ($overlay[$uk]['en'] ?? ''));
+        if ($en !== '') return $en;
+    }
+    foreach ($ledger['byEn'] ?? [] as $row) {
+        if (!is_array($row) || empty($row['pending'])) continue;
+        $en = st_i18n_plain((string) ($row['en'] ?? ''));
+        if ($en === '') continue;
+        $rowUk = st_i18n_plain((string) ($row['uk'] ?? ''));
+        if ($rowUk === $uk || $en === $uk) return $en;
+    }
+    return '';
+}
+
+function st_i18n_norm_nl(string $text): string
+{
+    return str_replace("\r\n", "\n", $text);
+}
+
+function st_i18n_keep_newlines(string $original, string $next): string
+{
+    if (!str_contains($original, "\r\n")) return $next;
+    $next = str_replace("\r\n", "\n", $next);
+    return str_replace("\n", "\r\n", $next);
+}
+
+/**
+ * Translate every English sentence that previously failed.
+ * Pages, the layout, partials, and pending page titles are included.
+ */
+function st_i18n_retry_pending(): array
+{
+    $docs = [];
+    $pages = [];
+    foreach (glob(ST_PAGES . '/*.html') ?: [] as $file) {
+        $id = basename($file, '.html');
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $id)) continue;
+        $raw = (string) file_get_contents($file);
+        try {
+            [$meta, $body] = st_cms_parse($raw);
+        } catch (Throwable) {
+            continue;
+        }
+        $docs['page:' . $id] = $body;
+        $pages[$id] = ['path' => $file, 'meta' => $meta, 'metaOrig' => $meta, 'body' => $body, 'raw' => $raw];
+    }
+    $layoutRaw = is_file(ST_LAYOUT) ? (string) file_get_contents(ST_LAYOUT) : '';
+    if ($layoutRaw !== '') $docs['layout'] = $layoutRaw;
+    $partials = [];
+    foreach (glob(ST_PARTIALS . '/*.html') ?: [] as $file) {
+        $name = basename($file);
+        $raw = (string) file_get_contents($file);
+        $docs['partial:' . $name] = $raw;
+        $partials[$name] = ['path' => $file, 'raw' => $raw];
+    }
+
+    $ledger = st_i18n_source_load();
+    $overlay = st_i18n_overlay_load();
+    $metaJobs = [];
+    foreach ($pages as $id => $info) {
+        foreach (['title', 'desc', 'ogtitle'] as $key) {
+            $stored = st_i18n_plain((string) ($info['meta'][$key] ?? ''));
+            if ($stored === '') continue;
+            $en = st_i18n_pending_en_for($stored, $ledger, $overlay);
+            if ($en === '') continue;
+            $metaJobs[$id][$key] = ['en' => $en, 'uk' => $stored];
+        }
+    }
+
+    $applied = st_i18n_apply_documents($docs, []);
+    $docs = is_array($applied['docs'] ?? null) ? $applied['docs'] : $docs;
+    $translated = (int) ($applied['translated'] ?? 0);
+    $pending = (int) ($applied['pending'] ?? 0);
+
+    foreach ($metaJobs as $id => $fields) {
+        if (!isset($pages[$id])) continue;
+        $metaIn = [];
+        $metaUk = ['_retry' => '1'];
+        foreach ($fields as $key => $job) {
+            $metaIn[$key] = $job['en'];
+            $metaUk[$key] = $job['uk'];
+        }
+        $metaApplied = st_i18n_apply_documents([], [], $metaIn, 'en', $metaUk);
+        $translated += (int) ($metaApplied['translated'] ?? 0);
+        $pending += (int) ($metaApplied['pending'] ?? 0);
+        if (!is_array($metaApplied['meta'] ?? null)) continue;
+        foreach (['title', 'desc', 'ogtitle'] as $key) {
+            if (!empty($metaApplied['meta'][$key])) {
+                $pages[$id]['meta'][$key] = st_i18n_plain((string) $metaApplied['meta'][$key]);
+            }
+        }
+    }
+
+    $changedPages = [];
+    $layoutChanged = false;
+    $partialChanged = false;
+    if (!st_i18n_dry()) {
+        foreach ($pages as $id => $info) {
+            $newBody = (string) ($docs['page:' . $id] ?? $info['body']);
+            $bodyChanged = st_i18n_norm_nl($newBody) !== st_i18n_norm_nl($info['body']);
+            $metaChanged = false;
+            foreach (['title', 'desc', 'ogtitle'] as $key) {
+                $before = st_i18n_plain((string) ($info['metaOrig'][$key] ?? ''));
+                $after = st_i18n_plain((string) ($info['meta'][$key] ?? ''));
+                if ($before !== $after) $metaChanged = true;
+            }
+            if (!$bodyChanged && !$metaChanged) continue;
+            $dump = st_i18n_keep_newlines($info['raw'], st_cms_dump($pages[$id]['meta'], $newBody));
+            st_cms_atomic_write($info['path'], $dump, true);
+            $changedPages[] = $id;
+        }
+        if ($layoutRaw !== '' && isset($docs['layout'])) {
+            $newLayout = (string) $docs['layout'];
+            if (st_i18n_norm_nl($newLayout) !== st_i18n_norm_nl($layoutRaw)
+                && str_contains($newLayout, '{{CONTENT}}')
+                && str_contains($newLayout, '{{NAV_company}}')
+                && str_contains($newLayout, '{{NAV_contact}}')) {
+                $newLayout = st_i18n_keep_newlines($layoutRaw, $newLayout);
+                if (function_exists('st_builder_write_layout')) st_builder_write_layout($newLayout);
+                else st_cms_atomic_write(ST_LAYOUT, $newLayout, true);
+                $layoutChanged = true;
+            }
+        }
+        foreach ($partials as $name => $info) {
+            if (!isset($docs['partial:' . $name])) continue;
+            $newPartial = (string) $docs['partial:' . $name];
+            if (st_i18n_norm_nl($newPartial) === st_i18n_norm_nl($info['raw'])) continue;
+            st_cms_atomic_write($info['path'], st_i18n_keep_newlines($info['raw'], $newPartial), true);
+            $partialChanged = true;
+        }
+        if ($layoutChanged || $partialChanged || count($changedPages) > 1) st_cms_publish();
+        elseif (count($changedPages) === 1) st_cms_publish_page($changedPages[0], false);
+    }
+
+    if ($translated === 0 && $pending === 0) {
+        $note = 'No sentences are waiting for a translation.';
+    } elseif ($translated > 0 && $pending === 0) {
+        $note = $translated === 1
+            ? 'One waiting sentence was translated into Ukrainian and Russian.'
+            : $translated . ' waiting sentences were translated into Ukrainian and Russian.';
+    } elseif ($translated === 0) {
+        $note = $pending === 1
+            ? 'One sentence is still waiting. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.'
+            : $pending . ' sentences are still waiting. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.';
+    } else {
+        $note = $translated . ' waiting sentences were translated. ' . $pending . ' are still marked. Add a key in _private/tlumacz-klucz.php, then use Retry translations again.';
+    }
+
+    $out = [
+        'ok' => true,
+        'note' => $note,
+        'i18nNote' => $note,
+        'i18nPending' => $pending,
+        'translated' => $translated,
+    ];
+    if (!st_i18n_dry() && function_exists('st_cms_with_pending')) $out = st_cms_with_pending($out);
+    return $out;
 }

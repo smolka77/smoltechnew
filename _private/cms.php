@@ -2108,6 +2108,10 @@ function st_cms_handle(string $action, array $data): array
             if ($action === 'cms.page.builder') return st_builder_preview((string) ($data['id'] ?? ''));
             return st_builder_commit($data);
         }
+        if ($action === 'cms.i18n.retry') {
+            require_once __DIR__ . '/tlumacz.php';
+            return st_i18n_retry_pending();
+        }
         if ($action === 'cms.translate') {
             require_once __DIR__ . '/tlumacz.php';
             $sl = (string) ($data['sl'] ?? 'en');

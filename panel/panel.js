@@ -573,7 +573,8 @@
       else if (p.kind === 'studs') studs.push(p);
       else rest.push(p);
     });
-    var html = '<div class="cms-head"><div><h1>' + esc(t('Witryna')) + '</h1><p>' + esc(t('Wybierz stronę albo konkretny profil maszyny. Widać, co klient otwiera na witrynie.')) + '</p></div></div>' +
+    var html = '<div class="cms-head"><div><h1>' + esc(t('Witryna')) + '</h1><p>' + esc(t('Wybierz stronę albo konkretny profil maszyny. Widać, co klient otwiera na witrynie.')) + '</p></div>' +
+      '<button type="button" class="btn btn-sm" id="btn-retry-i18n">Retry translations</button></div>' +
       draftBanner() +
       '<div class="page-board">';
     function dump(items, depth) {
@@ -600,6 +601,25 @@
     }
     html += '</div>';
     el.innerHTML = html;
+    var retryBtn = el.querySelector('#btn-retry-i18n');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', function () {
+        retryBtn.disabled = true;
+        flash('Translating sentences that are still waiting…');
+        api({ action: 'cms.i18n.retry' }).then(function (res) {
+          retryBtn.disabled = false;
+          if (!res || !res.ok) {
+            flash((res && res.error) || 'Translations were not retried.');
+            return;
+          }
+          flash(res.i18nNote || res.note || 'Translations retried.');
+          loadPages();
+        }).catch(function () {
+          retryBtn.disabled = false;
+          flash('Connection error — translations were not retried.');
+        });
+      });
+    }
     var order = [];
     function walk(items) {
       items.forEach(function (p) {

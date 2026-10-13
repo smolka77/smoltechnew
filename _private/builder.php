@@ -396,7 +396,16 @@ function st_builder_commit(array $data): array
     $metaLang = (string) ($data['metaLang'] ?? 'en');
     $metaUk = (isset($data['metaUk']) && is_array($data['metaUk'])) ? $data['metaUk'] : [];
     $pairs = is_array($data['i18nPairs'] ?? null) ? $data['i18nPairs'] : [];
-    if ($pairs !== [] || $metaIn !== null) {
+    $marked = str_contains($main, 'data-st-untranslated');
+    if (!$marked && isset($data['chrome']) && is_array($data['chrome'])) {
+        foreach ($data['chrome'] as $html) {
+            if (is_string($html) && str_contains($html, 'data-st-untranslated')) {
+                $marked = true;
+                break;
+            }
+        }
+    }
+    if ($pairs !== [] || $metaIn !== null || $marked) {
         $applied = st_i18n_apply_documents($docs, $pairs, $metaIn, $metaLang, $metaUk);
         $docs = $applied['docs'];
         $main = (string) ($docs['main'] ?? $main);
