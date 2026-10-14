@@ -4943,3 +4943,9 @@ h1, h2, h3, h4, p, li, a, td, th, label, dt, dd {
   background: url("/assets/img/mark-bullet.png?v=20260903tm") center / contain no-repeat;
 }
 
+
+/* Editor alignment on a single arrow link (only that link moves). */
+.arrow-link[style*="text-align:right"], .arrow-link[style*="text-align: right"],
+.arrow-link[style*="text-align:center"], .arrow-link[style*="text-align: center"] { display: flex; width: fit-content; }
+.arrow-link[style*="text-align:right"], .arrow-link[style*="text-align: right"] { margin-left: auto; }
+.arrow-link[style*="text-align:center"], .arrow-link[style*="text-align: center"] { margin-left: auto; margin-right: auto; }

@@ -185,6 +185,34 @@
         '<p class="stb__status" id="stb-status"></p>' +
       '</div>';
 
+    (function () {
+      var root = host.querySelector('.stb');
+      var stageEl = host.querySelector('#stb-stage');
+      var side = document.createElement('aside');
+      side.className = 'stb__side';
+      side.id = 'stb-side';
+      Array.prototype.slice.call(root.children).forEach(function (c) { if (c !== stageEl) side.appendChild(c); });
+      var tog = document.createElement('button');
+      tog.type = 'button';
+      tog.className = 'stb__side-tog';
+      tog.id = 'stb-side-tog';
+      tog.title = 'Hide or show the tools';
+      root.appendChild(stageEl);
+      root.appendChild(tog);
+      root.appendChild(side);
+      root.classList.add('stb--side');
+      var setShut = function (v) {
+        root.classList.toggle('is-side-off', v);
+        tog.setAttribute('aria-expanded', v ? 'false' : 'true');
+        tog.innerHTML = '<span aria-hidden="true">' + (v ? '\u2039' : '\u203A') + '</span>';
+        try { localStorage.setItem('stb-side', v ? 'off' : 'on'); } catch (e) { /* ignore */ }
+      };
+      var shut = false;
+      try { var pref = localStorage.getItem('stb-side'); shut = pref === 'off' || (!pref && window.innerWidth < 760); } catch (e) { /* ignore */ }
+      setShut(shut);
+      tog.addEventListener('click', function () { setShut(!root.classList.contains('is-side-off')); });
+    })();
+
     frame = host.querySelector('#stb-frame');
     var note = host.querySelector('#stb-note');
     var status = host.querySelector('#stb-status');
@@ -509,6 +537,17 @@
       var nextLang = pendingLang || 'en';
       pendingLang = null;
       applyLang(nextLang);
+      if (ctx.keepY) {
+        var keepAt = ctx.keepY;
+        ctx.keepY = 0;
+        var keepWin = frame.contentWindow;
+        var keepDoc = doc;
+        var back = function () { try { if (frame.contentDocument === keepDoc) keepWin.scrollTo(0, keepAt); } catch (e) { /* ignore */ } };
+        back();
+        setTimeout(back, 120);
+        setTimeout(back, 500);
+        setTimeout(back, 1200);
+      }
       labelSlots();
       resetHistory();
       syncDirty();
@@ -2201,6 +2240,18 @@
       var hostEl = doc.querySelector('[contenteditable="true"]') || currentField || selected;
       if (!hostEl || !hostEl.closest) { say('Click the text you want to align.', 'err'); return; }
       var block = hostEl.closest('p, h1, h2, h3, h4, h5, h6, li, figcaption, blockquote, td, th, div') || hostEl;
+      var editing = !!(hostEl.matches && hostEl.matches('[contenteditable="true"]'));
+      var shown = '';
+      try { shown = frame.contentWindow.getComputedStyle(hostEl).display || ''; } catch (e) { shown = ''; }
+      if (editing && (/^inline/.test(shown) || /^(A|BUTTON)$/.test(hostEl.tagName))) {
+        /* A link or label on its own line (e.g. a card arrow link): align only it, not the whole card. */
+        beforeChange();
+        hostEl.style.textAlign = dir === 'left' ? '' : dir;
+        if (!hostEl.getAttribute('style')) hostEl.removeAttribute('style');
+        markDirty(whereOf(hostEl));
+        return;
+      }
+      if (editing && block !== hostEl && block.tagName === 'DIV') block = hostEl;
       beforeChange();
       block.style.textAlign = dir === 'right' ? 'right' : (dir === 'center' ? 'center' : 'left');
       markDirty(whereOf(block));
@@ -4158,6 +4209,8 @@
     }
 
     function saveBody(btn, after) {
+      var keepY = 0;
+      try { keepY = doc.defaultView ? (doc.defaultView.scrollY || 0) : 0; } catch (e) { keepY = 0; }
       var pairs = collectPairs();
       var formEl = doc.getElementById('zapyt');
       freshForm = !!(formEl && formEl.getAttribute('data-stb-newform') === '1');
@@ -4198,6 +4251,7 @@
         if (!res || !res.ok) {
           say((res && res.error) || 'Not saved.', 'err');
           flash((res && res.error) || 'Not saved.');
+          ctx.keepY = keepY;
           load();
           return;
         }
@@ -4223,6 +4277,7 @@
         }
         say(noteText, res.i18nPending ? 'err' : 'ok');
         flash(noteText);
+        ctx.keepY = keepY;
         load();
       }).catch(function () {
         btn.disabled = false;
