@@ -224,6 +224,9 @@ function st_i18n_clean_rich(string $html): string
             [$prop, $val] = explode(':', $decl, 2);
             $prop = strtolower(trim($prop));
             $val = trim($val);
+            if ($prop === 'color' && preg_match('/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*1(?:\.0+)?\s*)?\)$/i', $val, $rgb)) {
+                $val = sprintf('#%02x%02x%02x', min(255, (int) $rgb[1]), min(255, (int) $rgb[2]), min(255, (int) $rgb[3]));
+            }
             if ($prop === 'color' && preg_match('/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i', $val)) $keep[] = 'color:' . $val;
             if ($prop === 'font-size' && preg_match('/^[\d.]+(?:px|rem|em|%)$/', $val)) $keep[] = 'font-size:' . $val;
         }

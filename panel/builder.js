@@ -14,7 +14,8 @@
   }
 
   function looksEn(s) {
-    return /[A-Za-z]/.test(s) && !/[\u0400-\u04FF]/.test(s);
+    /* Numbers and symbols ("15+", "100%") count as English edits too: they are the same in every language. */
+    return /[A-Za-z0-9]/.test(s) && !/[\u0400-\u04FF]/.test(s);
   }
 
   function pad(orig, text) {
@@ -698,7 +699,7 @@
           if (box && box.stbUkLeaf && box.childNodes.length === 1 && box.firstChild && box.firstChild.nodeType === 3 && box.firstChild.stbUk == null) {
             box.firstChild.stbUk = box.stbUkLeaf;
           }
-          var phrase = t.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote');
+          var phrase = t.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote, .proof__n, .proof__l');
           if (mode === 'en') {
             if (phrase && (phrase.stbUkSnap != null || phrase.stbUkFull)) phrase.stbEnEdited = true;
             if (box) rawTextNodes(box).forEach(function (n) {
@@ -1523,7 +1524,7 @@
       var win = frame.contentWindow;
       var sharedHosts = [];
       if (doc) {
-        doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote').forEach(function (host) {
+        doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote, .proof__n, .proof__l').forEach(function (host) {
           if (host.querySelector('span[style]')) sharedHosts.push(host);
         });
       }
@@ -2869,7 +2870,7 @@
     function phraseHost(node) {
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       if (!el || !el.closest) return null;
-      return el.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote');
+      return el.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote, .proof__n, .proof__l');
     }
 
     function lookupEn(uk) {
@@ -3185,7 +3186,7 @@
       return cursor === en.length;
     }
 
-    var PHRASE_SEL = 'p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote';
+    var PHRASE_SEL = 'p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote, .proof__n, .proof__l';
 
     function rawUk(host) {
       var raw = '';
@@ -3444,7 +3445,9 @@
     function wrapDisplayed(host, phrase, at, tag) {
       var nodes = rawTextNodes(host).filter(function (n) {
         var p = n.parentElement;
-        return p && !p.closest('a[href], strong, em, u, [data-st-en]');
+        if (!p) return false;
+        var m = p.closest('a[href], strong, em, u, [data-st-en]');
+        return !m || m === host;
       });
       var full = '';
       var spans = [];
@@ -3579,7 +3582,7 @@
 
     function repairPlainHosts() {
       if (mode !== 'en' || !doc) return;
-      doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote').forEach(function (host) {
+      doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote, .proof__n, .proof__l').forEach(function (host) {
         if (host.querySelector('*')) return;
         if (rawTextNodes(host).length < 2) return;
         var plain = hostPlain(host);

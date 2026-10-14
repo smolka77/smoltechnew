@@ -3139,7 +3139,8 @@
       acceptNode: function (node) {
         var p = node.parentElement;
         if (!p || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(p.tagName)) return 2;
-        if (p.closest('a[href], strong, em, u')) return 2;
+        var inMark = p.closest('a[href], strong, em, u');
+        if (inMark && inMark !== el) return 2;
         return 1;
       }
     });
@@ -3214,7 +3215,7 @@
           }
         }
       }
-      if (node.stOrigPlain == null && /^(P|LI|H1|H2|H3|H4|DD|DT|FIGCAPTION|SUMMARY)$/.test(node.tagName)) {
+      if (node.stOrigPlain == null && (/^(P|LI|H1|H2|H3|H4|DD|DT|FIGCAPTION|SUMMARY)$/.test(node.tagName) || (node.classList && (node.classList.contains('proof__n') || node.classList.contains('proof__l'))))) {
         var plain = mixedPlain(node);
         if (plain && CYR.test(plain)) {
           node.stOrigPlain = plain;
@@ -3222,7 +3223,7 @@
         }
       }
       /* Hero stat values with no Cyrillic (e.g. "TECNA+", "15"): still show colour marks from the editor. */
-      if (node.stOrigPlain == null && node.classList && node.classList.contains('stats__n') && (node.hasAttribute('data-st-enmark') || node.hasAttribute('data-st-rumark'))) {
+      if (node.stOrigPlain == null && node.classList && (node.classList.contains('stats__n') || node.classList.contains('proof__n')) && (node.hasAttribute('data-st-enmark') || node.hasAttribute('data-st-rumark'))) {
         if (node.stMarkHTML == null) node.stMarkHTML = node.innerHTML;
         if (node.innerHTML !== node.stMarkHTML) node.innerHTML = node.stMarkHTML;
         if (lang === 'ru' && node.hasAttribute('data-st-rumark')) applyRuMarks(node);
