@@ -805,6 +805,11 @@
             n = n.parentElement;
             continue;
           }
+          if (/^(STRONG|EM|B|I|U)$/.test(n.tagName) && !n.classList.length && n.parentElement) {
+            /* Bold/italic words inside a sentence: edit the whole sentence, not just the bold part. */
+            var whole = n.parentElement.closest('p, li, h1, h2, h3, h4, h5, h6, dd, dt, td, th, figcaption, summary, blockquote');
+            if (whole && !whole.matches(SKIP_HOST)) return whole;
+          }
           return n;
         }
         n = n.parentElement;
@@ -1087,6 +1092,11 @@
       var cat = t.closest('.nav__item--has-menu > .nav__link');
       if (cat) {
         var item = cat.parentElement;
+        /* First click opens the menu; a click on an open menu's label edits the label. */
+        if (item && item.classList.contains('is-open') && (cat.getAttribute('href') || '#') === '#') {
+          e.preventDefault();
+          return false;
+        }
         if (item) {
           doc.querySelectorAll('.nav__item.is-open').forEach(function (n) { if (n !== item) n.classList.remove('is-open'); });
           item.classList.add('is-open');
@@ -1183,16 +1193,28 @@
       host.querySelector('#stb-ph-wrap').hidden = true;
       field = null;
       var img = t.closest('img');
+      var underPhoto = false;
+      if (!img && t.querySelectorAll && typeof e.clientX === 'number') {
+        /* A frame or number badge drawn over a card photo: still pick the photo under the pointer. */
+        Array.prototype.forEach.call(t.querySelectorAll('img'), function (cand) {
+          if (img || skipPhoto(cand)) return;
+          var r = cand.getBoundingClientRect();
+          if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) img = cand;
+        });
+        underPhoto = !!img;
+      }
       if (!img || skipPhoto(img)) img = heroPhoto(t);
       image = img || null;
       syncImageTools();
       setSelection(t);
       pickedEl = t;
-      var hostEl = textHost(t);
+      var hostEl = underPhoto ? null : textHost(t);
       if (hostEl && hostEl.matches && hostEl.matches('a.tile, a.card, a.choice__card, a.btn, a.nav__link, a.area')) {
-        hostEl = hostEl.querySelector('h3, h2, p');
+        var inner = hostEl.querySelector('h3, h2, p');
+        hostEl = inner || (hostEl.matches('a.btn, a.nav__link') ? hostEl : null);
       }
       if (hostEl && !hostEl.matches('img')) startEdit(hostEl);
+      else if (!hostEl) clearEdit();
       var clickedLink = textLinkFrom(t);
       if (clickedLink) selectInside(clickedLink);
       setNote(t);
@@ -3446,7 +3468,8 @@
       var nodes = rawTextNodes(host).filter(function (n) {
         var p = n.parentElement;
         if (!p) return false;
-        var m = p.closest('a[href], strong, em, u, [data-st-en]');
+        /* Text inside other formatting can take one more mark (bold + underline, colour on bold words). */
+        var m = p.closest('a[href], [data-st-en]' + (tag && /^(strong|em|u|a)$/.test(tag) ? ', ' + tag : ''));
         return !m || m === host;
       });
       var full = '';
@@ -4168,7 +4191,8 @@
     function richHtml(el) {
       var html = el && el.innerHTML ? el.innerHTML : '';
       if (!/<(strong|em|u|b|i|a|span)\b/i.test(html)) return '';
-      return html;
+      /* Deleting the first or last word leaves a hard space behind; drop it. */
+      return html.replace(/^(?:\s|&nbsp;|\u00a0)+/, '').replace(/(?:\s|&nbsp;|\u00a0)+$/, '');
     }
 
     function cleanup() {

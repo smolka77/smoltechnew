@@ -251,9 +251,14 @@
     root.classList.add('has-stats');
     var anim = [];
     vals.forEach(function (el) {
-      if (el.querySelector('[style*="color"], font[color]')) return;
-      anim.push(el);
-      el.textContent = '0';
+      /* A coloured number keeps its colour span: count inside it. */
+      var tgt = el;
+      while (tgt.children.length === 1 && tgt.textContent.trim() === tgt.children[0].textContent.trim()) tgt = tgt.children[0];
+      if (tgt.children.length) return;
+      tgt.stTo = parseInt(el.getAttribute('data-count'), 10);
+      if (!(tgt.stTo > 0) || String(tgt.stTo) !== tgt.textContent.trim()) return;
+      anim.push(tgt);
+      tgt.textContent = '0';
     });
 
     var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
@@ -270,7 +275,7 @@
     requestAnimationFrame(function () {
       box.classList.add('is-in');
       anim.forEach(function (el, i) {
-        var to = parseInt(el.getAttribute('data-count'), 10);
+        var to = el.stTo;
         if (!to) return;
         setTimeout(function () { count(el, to, 920); }, 70 + i * 110);
       });

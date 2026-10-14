@@ -3139,7 +3139,7 @@
       acceptNode: function (node) {
         var p = node.parentElement;
         if (!p || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(p.tagName)) return 2;
-        var inMark = p.closest('a[href], strong, em, u');
+        var inMark = p.closest('a[href]' + (tag && /^(strong|em|u|a)$/.test(tag) ? ', ' + tag : ''));
         if (inMark && inMark !== el) return 2;
         return 1;
       }

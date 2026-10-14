@@ -46,6 +46,24 @@ function st_i18n_clip(string $text, int $n = 72): string
     return rtrim(mb_substr($t, 0, $n - 1)) . '…';
 }
 
+/** What to tell the editor when a translation is still waiting. */
+function st_i18n_retry_hint(): string
+{
+    $cfg = st_i18n_engine_cfg();
+    return $cfg['key'] !== ''
+        ? 'The translator did not answer this time. Click Retry translations in a moment.'
+        : 'Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.';
+}
+
+/** Like st_i18n_plain, but keeps the author's dashes and quotes (what the page shows). */
+function st_i18n_plain_show(string $s): string
+{
+    $t = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $t = preg_replace('/<[^>]+>/', ' ', $t) ?? $t;
+    $t = str_replace("\u{00A0}", ' ', $t);
+    return trim(preg_replace('/\s+/u', ' ', $t) ?? $t);
+}
+
 function st_i18n_norm_en(string $text): string
 {
     return mb_strtolower(st_i18n_plain($text));
@@ -217,7 +235,12 @@ function st_i18n_clean_rich(string $html): string
         return '<a href="' . htmlspecialchars($href, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"' . $extra . '>';
     }, $html) ?? $html;
     $html = preg_replace_callback('/<span\b[^>]*>/i', static function (array $m): string {
-        if (!preg_match('/\sstyle\s*=\s*"([^"]*)"/i', $m[0], $sm)) return '<span>';
+        $keepCls = '';
+        if (preg_match('/\sclass\s*=\s*"stats__v"/i', $m[0])) {
+            $keepCls = ' class="stats__v"';
+            if (preg_match('/\sdata-count\s*=\s*"(\d{1,9})"/i', $m[0], $dc)) $keepCls .= ' data-count="' . $dc[1] . '"';
+        }
+        if (!preg_match('/\sstyle\s*=\s*"([^"]*)"/i', $m[0], $sm)) return '<span' . $keepCls . '>';
         $keep = [];
         foreach (explode(';', html_entity_decode($sm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')) as $decl) {
             if (!str_contains($decl, ':')) continue;
@@ -230,7 +253,7 @@ function st_i18n_clean_rich(string $html): string
             if ($prop === 'color' && preg_match('/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i', $val)) $keep[] = 'color:' . $val;
             if ($prop === 'font-size' && preg_match('/^[\d.]+(?:px|rem|em|%)$/', $val)) $keep[] = 'font-size:' . $val;
         }
-        return $keep === [] ? '<span>' : '<span style="' . htmlspecialchars(implode(';', $keep), ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">';
+        return $keep === [] ? '<span' . $keepCls . '>' : '<span' . $keepCls . ' style="' . htmlspecialchars(implode(';', $keep), ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">';
     }, $html) ?? $html;
     $html = preg_replace('/\sdata-(?:st-en-only|st-ru-only|stb-paint|st-at|st-en)(?![\w-])(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?/i', '', $html) ?? $html;
     return $html;
@@ -836,7 +859,7 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         if ($role === '' && isset($row['en'])) $role = 'en';
         if ($role === '' && isset($row['ru']) && !isset($row['en'])) $role = 'ru';
         $uk = st_i18n_plain((string) ($row['uk'] ?? ''));
-        $en = st_i18n_plain((string) ($row['en'] ?? ''));
+        $en = st_i18n_plain_show((string) ($row['en'] ?? ''));
         $prev = st_i18n_plain((string) ($row['prevEn'] ?? ''));
         $xid = preg_match('/^[a-z][a-z0-9]{0,11}$/', (string) ($row['xid'] ?? '')) ? (string) $row['xid'] : '';
         if ($prev === '' && $uk !== '') $prev = st_i18n_current_en($uk, $overlay);
@@ -1050,8 +1073,8 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
     }
     if ($pending > 0) {
         $warnings[] = $pending === 1
-            ? 'One English change could not be fully translated, so it is marked. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.'
-            : $pending . ' English changes could not be fully translated, so they are marked. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.';
+            ? 'One English change could not be fully translated, so it is marked. ' . st_i18n_retry_hint()
+            : $pending . ' English changes could not be fully translated, so they are marked. ' . st_i18n_retry_hint();
     }
     $note = 'Saved. This version is on the site.';
     if ($translated > 0) $note = 'Saved. English changes were translated into Ukrainian and Russian.';
@@ -1217,10 +1240,10 @@ function st_i18n_retry_pending(): array
             : $translated . ' waiting sentences were translated into Ukrainian and Russian.';
     } elseif ($translated === 0) {
         $note = $pending === 1
-            ? 'One sentence is still waiting. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.'
-            : $pending . ' sentences are still waiting. Add a key in _private/tlumacz-klucz.php (see tlumacz-klucz.example.php), then use Retry translations.';
+            ? 'One sentence is still waiting. ' . st_i18n_retry_hint()
+            : $pending . ' sentences are still waiting. ' . st_i18n_retry_hint();
     } else {
-        $note = $translated . ' waiting sentences were translated. ' . $pending . ' are still marked. Add a key in _private/tlumacz-klucz.php, then use Retry translations again.';
+        $note = $translated . ' waiting sentences were translated. ' . $pending . ' are still marked. ' . st_i18n_retry_hint();
     }
 
     $out = [
