@@ -3221,6 +3221,14 @@
           node.stOrigHTML = node.innerHTML;
         }
       }
+      /* Hero stat values with no Cyrillic (e.g. "TECNA+", "15"): still show colour marks from the editor. */
+      if (node.stOrigPlain == null && node.classList && node.classList.contains('stats__n') && (node.hasAttribute('data-st-enmark') || node.hasAttribute('data-st-rumark'))) {
+        if (node.stMarkHTML == null) node.stMarkHTML = node.innerHTML;
+        if (node.innerHTML !== node.stMarkHTML) node.innerHTML = node.stMarkHTML;
+        if (lang === 'ru' && node.hasAttribute('data-st-rumark')) applyRuMarks(node);
+        else applyEnMarks(node);
+        return;
+      }
       if (node.stOrigPlain && node.stOrigHTML != null) {
         if (node.innerHTML !== node.stOrigHTML) node.innerHTML = node.stOrigHTML;
         if (lang === 'uk') return;

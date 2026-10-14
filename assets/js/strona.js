@@ -240,8 +240,9 @@
     if (!box) return;
     var vals = $$('.stats__v[data-count]', box);
     vals.forEach(function (el) {
-      var digits = String(el.textContent || '').replace(/\D+/g, '');
-      if (digits) el.setAttribute('data-count', digits);
+      var dc = String(el.getAttribute('data-count') || '').replace(/\D+/g, '');
+      var digits = dc || String(el.textContent || '').replace(/\D+/g, '');
+      if (digits) { el.setAttribute('data-count', digits); if (!el.children.length) el.textContent = digits; }
     });
     if (reduced) {
       box.classList.add('is-in');
