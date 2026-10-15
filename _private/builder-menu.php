@@ -1241,13 +1241,20 @@ function st_builder_set_hero_kicker(string $html, string $tag): string
 {
     if (!preg_match('/<section class="hero\b.*?<\/section>/s', $html, $m, PREG_OFFSET_CAPTURE)) return $html;
     $hero = $m[0][0];
-    if ($tag !== '') {
-        $safe = htmlspecialchars($tag, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        if (preg_match('/<p class="eyebrow">/', $hero)) {
+    $safe = $tag !== '' ? htmlspecialchars($tag, ENT_QUOTES | ENT_HTML5, 'UTF-8') : '';
+    if (preg_match('/<p class="eyebrow">/', $hero)) {
+        /* Keep the red kicker. Only replace its text when the editor sent a new tag. */
+        if ($safe !== '') {
             $hero = preg_replace('/(<p class="eyebrow">).*?(<\/p>)/s', '$1' . $safe . '$2', $hero, 1) ?? $hero;
         }
     } else {
-        $hero = preg_replace('/\s*<p class="eyebrow">.*?<\/p>/s', '', $hero, 1) ?? $hero;
+        /* Every product hero must have the red eyebrow above the title (like existing pages). */
+        $label = $safe !== '' ? $safe : 'SMOLTECH';
+        if (preg_match('/(<div class="hero__max">\s*)/', $hero)) {
+            $hero = preg_replace('/(<div class="hero__max">\s*)/', '$1<p class="eyebrow">' . $label . '</p>' . "\n      ", $hero, 1) ?? $hero;
+        } elseif (preg_match('/(<h1\b)/', $hero)) {
+            $hero = preg_replace('/(<h1\b)/', '<p class="eyebrow">' . $label . '</p>' . "\n      " . '$1', $hero, 1) ?? $hero;
+        }
     }
     return substr($html, 0, (int) $m[0][1]) . $hero . substr($html, (int) $m[0][1] + strlen($m[0][0]));
 }
@@ -1428,7 +1435,10 @@ function st_builder_add_machine(array $data): array
     $bodyHtml = st_builder_retarget_links(st_builder_set_h1($tbody, $titleUk), (string) ($tm['url'] ?? ''), $url);
     if (!empty($titlePending)) $bodyHtml = preg_replace('/<h1\b/', '<h1 data-st-untranslated="1"', $bodyHtml, 1) ?? $bodyHtml;
     $bodyHtml = st_builder_neutral_body($bodyHtml, $titleUk, $textUk);
-    $bodyHtml = st_builder_set_hero_kicker($bodyHtml, $tagUk);
+    $kickerUk = $tagUk;
+    if ($kickerUk === '') $kickerUk = st_cms_strip((string) (st_cms_hero($pbody)['eyebrow'] ?? ''));
+    if ($kickerUk === '') $kickerUk = st_cms_strip((string) (st_cms_hero($tbody)['eyebrow'] ?? ''));
+    $bodyHtml = st_builder_set_hero_kicker($bodyHtml, $kickerUk);
     $bodyHtml = st_builder_swap_hero_image($bodyHtml, $image);
     $bodyHtml = st_builder_one_variant($bodyHtml, $titleUk, $image);
     [$bodyHtml, $slotPairs] = st_builder_personal_slots($bodyHtml);

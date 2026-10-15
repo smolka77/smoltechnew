@@ -800,6 +800,15 @@
     return out;
   }
 
+  function editorBack() {
+    if ((editTrail || []).length > 1) {
+      editTrail.pop();
+      var prev = editTrail[editTrail.length - 1];
+      if (prev) { openEditor(prev, { trail: 'keep' }); return; }
+    }
+    setView('pages');
+  }
+
   function hopSequence() {
     return trailPages();
   }
@@ -1143,7 +1152,13 @@
       rememberTrail(id, opts.trail || 'reset');
       var host = document.getElementById('view-editor');
       setView('editor');
-      STBuilder.open(id, host, { api: api, flash: flash, uploadFile: uploadFile, back: function () { setView('pages'); } });
+      STBuilder.open(id, host, {
+        api: api,
+        flash: flash,
+        uploadFile: uploadFile,
+        back: editorBack,
+        openPage: function (nextId) { openEditor(nextId, { trail: 'push' }); }
+      });
       return;
     }
     rememberTrail(id, opts.trail || 'reset');
@@ -1830,7 +1845,7 @@
     });
     el.querySelector('#btn-back-pages').addEventListener('click', function () {
       if (hasChanges() && !confirm(t('Masz niezapisane zmiany. Wyjść bez zapisywania?'))) return;
-      setView('pages');
+      editorBack();
     });
     el.querySelectorAll('[data-hop]').forEach(function (btn) {
       btn.addEventListener('click', function () { hopTo(btn.getAttribute('data-hop')); });

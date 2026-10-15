@@ -1025,7 +1025,10 @@
         return;
       }
       if ((dirty || formDirty || chromeDirty || metaDirty) && !window.confirm('There are unsaved changes. Open the other page without saving?')) return;
-      dropPending(function () { open(pid, host, ctx); });
+      dropPending(function () {
+        if (typeof ctx.openPage === 'function') ctx.openPage(pid);
+        else open(pid, host, ctx);
+      });
     }
 
     function onDblClick(e) {
@@ -1714,6 +1717,7 @@
           host.stbUkFull = flat(host.textContent);
         }
         host.innerHTML = html;
+        if (lang === 'en') host.stbStored = 'en';
       });
     }
 
@@ -2409,6 +2413,35 @@
       var node = range.commonAncestorContainer;
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       var on = el && el.closest && el.closest(tag);
+      var stH = storedHost(range.commonAncestorContainer);
+      if (stH && (!range.endContainer || phraseHost(range.endContainer) === stH)) {
+        /* English shown from its saved HTML: format the DOM in place (one text unit). */
+        beforeChange();
+        if (on && stH.contains(on) && on !== stH) {
+          unwrapEl(on);
+          say('Formatting removed. Save to publish.');
+        } else {
+          var nodesF = selectedTexts(stH, range);
+          if (!nodesF.length) { say('Select the words you want to format.', 'err'); return; }
+          nodesF.forEach(function (n) {
+            var w = doc.createElement(tag);
+            n.parentNode.insertBefore(w, n);
+            w.appendChild(n);
+          });
+          stH.querySelectorAll(tag).forEach(function (x) {
+            var nx = x.nextSibling;
+            while (nx && nx.nodeType === 1 && nx.tagName === x.tagName && !nx.attributes.length && !x.attributes.length) {
+              while (nx.firstChild) x.appendChild(nx.firstChild);
+              var gone = nx; nx = nx.nextSibling; gone.parentNode.removeChild(gone);
+            }
+          });
+          say('Formatting applied to the English text only. The Ukrainian sentence is unchanged.');
+        }
+        tidyInline(stH);
+        stH.stbEnEdited = true;
+        markDirty(whereOf(stH));
+        return;
+      }
       if (on && phraseHost(on)) {
         var host = phraseHost(on);
         if (mode === 'ru' && !on.hasAttribute('data-st-ru-only')) {
@@ -2515,7 +2548,131 @@
       return on ? 'Colour applied to the selected text. Save to publish.' : 'Colour removed from the selected text. Save to publish.';
     }
 
+    function storedHost(node) {
+      var h = phraseHost(node);
+      return h && mode === 'en' && h.stbStored === 'en' ? h : null;
+    }
+
+    /* Split every element between `node` and `top` so that `node` is the only content left inside `top`. */
+    function isolateIn(top, node) {
+      var cur = node;
+      while (cur && cur.parentNode && cur !== top) {
+        var par = cur.parentNode;
+        if (par.nodeType !== 1) break;
+        var before = par.cloneNode(false);
+        var after = par.cloneNode(false);
+        while (par.firstChild && par.firstChild !== cur) before.appendChild(par.firstChild);
+        while (cur.nextSibling) after.appendChild(cur.nextSibling);
+        if (before.firstChild && par.parentNode) par.parentNode.insertBefore(before, par);
+        if (after.firstChild && par.parentNode) par.parentNode.insertBefore(after, par.nextSibling);
+        if (par === top) break;
+        cur = par;
+      }
+    }
+
+    function tidyInline(host) {
+      var changed = true;
+      while (changed) {
+        changed = false;
+        host.querySelectorAll('span').forEach(function (sp) {
+          if (!sp.parentNode) return;
+          if (!sp.textContent && !sp.querySelector('img, svg, br')) { sp.parentNode.removeChild(sp); changed = true; return; }
+          if (!sp.attributes.length || (sp.attributes.length === 1 && sp.hasAttribute('style') && !String(sp.getAttribute('style')).trim())) { unwrapEl(sp); changed = true; return; }
+          var nx = sp.nextSibling;
+          if (nx && nx.nodeType === 1 && nx.tagName === 'SPAN' && (nx.getAttribute('style') || '') === (sp.getAttribute('style') || '') && (nx.className || '') === (sp.className || '') && nx.attributes.length === sp.attributes.length) {
+            while (nx.firstChild) sp.appendChild(nx.firstChild);
+            nx.parentNode.removeChild(nx);
+            changed = true;
+          }
+        });
+      }
+      host.normalize();
+    }
+
+    function selectedTexts(host, range) {
+      if (range.startContainer.nodeType === 3 && range.startOffset > 0 && range.startOffset < range.startContainer.nodeValue.length) {
+        var tail = range.startContainer.splitText(range.startOffset);
+        if (range.endContainer === range.startContainer) {
+          range.setEnd(tail, range.endOffset - range.startOffset);
+        }
+        range.setStart(tail, 0);
+      }
+      if (range.endContainer.nodeType === 3 && range.endOffset > 0 && range.endOffset < range.endContainer.nodeValue.length) {
+        range.endContainer.splitText(range.endOffset);
+      }
+      return rawTextNodes(host).filter(function (n) {
+        if (!n.nodeValue) return false;
+        try { return range.intersectsNode(n) && !(n === range.endContainer && range.endOffset === 0) && !(n === range.startContainer && range.startOffset >= n.nodeValue.length); }
+        catch (e) { return false; }
+      });
+    }
+
+    /* Colour / size on English text that is shown from its saved HTML: change the DOM in place, one unit, no fragments. */
+    function textOffset(host, container, offset) {
+      var r = doc.createRange();
+      r.selectNodeContents(host);
+      try { r.setEnd(container, offset); } catch (e) { return -1; }
+      return r.toString().length;
+    }
+
+    function rangeAt(host, a, b) {
+      var nodes = rawTextNodes(host);
+      var r = doc.createRange();
+      var acc = 0, started = false, i;
+      for (i = 0; i < nodes.length; i++) {
+        var L = nodes[i].nodeValue.length;
+        if (!started && a < acc + L) { r.setStart(nodes[i], a - acc); started = true; }
+        if (started && b <= acc + L) { r.setEnd(nodes[i], b - acc); return r; }
+        acc += L;
+      }
+      return null;
+    }
+
+    function applyStoredInline(host, range, prop, value) {
+      var selA = textOffset(host, range.startContainer, range.startOffset);
+      var selB = textOffset(host, range.endContainer, range.endOffset);
+      var nodes = selectedTexts(host, range);
+      if (!nodes.length) return false;
+      beforeChange();
+      var cssProp = prop === 'color' ? 'color' : 'fontSize';
+      nodes.forEach(function (n) {
+        var el = n.parentNode;
+        while (el && el !== host) {
+          var up = el.parentNode;
+          if (el.nodeType === 1 && el.tagName === 'SPAN' && el.style && el.style[cssProp]) {
+            isolateIn(el, n);
+            el.style[cssProp] = '';
+            if (cssProp === 'color') el.style.webkitTextFillColor = '';
+          }
+          el = up;
+        }
+        if (value) {
+          var sp = doc.createElement('span');
+          sp.style[cssProp] = value;
+          n.parentNode.insertBefore(sp, n);
+          sp.appendChild(n);
+        }
+      });
+      if (!value && host.style && host.style[cssProp] && flat(range.toString()) === flat(host.textContent)) host.style[cssProp] = '';
+      tidyInline(host);
+      host.stbEnEdited = true;
+      if (selA >= 0 && selB > selA) {
+        host.stbLastSel = [selA, selB];
+        var back = rangeAt(host, selA, selB);
+        if (back) {
+          try { var gs = doc.getSelection(); gs.removeAllRanges(); gs.addRange(back); heldRange = back.cloneRange(); } catch (e) { /* style is applied */ }
+        }
+      }
+      markDirty(whereOf(host));
+      return true;
+    }
+
     function applySelectionStyle(range, prop, value) {
+      var sh = storedHost(range.commonAncestorContainer);
+      if (sh && (!range.endContainer || phraseHost(range.endContainer) === sh)) {
+        if (armedStyle) armedStyle.stored = true;
+        return applyStoredInline(sh, range, prop, value);
+      }
       if (mode === 'uk') return applyUaInline(range, prop, value);
       return applyMarkInline(range, prop, value);
     }
@@ -2661,7 +2818,30 @@
         });
         if (cursor < end) pushSpanPiece(next, null, full.slice(cursor, end), cursor, prop, value);
       }
-      return next;
+      return mergeSpans(next);
+    }
+
+    /* Keep one text unit: neighbouring colour/size pieces with the same style become one span again. */
+    function mergeSpans(items) {
+      var spans = [];
+      var other = [];
+      (items || []).forEach(function (it) {
+        if (it && (it.tag || '') === 'span' && it.t) spans.push(it); else other.push(it);
+      });
+      spans.sort(function (x, y) { return Number(x.at) - Number(y.at); });
+      var out = [];
+      spans.forEach(function (it) {
+        var last = out[out.length - 1];
+        if (last && Number(last.at) + last.t.length === Number(it.at) && (last.c || '') === (it.c || '') && (last.z || '') === (it.z || '')) {
+          last.t += it.t;
+          return;
+        }
+        var copy = { t: it.t, at: Number(it.at), tag: 'span' };
+        if (it.c) copy.c = it.c;
+        if (it.z) copy.z = it.z;
+        out.push(copy);
+      });
+      return other.concat(out);
     }
 
     function applyMarkInline(range, prop, value) {
@@ -2722,6 +2902,12 @@
     }
 
     function updateArmedStyle(armed, prop, value) {
+      if (armed.stored) {
+        var ab = armed.host.stbLastSel;
+        var again = ab ? rangeAt(armed.host, ab[0], ab[1]) : null;
+        if (!again) return false;
+        return applyStoredInline(armed.host, again, prop, value);
+      }
       if (mode === 'uk') {
         var spans = armed.host.querySelectorAll('span[data-stb-paint], span[style]');
         var i, hit = null;
@@ -2736,6 +2922,17 @@
       }
       var read = mode === 'ru' ? readRuMarks : readMarks;
       var write = mode === 'ru' ? writeRuMarks : writeMarks;
+      if (armed.at != null && armed.text) {
+        /* Same selection, new colour from the picker: restyle the whole range, whatever pieces it covers. */
+        beforeChange();
+        var fullNow = shownOf(armed.host);
+        var keyNow = prop === 'color' ? 'c' : 'z';
+        write(armed.host, retargetSpans(read(armed.host), fullNow, Number(armed.at), Number(armed.at) + armed.text.length, keyNow, value || ''));
+        if (mode === 'ru') showRuHost(armed.host);
+        else showHost(armed.host);
+        markDirty(whereOf(armed.host));
+        return true;
+      }
       var items = read(armed.host);
       var found = false;
       items.forEach(function (it) {
@@ -3532,7 +3729,7 @@
       doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
         if (host.stbUkSnap == null) return;
         host.innerHTML = host.stbUkSnap;
-        host.stbUkSnap = null;
+        host.stbUkSnap = null; host.stbStored = '';
         host.stbUkFull = '';
         host.stbEnEdited = false;
       });
@@ -3603,8 +3800,42 @@
       }
     }
 
+    /* Bold/link inside a sentence: the words after (or before) the inline tag stayed Ukrainian in English mode.
+       Fill the missing part from the whole-sentence English translation. */
+    function repairMixedTails() {
+      if (mode !== 'en' || !doc) return;
+      var CY = /[\u0400-\u04FF]/;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (host.stbStored === 'en' || host.hasAttribute('data-st-enmark') || host.querySelector('[data-st-en]')) return;
+        if (!host.querySelector('*') || !ownInline(host)) return;
+        var nodes = rawTextNodes(host);
+        if (nodes.length < 2 || !nodes.some(function (n) { return CY.test(n.nodeValue || ''); })) return;
+        var plain = hostPlain(host);
+        if (!plain.en || plain.en === plain.uk || CY.test(plain.en)) return;
+        var en = plain.en;
+        var norm = function (t) { return String(t || '').replace(/\s+/g, ' ').trim(); };
+        var first = -1, last = -1, i;
+        for (i = 0; i < nodes.length; i++) if (CY.test(nodes[i].nodeValue || '')) { if (first < 0) first = i; last = i; }
+        var head = norm(nodes.slice(0, first).map(function (n) { return n.nodeValue; }).join(''));
+        var tail = norm(nodes.slice(last + 1).map(function (n) { return n.nodeValue; }).join(''));
+        var enN = norm(en);
+        if (head && enN.indexOf(head) !== 0) return;
+        if (tail && enN.slice(enN.length - tail.length) !== tail) return;
+        var mid = enN.slice(head.length, enN.length - tail.length);
+        if (!norm(mid)) return;
+        for (i = first; i <= last; i++) {
+          if (nodes[i].stbUk == null) nodes[i].stbUk = nodes[i].nodeValue;
+          var lead = i === first && head ? ' ' : (nodes[i].nodeValue.match(/^\s*/) || [''])[0];
+          var trail = i === first && tail ? ' ' : (nodes[i].nodeValue.match(/\s*$/) || [''])[0];
+          nodes[i].nodeValue = i === first ? lead + norm(mid) + trail : '';
+          nodes[i].stbSynthetic = true;
+        }
+      });
+    }
+
     function repairPlainHosts() {
       if (mode !== 'en' || !doc) return;
+      repairMixedTails();
       doc.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote, .proof__n, .proof__l').forEach(function (host) {
         if (host.querySelector('*')) return;
         if (rawTextNodes(host).length < 2) return;
@@ -3616,6 +3847,8 @@
 
     function showHost(host) {
       if (!host) return;
+      /* English already shown from its saved HTML is the real text: never rebuild it from the Ukrainian copy. */
+      if (mode === 'en' && host.stbStored === 'en') return;
       if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
       if (mode !== 'en') return;
@@ -3697,8 +3930,10 @@
       var chosen = linkRange && !linkRange.collapsed && flat(linkRange.toString());
       if (!existing && !chosen) { say('Select the words you want to link.', 'err'); return; }
       var plan = !existing && linkRange ? planPhrase(linkRange) : null;
-      if (!existing && !plan) { say('Select words inside a single sentence.', 'err'); return; }
-      openLinkDialog(existing, plan);
+      var stLink = !existing && linkRange ? storedHost(linkRange.commonAncestorContainer) : null;
+      if (stLink && linkRange.endContainer && phraseHost(linkRange.endContainer) !== stLink) stLink = null;
+      if (!existing && !plan && !stLink) { say('Select words inside a single sentence.', 'err'); return; }
+      openLinkDialog(existing, stLink ? { stored: stLink, range: linkRange.cloneRange() } : plan);
     }
 
     function openLinkDialog(existing, plan) {
@@ -3804,6 +4039,16 @@
         } else if (existing && existing.isConnected) {
           styleLink(existing, href, blank.checked);
           made = existing;
+          var exHost = storedHost(existing);
+          if (exHost) exHost.stbEnEdited = true;
+        } else if (plan && plan.stored) {
+          var aNew = doc.createElement('a');
+          if (wrapRange(plan.range, aNew)) {
+            styleLink(aNew, href, blank.checked);
+            tidyInline(plan.stored);
+            plan.stored.stbEnEdited = true;
+            made = plan.stored;
+          }
         } else if (plan && plan.ruOnly) {
           addRuMark(plan.host, plan.selected, plan.ruStart, 'a', href, blank.checked);
           made = paintedPhrase(plan.host, 'a', plan.selected, href) ? plan.host : null;
@@ -4066,7 +4311,7 @@
         doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
           if (host.stbUkSnap == null) return;
           host.innerHTML = host.stbUkSnap;
-          host.stbUkSnap = null;
+          host.stbUkSnap = null; host.stbStored = '';
         });
         walkText(doc, function (node) {
           if (node.stbUk == null) return;
@@ -4132,7 +4377,7 @@
         }
         if (host.stbUkSnap != null) {
           host.innerHTML = host.stbUkSnap;
-          host.stbUkSnap = null;
+          host.stbUkSnap = null; host.stbStored = '';
         } else {
           rawTextNodes(host).forEach(function (n) {
             if (n.stbUk != null) n.nodeValue = n.stbUk;

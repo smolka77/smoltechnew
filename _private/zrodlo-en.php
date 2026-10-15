@@ -232,6 +232,8 @@ function st_i18n_clean_rich(string $html): string
         elseif (preg_match("/\\shref\\s*=\\s*'([^']*)'/i", $tag, $hm)) $href = html_entity_decode($hm[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
         if ($href === '' || !preg_match('~^(?:https?:|/|#|mailto:|tel:)~i', $href)) return '<a>';
         $extra = preg_match('/\starget\s*=\s*"_blank"/i', $tag) ? ' target="_blank" rel="noopener"' : '';
+        /* Links made in the editor keep their marker so the public page styles them like the panel. */
+        if (preg_match('/\sdata-st-link(?![\w-])|\sclass\s*=\s*"[^"]*\bst-link\b/i', $tag)) $extra = ' class="st-link" data-st-link=""' . $extra;
         return '<a href="' . htmlspecialchars($href, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"' . $extra . '>';
     }, $html) ?? $html;
     $html = preg_replace_callback('/<span\b[^>]*>/i', static function (array $m): string {
@@ -256,6 +258,14 @@ function st_i18n_clean_rich(string $html): string
         return $keep === [] ? '<span' . $keepCls . '>' : '<span' . $keepCls . ' style="' . htmlspecialchars(implode(';', $keep), ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">';
     }, $html) ?? $html;
     $html = preg_replace('/\sdata-(?:st-en-only|st-ru-only|stb-paint|st-at|st-en)(?![\w-])(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?/i', '', $html) ?? $html;
+    /* One text unit: drop bare spans and join neighbouring spans that carry the same style. */
+    for ($guard = 0; $guard < 50; $guard++) {
+        $next = preg_replace('/<span>([^<]*)<\/span>/u', '$1', $html) ?? $html;
+        $next = preg_replace('/<span( style="[^"]*")>([^<]*)<\/span><span\1>/u', '<span$1>$2', $next) ?? $next;
+        $next = preg_replace('/<span(?: style="[^"]*")?><\/span>/u', '', $next) ?? $next;
+        if ($next === $html) break;
+        $html = $next;
+    }
     return $html;
 }
 
@@ -524,6 +534,44 @@ function st_i18n_markup_nodes(string $html, string $target): array
     return ['ok' => true, 'text' => implode('', $parts)];
 }
 
+/** Put the English marks (colour, bold, links) onto an already-translated sentence, without calling DeepL. */
+function st_i18n_transfer_markup(string $enHtml, string $translatedPlain): string
+{
+    $enHtml = st_i18n_clean_rich($enHtml);
+    $translatedPlain = st_i18n_plain($translatedPlain);
+    if ($enHtml === '' || $translatedPlain === '') return $translatedPlain;
+    $parts = preg_split('/(<[^>]+>)/', $enHtml, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if (!is_array($parts)) return htmlspecialchars($translatedPlain, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $enPlain = '';
+    $slots = [];
+    foreach ($parts as $part) {
+        if ($part === '' || str_starts_with($part, '<')) { $slots[] = ['t' => 'tag', 'v' => $part]; continue; }
+        $slots[] = ['t' => 'text', 'v' => $part, 'a' => strlen($enPlain), 'b' => strlen($enPlain) + strlen($part)];
+        $enPlain .= $part;
+    }
+    $enLen = max(1, mb_strlen($enPlain, 'UTF-8'));
+    $trLen = mb_strlen($translatedPlain, 'UTF-8');
+    $snap = static function (int $i) use ($translatedPlain, $trLen): int {
+        if ($i <= 0 || $i >= $trLen) return max(0, min($trLen, $i));
+        for ($d = 0; $d < 12; $d++) {
+            foreach ([$i - $d, $i + $d] as $j) {
+                if ($j > 0 && $j < $trLen && mb_substr($translatedPlain, $j, 1, 'UTF-8') === ' ') return $j;
+            }
+        }
+        return $i;
+    };
+    $out = '';
+    $pos = 0;
+    foreach ($slots as $slot) {
+        if ($slot['t'] === 'tag') { $out .= $slot['v']; continue; }
+        $b = $slot['b'] >= strlen($enPlain) ? $trLen : $snap((int) round(mb_strlen(substr($enPlain, 0, $slot['b']), 'UTF-8') * $trLen / $enLen));
+        if ($b < $pos) $b = $pos;
+        $out .= htmlspecialchars(mb_substr($translatedPlain, $pos, $b - $pos, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $pos = $b;
+    }
+    return st_i18n_clean_rich($out);
+}
+
 function st_i18n_auto_markup(string $html, string $target): array
 {
     $html = st_i18n_clean_rich($html);
@@ -534,10 +582,20 @@ function st_i18n_auto_markup(string $html, string $target): array
         $got = st_i18n_auto(st_i18n_shield($html), $target, true);
         if (!empty($got['ok'])) {
             $clean = st_i18n_clean_rich(st_i18n_unshield((string) $got['text']));
+            /* Accept DeepL even when it collapses a few colour spans: better one language than mixed EN fragments. */
+            if ($clean !== '' && preg_match('/\p{Cyrillic}/u', st_i18n_plain($clean))) {
+                return ['ok' => true, 'text' => $clean];
+            }
             if ($clean !== '' && st_i18n_tag_count($clean) >= st_i18n_tag_count($html)) {
                 return ['ok' => true, 'text' => $clean];
             }
         }
+    }
+    /* Last resort: translate the whole sentence once, then put the marks back by character ratio. Never translate letter-fragments. */
+    $plain = st_i18n_plain($html);
+    $got = st_i18n_auto($plain, $target, false);
+    if (!empty($got['ok']) && st_i18n_plain((string) ($got['text'] ?? '')) !== '') {
+        return ['ok' => true, 'text' => st_i18n_transfer_markup($html, (string) $got['text'])];
     }
     return st_i18n_markup_nodes($html, $target);
 }
@@ -811,6 +869,71 @@ function st_i18n_harvest_pending(array &$docs, array $ledger, array $overlay, ar
     return $pairs;
 }
 
+/** Fetch all DeepL translations a save needs in one go: one request per language, both languages in parallel. Fills the cache only. */
+function st_i18n_prefetch(array $jobs): void
+{
+    $cfg = st_i18n_engine_cfg();
+    if ($cfg['key'] === '' || $cfg['engine'] === 'google' || is_callable($GLOBALS['ST_I18N_FAKE'] ?? null) || !function_exists('curl_multi_init')) return;
+    $cache = st_i18n_cache_get();
+    $want = ['uk' => [], 'ru' => []];
+    foreach ($jobs as $job) {
+        [$text, $html] = $job;
+        foreach (['uk', 'ru'] as $target) {
+            $send = $html ? $text : st_i18n_shield(st_i18n_plain($text));
+            $src = $html ? $text : st_i18n_plain($text);
+            if ($src === '') continue;
+            $ck = 'src:' . $cfg['engine'] . ':en:' . $target . ($html ? ':h:' : ':') . substr(sha1($src), 0, 20);
+            if (isset($cache[$ck]) && is_string($cache[$ck]) && $cache[$ck] !== '') continue;
+            $want[$target][$ck] = [$send, $html, $src];
+        }
+    }
+    if ($want['uk'] === [] && $want['ru'] === []) return;
+    $base = $cfg['url'] !== '' ? rtrim($cfg['url'], '/') : (str_ends_with($cfg['key'], ':fx') ? 'https://api-free.deepl.com' : 'https://api.deepl.com');
+    $mh = curl_multi_init();
+    $handles = [];
+    foreach ($want as $target => $rows) {
+        if ($rows === []) continue;
+        $parts = [];
+        foreach ($rows as [$send]) $parts[] = 'text=' . rawurlencode($send);
+        $parts[] = 'source_lang=EN';
+        $parts[] = 'target_lang=' . ($target === 'ru' ? 'RU' : 'UK');
+        $parts[] = 'tag_handling=html';
+        $parts[] = 'preserve_formatting=1';
+        $h = curl_init($base . '/v2/translate');
+        curl_setopt_array($h, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => implode('&', $parts),
+            CURLOPT_HTTPHEADER => ['Authorization: DeepL-Auth-Key ' . $cfg['key'], 'Content-Type: application/x-www-form-urlencoded'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+        ]);
+        curl_multi_add_handle($mh, $h);
+        $handles[$target] = $h;
+    }
+    do {
+        $status = curl_multi_exec($mh, $running);
+        if ($running) curl_multi_select($mh, 1.0);
+    } while ($running && $status === CURLM_OK);
+    foreach ($handles as $target => $h) {
+        $raw = (string) curl_multi_getcontent($h);
+        curl_multi_remove_handle($mh, $h);
+        curl_close($h);
+        $data = json_decode($raw, true);
+        $rows = array_values($want[$target]);
+        $keys = array_keys($want[$target]);
+        foreach (($data['translations'] ?? []) as $i => $row) {
+            if (!isset($keys[$i]) || !is_array($row) || !isset($row['text'])) continue;
+            [, $html, $src] = $rows[$i];
+            $got = st_i18n_unshield((string) $row['text']);
+            if (!$html) $got = st_i18n_plain($got);
+            if ($target === 'uk' && !$html) $got = st_i18n_sense_polish($got, $src);
+            if (trim($got) !== '') $cache[$keys[$i]] = $got;
+        }
+    }
+    curl_multi_close($mh);
+    st_i18n_cache_put($cache);
+}
+
 function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null, string $metaLang = '', array $metaUk = []): array
 {
     $warnings = [];
@@ -853,6 +976,17 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $touch = true;
     };
 
+    $jobs = [];
+    foreach ($pairs as $row) {
+        if (!is_array($row) || (($row['role'] ?? 'en') !== 'en' && isset($row['role']))) continue;
+        $pre = st_i18n_clean_rich((string) ($row['enHtml'] ?? ''));
+        if ($pre !== '' && preg_match('/<(?:strong|em|u|b|i|a|span)\b/i', $pre)) $jobs[] = [st_i18n_shield($pre), true];
+        $pl = st_i18n_plain_show((string) ($row['en'] ?? ''));
+        if ($pl !== '' && st_i18n_sense_still_en($pl) && st_i18n_known($pl)['uk'] === '') $jobs[] = [$pl, false];
+    }
+    if ($jobs !== []) {
+        try { st_i18n_prefetch($jobs); } catch (Throwable) { /* the loop below translates one by one */ }
+    }
     foreach ($pairs as $row) {
         if (!is_array($row)) continue;
         $role = (string) ($row['role'] ?? '');
@@ -941,6 +1075,9 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $ruGot = $rich ? st_i18n_auto_markup($enHtml, 'ru') : st_i18n_auto($en, 'ru', false);
         $ukOk = !empty($ukGot['ok']) && st_i18n_plain((string) ($ukGot['text'] ?? '')) !== '';
         $ruOk = !empty($ruGot['ok']) && st_i18n_plain((string) ($ruGot['text'] ?? '')) !== '';
+        /* A "translation" that is still the English sentence is a failure (would put English on the UA/RU page). */
+        if ($ukOk && !preg_match('/\p{Cyrillic}/u', st_i18n_plain((string) $ukGot['text'])) && st_i18n_sense_still_en($en)) $ukOk = false;
+        if ($ruOk && !preg_match('/\p{Cyrillic}/u', st_i18n_plain((string) $ruGot['text'])) && st_i18n_sense_still_en($en)) $ruOk = false;
         if (!$ukOk) {
             $pending++;
             $keepWords = $sameWords && !$retry && preg_match('/\p{Cyrillic}/u', $uk);
@@ -1128,6 +1265,51 @@ function st_i18n_keep_newlines(string $original, string $next): string
  * Translate every English sentence that previously failed.
  * Pages, the layout, partials, and pending page titles are included.
  */
+/** Ukrainian pieces between bold/links inside one sentence that have no English yet: translate them (UK->EN/RU) into the overlay. */
+function st_i18n_fill_fragments(array $docs): array
+{
+    $overlay = st_i18n_overlay_load();
+    $found = [];
+    foreach ($docs as $html) {
+        if (!is_string($html) || $html === '') continue;
+        if (!preg_match_all('/<(p|li|h[1-6]|dd|dt|td|th|figcaption|summary)\b[^>]*>(.*?)<\/\1>/is', $html, $mm, PREG_SET_ORDER)) continue;
+        foreach ($mm as $m) {
+            $inner = $m[2];
+            if (!preg_match('/<(?:strong|em|b|i|u|a|span|br)\b/i', $inner)) continue;
+            if (preg_match('/<(?:p|div|ul|ol|li|h[1-6])\b/i', $inner)) continue;
+            foreach (preg_split('/<[^>]+>/', $inner) ?: [] as $piece) {
+                $frag = st_i18n_plain($piece);
+                if ($frag === '' || !preg_match('/\p{Cyrillic}/u', $frag)) continue;
+                $row = $overlay[$frag] ?? null;
+                if (is_array($row) && !empty($row['en'])) continue;
+                $found[$frag] = true;
+            }
+        }
+    }
+    $done = [];
+    foreach (array_keys($found) as $frag) {
+        $known = st_i18n_current_en($frag, $overlay);
+        $en = $known !== '' ? ['ok' => true, 'text' => $known] : st_i18n_auto_from($frag, 'uk', 'en');
+        if (empty($en['ok'])) continue;
+        $enT = st_i18n_plain((string) $en['text']);
+        if ($enT === '' || preg_match('/\p{Cyrillic}/u', $enT)) continue;
+        if (!isset($overlay[$frag]) || !is_array($overlay[$frag])) $overlay[$frag] = [];
+        $overlay[$frag]['en'] = $enT;
+        if (empty($overlay[$frag]['ru'])) {
+            $ru = st_i18n_current_ru($frag, $overlay);
+            if ($ru === '') {
+                $ruGot = st_i18n_auto_from($frag, 'uk', 'ru');
+                if (!empty($ruGot['ok'])) $ru = st_i18n_plain((string) $ruGot['text']);
+            }
+            if ($ru !== '') $overlay[$frag]['ru'] = $ru;
+        }
+        $overlay[$frag]['a'] = '1';
+        $done[] = $frag . ' => ' . $enT;
+    }
+    if ($done !== []) st_i18n_overlay_save($overlay);
+    return $done;
+}
+
 function st_i18n_retry_pending(): array
 {
     $docs = [];
@@ -1167,6 +1349,7 @@ function st_i18n_retry_pending(): array
         }
     }
 
+    $fragments = st_i18n_fill_fragments($docs);
     $applied = st_i18n_apply_documents($docs, []);
     $docs = is_array($applied['docs'] ?? null) ? $applied['docs'] : $docs;
     $translated = (int) ($applied['translated'] ?? 0);
@@ -1249,10 +1432,15 @@ function st_i18n_retry_pending(): array
     $out = [
         'ok' => true,
         'note' => $note,
+        'fragments' => $fragments,
         'i18nNote' => $note,
         'i18nPending' => $pending,
         'translated' => $translated,
     ];
     if (!st_i18n_dry() && function_exists('st_cms_with_pending')) $out = st_cms_with_pending($out);
+    if ($fragments !== []) {
+        $out['note'] = trim(count($fragments) . ' sentence pieces next to bold text or links were translated. ' . (string) ($out['note'] ?? ''));
+        $out['i18nNote'] = $out['note'];
+    }
     return $out;
 }
