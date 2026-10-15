@@ -116,7 +116,7 @@
             '<button type="button" data-lang="en" class="is-on">English</button>' +
             '<button type="button" data-lang="ru">Русский</button>' +
           '</div>' +
-          '<p class="stb__hint">Click once to edit words. Double-click a menu link to open that page.</p>' +
+          '<p class="stb__hint">Click once to edit words. Double-click a link to open that page.</p>' +
         '</div>' +
         '<div class="stb__tools" role="toolbar" aria-label="Editor tools">' +
           '<div class="stb__grp" data-grp="text">' +
@@ -555,7 +555,7 @@
       var hello = ctx.hello || '';
       ctx.hello = '';
       var langName = nextLang === 'uk' ? 'Ukrainian' : (nextLang === 'ru' ? 'Russian' : 'English');
-      say(hello || (nextLang !== 'en' ? 'Saved. Now editing ' + langName + '.' : 'Click text to edit it. Double-click a menu link to open that page. Save publishes immediately.'));
+      say(hello || (nextLang !== 'en' ? 'Saved. Now editing ' + langName + '.' : 'Click text to edit it. Double-click a link to open that page. Save publishes immediately.'));
     });
 
     function injectChrome(d) {
@@ -761,7 +761,7 @@
         if (moveMode || (drag && drag.moved)) e.preventDefault();
       }, true);
       d.querySelectorAll('img').forEach(function (img) { img.setAttribute('draggable', 'false'); });
-      d.querySelectorAll('[data-st-region="header"] a[href], [data-st-region="drawer"] a[href], [data-st-region="footer"] a[href], a.tile').forEach(function (a) {
+      d.querySelectorAll('[data-st-region="header"] a[href], [data-st-region="drawer"] a[href], [data-st-region="footer"] a[href], a.tile, a.card, a.mach, a.btn, a.arrow-link').forEach(function (a) {
         if (!pageByUrl(a.getAttribute('href'))) return;
         if (!a.getAttribute('title')) a.setAttribute('title', 'Double-click to open this page. Click once to edit the words.');
       });
@@ -805,9 +805,9 @@
             n = n.parentElement;
             continue;
           }
-          if (/^(STRONG|EM|B|I|U)$/.test(n.tagName) && !n.classList.length && n.parentElement) {
-            /* Bold/italic words inside a sentence: edit the whole sentence, not just the bold part. */
-            var whole = n.parentElement.closest('p, li, h1, h2, h3, h4, h5, h6, dd, dt, td, th, figcaption, summary, blockquote');
+          if (/^(STRONG|EM|B|I|U|SPAN)$/.test(n.tagName) && !n.classList.length && n.parentElement) {
+            /* Bold, italic or a colour on part of a sentence: one text field, not a separate box. */
+            var whole = n.parentElement.closest('p, li, h1, h2, h3, h4, h5, h6, dd, dt, td, th, figcaption, summary, blockquote, a, button');
             if (whole && !whole.matches(SKIP_HOST)) return whole;
           }
           return n;
@@ -836,7 +836,7 @@
       if (!node || !main || !main.contains(node)) return null;
       if (node.closest('header, footer, nav, .nav, .drawer, .mbar, .topbar, ul.model-strip, .param-matrix')) return null;
       if (itemOf(node)) return null;
-      var field = node.closest('p, h1, h2, h3, h4, h5, h6, li, figcaption, blockquote, summary');
+      var field = node.closest('p, h1, h2, h3, h4, h5, h6, li, dd, dt, figcaption, blockquote, summary');
       if (!field || !main.contains(field)) return null;
       if (field.closest('ul.model-strip, .param-matrix')) return null;
       if (itemOf(field)) return null;
@@ -998,7 +998,7 @@
       } else if (image) {
         note.textContent = 'Photo selected. Click Move photo, then drag it inside the frame. Replace, reset or remove it from Media.';
       } else {
-        note.textContent = 'Click text to edit it. Double-click a menu link or a card to open that page. Click a menu category to open its dropdown.';
+        note.textContent = 'Click text to edit it. Double-click a link or a card to open that page. Click a menu category to open its dropdown.';
       }
     }
 
@@ -1013,10 +1013,9 @@
 
     function openFromAnchor(a) {
       if (!a) return;
-      var inNav = a.closest('[data-st-region="header"], [data-st-region="drawer"], [data-st-region="mbar"], [data-st-region="footer"], .mega, .drawer__sub, .nav');
-      var tile = a.matches && a.matches('a.tile, a.card, a.mach');
-      if (!inNav && !tile) return;
-      var pid = pageByUrl(a.getAttribute('href'));
+      var href = a.getAttribute('href') || '';
+      if (!href || href.charAt(0) === '#' || /^(?:mailto|tel|javascript):/i.test(href)) return;
+      var pid = pageByUrl(href);
       if (!pid) return;
       if (Date.now() - lastOpen < 700) return;
       lastOpen = Date.now();
@@ -1037,9 +1036,9 @@
       if (!t) return;
       var a = t.closest('a[href]');
       if (!a) return;
-      var inNav = a.closest('[data-st-region="header"], [data-st-region="drawer"], [data-st-region="mbar"], [data-st-region="footer"], .mega, .drawer__sub, .nav');
-      var tile = a.matches('a.tile, a.card, a.mach');
-      if (!inNav && !tile) return;
+      var href = a.getAttribute('href') || '';
+      if (!href || href.charAt(0) === '#' || /^(?:mailto|tel|javascript):/i.test(href)) return;
+      if (!pageByUrl(href)) return;
       e.preventDefault();
       e.stopPropagation();
       openFromAnchor(a);
@@ -1852,11 +1851,12 @@
         return;
       }
       if (level === 'text' && currentField && currentField.isConnected) {
-        var fname = labelOf(currentField) || 'this text';
-        if (!window.confirm('Delete this text “' + fname + '”? The rest of the section stays.')) return;
+        var statItem = currentField.closest && currentField.closest('.stats__i');
+        var fname = labelOf(statItem || currentField) || 'this text';
+        if (!window.confirm(statItem ? 'Delete this stat “' + fname + '”? The rest of the section stays.' : 'Delete this text “' + fname + '”? The rest of the section stays.')) return;
         beforeChange();
-        var fieldWhere = whereOf(currentField);
-        currentField.remove();
+        var fieldWhere = whereOf(statItem || currentField);
+        (statItem || currentField).remove();
         currentField = null;
         level = 'text';
         selected = null;
@@ -3819,8 +3819,37 @@
         var head = norm(nodes.slice(0, first).map(function (n) { return n.nodeValue; }).join(''));
         var tail = norm(nodes.slice(last + 1).map(function (n) { return n.nodeValue; }).join(''));
         var enN = norm(en);
-        if (head && enN.indexOf(head) !== 0) return;
-        if (tail && enN.slice(enN.length - tail.length) !== tail) return;
+        var anchored = !(head && enN.indexOf(head) !== 0) && !(tail && enN.slice(enN.length - tail.length) !== tail);
+        if (!anchored) {
+          /* The bold word's translation is not a slice of the full sentence. Still replace every Cyrillic piece. */
+          var raws = nodes.map(function (n) { return String(n.nodeValue || ''); });
+          var weights = raws.map(function (r) { return Math.max(1, r.replace(/^\s+|\s+$/g, '').length); });
+          var sum = 0;
+          weights.forEach(function (w) { sum += w; });
+          var cuts = [0], accW = 0, want, best, bestD, j, d;
+          for (i = 0; i < nodes.length - 1; i++) {
+            accW += weights[i];
+            want = (accW / sum) * enN.length;
+            best = -1; bestD = Infinity;
+            for (j = cuts[cuts.length - 1] + 1; j < enN.length; j++) {
+              if (enN.charAt(j) !== ' ') continue;
+              d = Math.abs(j - want);
+              if (d < bestD) { bestD = d; best = j; }
+            }
+            if (best < 0) best = Math.min(enN.length, Math.max(cuts[cuts.length - 1], Math.round(want)));
+            cuts.push(Math.max(cuts[cuts.length - 1], best));
+          }
+          cuts.push(enN.length);
+          nodes.forEach(function (n, k) {
+            if (n.stbUk == null) n.stbUk = n.nodeValue;
+            var seg = enN.slice(cuts[k], cuts[k + 1]);
+            if (k === 0) seg = (raws[k].match(/^\s*/) || [''])[0] + seg.replace(/^\s+/, '');
+            if (k === nodes.length - 1) seg = seg.replace(/\s+$/, '') + (raws[k].match(/\s*$/) || [''])[0];
+            n.nodeValue = seg;
+            n.stbSynthetic = true;
+          });
+          return;
+        }
         var mid = enN.slice(head.length, enN.length - tail.length);
         if (!norm(mid)) return;
         for (i = first; i <= last; i++) {
