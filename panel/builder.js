@@ -567,10 +567,10 @@
       style.textContent = [
         '.stb-on{outline:2px solid #d10a11;outline-offset:3px}',
         'html{scroll-behavior:auto!important}',
-        '.stb-ink-light,.stb-ink-light *{background-color:#1a1a1a!important}',
-        '.stb-ink-light,.stb-ink-light *:not([data-stb-paint]){color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
-        '.stb-ink-dark,.stb-ink-dark *{background-color:#fff!important}',
-        '.stb-ink-dark,.stb-ink-dark *:not([data-stb-paint]){color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
+        '.stb-ink-light{background-color:#1a1a1a!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
+        '.stb-ink-dark{background-color:#fff!important;color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
+        /* A coloured letter stays in the word. It does not get its own chip or lose its colour. */
+        '.stb-ink-light [style*="color"],.stb-ink-dark [style*="color"],.stb-ink-light [data-stb-paint],.stb-ink-dark [data-stb-paint]{background-color:transparent!important;-webkit-text-fill-color:currentColor!important}',
         '[data-st-lock]{outline:1px dashed #b86e00!important;outline-offset:3px}',
         '[data-st-untranslated]{outline:1px dashed #d10a11!important;outline-offset:3px}',
         'a.st-link,a[data-st-link]{color:#d10a11!important;-webkit-text-fill-color:#d10a11!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px}',
@@ -2649,6 +2649,8 @@
         if (value) {
           var sp = doc.createElement('span');
           sp.style[cssProp] = value;
+          /* The glyph colour has to be the fill too, or a parent plate paints over it. */
+          if (cssProp === 'color') sp.style.webkitTextFillColor = value;
           n.parentNode.insertBefore(sp, n);
           sp.appendChild(n);
         }
