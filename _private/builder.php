@@ -426,6 +426,17 @@ function st_builder_commit(array $data): array
         $i18nPending = (int) ($applied['pending'] ?? 0);
     }
 
+    $paintBlob = $main;
+    if (isset($data['chrome']) && is_array($data['chrome'])) {
+        foreach ($data['chrome'] as $chromeHtml) {
+            if (is_string($chromeHtml)) $paintBlob .= "\n" . $chromeHtml;
+        }
+    }
+    $missingPaint = st_i18n_missing_paint($paintBlob, $pairs);
+    if ($missingPaint !== '') {
+        throw new RuntimeException('The colour ' . $missingPaint . ' was not saved, so the page was not published.');
+    }
+
     if (isset($data['chrome']) && is_array($data['chrome'])) {
         st_builder_apply_chrome($data['chrome']);
         $shared = true;

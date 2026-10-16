@@ -845,25 +845,83 @@ function st_i18n_el_end(string $html, string $tag, int $innerStart): ?int
     return null;
 }
 
+/** The '>' that closes a start tag, ignoring '>' inside a quoted attribute. */
+function st_i18n_open_gt(string $html, int $from): ?int
+{
+    $len = strlen($html);
+    $quote = '';
+    for ($i = $from; $i < $len; $i++) {
+        $c = $html[$i];
+        if ($quote !== '') {
+            if ($c === $quote) $quote = '';
+            continue;
+        }
+        if ($c === '"' || $c === "'") {
+            $quote = $c;
+            continue;
+        }
+        if ($c === '>') return $i;
+    }
+    return null;
+}
+
 function st_i18n_xid_span(string $html, string $xid): ?array
 {
-    $re = '/<([a-z0-9]+)\b[^>]*\sdata-st-xid="' . preg_quote($xid, '/') . '"[^>]*>/i';
-    if (!preg_match($re, $html, $m, PREG_OFFSET_CAPTURE)) return null;
-    $tag = strtolower($m[1][0]);
-    $open = $m[0][0];
-    $openAt = (int) $m[0][1];
-    $inner = $openAt + strlen($open);
-    $end = st_i18n_el_end($html, $tag, $inner);
-    if ($end === null) return null;
-    $closeLen = strlen('</' . $tag . '>');
-    return [
-        'tag' => $tag,
-        'openAt' => $openAt,
-        'open' => $open,
-        'inner' => $inner,
-        'innerEnd' => $end - $closeLen,
-        'end' => $end,
-    ];
+    /* A colour stored in data-st-ruhtml contains raw '>' (span tags). A [^>]* scan
+       stops inside that attribute and never sees data-st-xid, so the new colour is dropped. */
+    $from = 0;
+    $len = strlen($html);
+    $xidRe = '/(?:^|\s)data-st-xid="' . preg_quote($xid, '/') . '"/i';
+    while ($from < $len) {
+        $lt = strpos($html, '<', $from);
+        if ($lt === false) return null;
+        if (!preg_match('/\G<([a-z0-9]+)\b/i', $html, $m, 0, $lt)) {
+            $from = $lt + 1;
+            continue;
+        }
+        $gt = st_i18n_open_gt($html, $lt + 1);
+        if ($gt === null) return null;
+        $open = substr($html, $lt, $gt - $lt + 1);
+        if (preg_match($xidRe, $open)) {
+            $tag = strtolower($m[1]);
+            $inner = $gt + 1;
+            $end = st_i18n_el_end($html, $tag, $inner);
+            if ($end === null) return null;
+            $closeLen = strlen('</' . $tag . '>');
+            return [
+                'tag' => $tag,
+                'openAt' => $lt,
+                'open' => $open,
+                'inner' => $inner,
+                'innerEnd' => $end - $closeLen,
+                'end' => $end,
+            ];
+        }
+        $from = $gt + 1;
+    }
+    return null;
+}
+
+/** A colour the editor sent must still be in the HTML that will be published. */
+function st_i18n_missing_paint(string $html, array $pairs): string
+{
+    $hay = strtolower($html);
+    foreach ($pairs as $row) {
+        if (!is_array($row)) continue;
+        foreach (['enHtml', 'ruHtml'] as $key) {
+            if (!array_key_exists($key, $row)) continue;
+            $src = (string) $row[$key];
+            if ($src === '' || !preg_match_all('/color:\s*(#[0-9a-f]{3,6})/i', $src, $found)) continue;
+            foreach ($found[1] as $hex) {
+                $hex = strtolower((string) $hex);
+                if (strlen($hex) === 4) {
+                    $hex = '#' . $hex[1] . $hex[1] . $hex[2] . $hex[2] . $hex[3] . $hex[3];
+                }
+                if (!str_contains($hay, $hex)) return $hex;
+            }
+        }
+    }
+    return '';
 }
 
 function st_i18n_set_attr(string $open, string $name, string $value): string

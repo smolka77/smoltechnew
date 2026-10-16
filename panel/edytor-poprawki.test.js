@@ -269,7 +269,8 @@ waitFor(window, function (doc) {
       assert.ok(String(pair.ruHtml || '').indexOf('точечной') >= 0, pair.ruHtml);
       assert.ok(String(pair.uk || '').indexOf('Проєктуємо') >= 0, pair.uk);
       assert.ok(payload.main.indexOf(UK2) >= 0, 'saved body stays ukrainian');
-      assert.ok(payload.main.indexOf('Проектируем и производим') < 0, 'saved body is not the russian sentence');
+      var bodyOnly = payload.main.replace(/\sdata-st-(?:ru|en)html="[^"]*"/g, '');
+      assert.ok(bodyOnly.indexOf('Проектируем и производим') < 0, 'saved body is not the russian sentence');
       ru.window.document.querySelector('[data-lang="uk"]').click();
       ru.window.document.querySelector('[data-lang="ru"]').click();
       return waitFor(ru.window, function (doc3) {
@@ -283,7 +284,140 @@ waitFor(window, function (doc) {
   return waitFor(remembered.window, function (doc) {
     var on = remembered.window.document.querySelector('.stb__lang button.is-on');
     return textOf(doc.querySelector('p.hero__sub')) === RU2 && on && on.getAttribute('data-lang') === 'ru';
-  }, 'last edit language is russian').then(function () {
+  }, 'last edit language is russian');
+}).then(function () {
+  var doc = frameDoc(window);
+  var lead = doc.querySelector('p.lead');
+  selectWord(doc, lead, 'We');
+  var sw = window.document.querySelector('.stb__swatch[data-color="#d10a11"]');
+  sw.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+  sw.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+  var hex = window.document.querySelector('#stb-hex');
+  hex.value = '#112233';
+  var apply = window.document.querySelector('[data-act="applycolor"]');
+  apply.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+  hex.value = '#d10a11';
+  apply.click();
+  lead = doc.querySelector('p.lead');
+  var weSpan = null;
+  Array.prototype.forEach.call(lead.querySelectorAll('span'), function (sp) {
+    if (sp.textContent === 'We') weSpan = sp;
+  });
+  assert.ok(weSpan, 'Apply coloured the selected word: ' + lead.innerHTML);
+  assert.ok(/color:\s*#112233/i.test(weSpan.getAttribute('style') || ''), 'Apply uses the hex field, not the previous swatch: ' + lead.innerHTML);
+
+  lead.setAttribute('contenteditable', 'true');
+  lead.focus();
+  var text = findText(lead, 'We');
+  lead.dispatchEvent(inputEvent(window, 'beforeinput', 'insertText'));
+  text.nodeValue = 'Q' + text.nodeValue;
+  var undoEv = new window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true });
+  doc.dispatchEvent(undoEv);
+  lead = doc.querySelector('p.lead');
+  assert.strictEqual(lead.getAttribute('contenteditable'), 'true', 'undo keeps the paragraph editable');
+  assert.ok(lead.classList.contains('stb-ink-light') || lead.classList.contains('stb-ink-dark'), 'undo keeps the edit border');
+  var sel = doc.getSelection();
+  assert.ok(sel && sel.anchorNode && lead.contains(sel.anchorNode), 'undo leaves the caret in the paragraph');
+  var redoEv = new window.KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true, cancelable: true });
+  doc.dispatchEvent(redoEv);
+  lead = doc.querySelector('p.lead');
+  assert.strictEqual(lead.getAttribute('contenteditable'), 'true', 'redo keeps the paragraph editable');
+  assert.ok(textOf(lead).indexOf('Q') === 0, 'redo restores the typed letter');
+
+  var saveEv = new window.KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true });
+  doc.dispatchEvent(saveEv);
+  assert.strictEqual(saveEv.defaultPrevented, true, 'Ctrl+S blocks the browser save dialog');
+  return new Promise(function (r) { setTimeout(r, 40); }).then(function () {
+    assert.ok(session.saved.length >= 1, 'Ctrl+S saves');
+    return new Promise(function (r) { setTimeout(r, 220); });
+  });
+}).then(function () {
+  var side = window.document.getElementById('stb-side');
+  var sideY = 0;
+  Object.defineProperty(side, 'scrollTop', {
+    configurable: true,
+    get: function () { return sideY; },
+    set: function (v) { sideY = Number(v) || 0; }
+  });
+  side.scrollTop = 48;
+  var doc = frameDoc(window);
+  var lead = doc.querySelector('p.lead');
+  lead.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+  side.scrollTop = 0;
+  doc.dispatchEvent(new window.Event('selectionchange'));
+  assert.strictEqual(side.scrollTop, 48, 'selecting text does not scroll the toolbar');
+
+  var UKS = 'Проєктуємо й виробляємо машини точкового зварювання.';
+  var RUS = 'Проектируем и изготавливаем машины точечной сварки.';
+  var ENS = 'We design and build spot welding machines.';
+  var stale = 'Проєктуємо й виробляємо машини <span style="color:#460ad1">точкового</span> зварювання.';
+  var attr = stale.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  var pageStale = '<!DOCTYPE html><html data-st-i18n="off" data-st-builder="1"><head></head><body><main id="main"><p class="hero__sub" data-st-ruhtml="' + attr + '">' + UKS + '</p></main>' +
+    '<script>window.ST_RU={};window.ST={lookup:function(uk,lang){var key=String(uk).replace(/\\s+/g," ").trim();' +
+    'if(lang==="en"&&key===' + JSON.stringify(UKS) + ')return ' + JSON.stringify(ENS) + ';' +
+    'if(lang==="ru"&&key===' + JSON.stringify(UKS) + ')return ' + JSON.stringify(RUS) + ';' +
+    'return uk;}};</script></body></html>';
+  function bake(payload, html) {
+    var para = (String(payload.main || '').match(/<p class="hero__sub"[\s\S]*?<\/p>/) || [])[0];
+    if (!para) return html;
+    return html.replace(/<p class="hero__sub"[\s\S]*?<\/p>/, para);
+  }
+  var ru = boot(pageStale, '', bake);
+  return waitFor(ru.window, function (doc2) {
+    return textOf(doc2.querySelector('p.hero__sub')) === ENS;
+  }, 'stale page opens').then(function () {
+    ru.window.document.querySelector('[data-lang="ru"]').click();
+    return waitFor(ru.window, function (doc2) {
+      var sub = doc2.querySelector('p.hero__sub');
+      return sub && textOf(sub) === RUS && !/460ad1/.test(sub.innerHTML);
+    }, 'stale ukrainian mark is not shown in russian');
+  }).then(function () {
+    var doc2 = frameDoc(ru.window);
+    paintSwatch(ru.window, doc2, doc2.querySelector('p.hero__sub'), 'изготавливаем', '#d10a11');
+    var sub = doc2.querySelector('p.hero__sub');
+    assert.ok(/color:\s*#d10a11/i.test(sub.innerHTML), sub.innerHTML);
+    assert.ok(String(sub.getAttribute('data-st-ruhtml') || '').indexOf('изготавливаем') >= 0, sub.getAttribute('data-st-ruhtml'));
+    ru.window.document.querySelector('#stb-save').click();
+    return new Promise(function (r) { setTimeout(r, 80); }).then(function () {
+      assert.ok(ru.saved.length, 'stale russian save sent');
+      var payload = ru.saved[0];
+      assert.ok(payload.main.indexOf('d10a11') >= 0, payload.main);
+      assert.ok(payload.main.indexOf('460ad1') < 0, 'saved main dropped the ukrainian mark: ' + payload.main);
+      assert.ok(payload.main.indexOf('изготавливаем') >= 0, payload.main);
+      var pair = (payload.i18nPairs || []).filter(function (row) { return row && row.ruHtml; })[0];
+      assert.ok(pair && String(pair.ruHtml).indexOf('d10a11') >= 0, JSON.stringify(payload.i18nPairs));
+      return waitFor(ru.window, function (doc3) {
+        var again = doc3.querySelector('p.hero__sub');
+        return again && textOf(again) === RUS && /color:\s*#d10a11/i.test(again.innerHTML) && String(again.getAttribute('data-st-ruhtml') || '').indexOf('460ad1') < 0;
+      }, 'russian colour survived reload');
+    });
+  });
+}).then(function () {
+  var typed = boot(pageEn);
+  return waitFor(typed.window, function (doc) {
+    return textOf(doc.querySelector('p.lead')) === EN;
+  }, 'paste page').then(function () {
+    var doc = frameDoc(typed.window);
+    var lead = doc.querySelector('p.lead');
+    lead.setAttribute('contenteditable', 'true');
+    selectWord(doc, lead, 'build');
+    paintSwatch(typed.window, doc, lead, 'build', '#d10a11');
+    lead = doc.querySelector('p.lead');
+    lead.setAttribute('contenteditable', 'true');
+    var colored = findText(lead, 'build');
+    var range = doc.createRange();
+    range.setStart(colored, colored.nodeValue.length);
+    range.collapse(true);
+    doc.getSelection().removeAllRanges();
+    doc.getSelection().addRange(range);
+    var paste = new typed.window.Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', { value: { getData: function () { return 'ZZ'; } } });
+    lead.dispatchEvent(paste);
+    assert.ok(textOf(doc.querySelector('p.lead')).indexOf('ZZ') >= 0, 'capture paste landed');
+    typed.window.document.querySelector('#stb-undo').click();
+    lead = doc.querySelector('p.lead');
+    assert.ok(textOf(lead).indexOf('ZZ') < 0, 'one undo drops only the paste');
+    assert.ok(/color:\s*#d10a11/i.test(lead.innerHTML), 'paste undo keeps the colour: ' + lead.innerHTML);
     console.log('edytor-poprawki.test.js ok');
   });
 }).catch(function (err) {
