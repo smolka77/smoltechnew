@@ -3140,18 +3140,27 @@
       if (!plan) return false;
       var host = plan.host;
       var phrase = plan.selected;
-      var start = mode === 'ru' ? plan.ruStart : plan.enStart;
-      if (start == null || start < 0) start = displayedStart(host, range);
+      var full = shownOf(host);
+      /* Offsets come from the text the reader sees. A start taken from a
+         translation that turned <span> into a space would slice "prrojectio n". */
+      var start = displayedStart(host, range);
+      if (start < 0 || full.slice(start, start + phrase.length) !== phrase) {
+        var hinted = mode === 'ru' ? plan.ruStart : plan.enStart;
+        if (hinted != null && hinted >= 0 && full.slice(hinted, hinted + phrase.length) === phrase) start = hinted;
+        else start = full.indexOf(phrase);
+      }
       if (start == null || start < 0) return false;
       beforeChange();
-      var full = shownOf(host);
       var read = mode === 'ru' ? readRuMarks : readMarks;
       var write = mode === 'ru' ? writeRuMarks : writeMarks;
       var key = prop === 'color' ? 'c' : 'z';
-      var items = retargetSpans(read(host), full, start, start + phrase.length, key, value || '');
-      if (!value) {
+      /* Default colour deletes c. It must not store #000000 in its place. */
+      var paint = value || '';
+      var items = retargetSpans(read(host), full, start, start + phrase.length, key, paint);
+      if (!paint) {
         var spec = mode === 'ru' ? readRuStyle(host) : readEnStyle(host);
         var field = prop === 'color' ? spec.color : spec.fontSize;
+        if (prop === 'color' && /^#0{3,6}$/i.test(String(field || '').replace(/\s+/g, ''))) field = '';
         if (field && phrase !== full) {
           if (start > 0) items = retargetSpans(items, full, 0, start, key, field);
           if (start + phrase.length < full.length) items = retargetSpans(items, full, start + phrase.length, full.length, key, field);
@@ -4643,7 +4652,7 @@
              A colour change has to travel with that English, or Save paints the old words. */
           if (host.stbRuEdited && window.STColor) STColor.normalize(host);
           var shown = phrasePlain(host);
-          var htmlNow = trimmedHtml(host);
+          var htmlNow = richHtml(host);
           var ukText = flat(host.stbUkFull || '');
           if (!ukText && host.stbUkSnap) {
             var box = doc.createElement('div');
@@ -4740,7 +4749,9 @@
           prevEn = flat(box.textContent) || known;
         }
         if (host.stbEnEdited && window.STColor) STColor.normalize(host);
-        var htmlNow = trimmedHtml(host);
+        /* richHtml is '' once the last span is gone. Compare that with the stored
+           HTML anyway, so Default colour is sent and the server can clear the attributes. */
+        var htmlNow = richHtml(host);
         var htmlWas = host.getAttribute('data-st-enhtml') || '';
         var changed = !!(host.stbEnEdited && cur && uk && looksEn(cur) && cur !== uk && cur !== prevEn);
         var fresh = !!(host.stbEnEdited && cur && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk) && flat(uk) === cur);

@@ -16,9 +16,19 @@ function st_cms_esc(string $s): string
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/**
+ * Inline tags carry letters inside a word, so they contribute no space.
+ * A line break or a block tag is the only place a space is inserted.
+ */
+function st_cms_untag(string $s): string
+{
+    $t = preg_replace('#</?(?:span|a|strong|em|u|b|i)\b[^>]*>#i', '', $s) ?? $s;
+    return preg_replace('/<[^>]+>/', ' ', $t) ?? $t;
+}
+
 function st_cms_strip(string $s): string
 {
-    $t = preg_replace('/<[^>]+>/', ' ', $s) ?? $s;
+    $t = st_cms_untag($s);
     $t = html_entity_decode($t, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     return trim(preg_replace('/\s+/', ' ', $t) ?? $t);
 }

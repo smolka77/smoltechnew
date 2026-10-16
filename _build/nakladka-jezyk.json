@@ -959,20 +959,9 @@
         "ru": "противостоять",
         "a": "1"
     },
-    "anc": {
-        "a": "1"
-    },
-    "e": {
-        "a": "1"
-    },
     "зварювання": {
         "en": "welding",
-        "ru": "e сварка",
-        "a": "1"
-    },
-    "Польський виробник, який живе цим і дихає цим протистояти anc e зварювання": {
-        "en": "A Polish manufacturer that lives and breathes resistance welding",
-        "ru": "Польский производитель, для которого это дело всей жизни противостоять anc e сварка",
+        "ru": "сварка",
         "a": "1"
     },
     "Наш портфель": {
@@ -980,25 +969,9 @@
         "ru": "Наш портфель проектов",
         "a": "1"
     },
-    "включає si": {
-        "en": "includes si",
-        "ru": "включает в себя si",
-        "a": "1"
-    },
-    "n": {
-        "a": "1"
-    },
-    "gle": {
-        "a": "1"
-    },
     "- а також багатопозиційні лінії, традиційні та інверторні верстати, апарати для проекційного, шовного, точкового та багатоточкового зварювання. У межах однієї лінії ми інтегруємо додаткові операції: калібрування деталей, пресове з'єднання, маркування, різання, гнуття, автоматичну перевірку міцності зварювальних наплавок, палетування та пакування.": {
         "en": "- and multi-station cells, conventional and inverter machines, projection, seam, spot and multi-spot welders. Within one cell we integrate extra operations: part calibration, press-fitting, marking, cutting, bending, automatic nugget-strength checks, palletising and packing.",
         "ru": "- а также многопозиционные ячейки, традиционные и инверторные станки, проекционные, шовные, точечные и многоточечные сварочные аппараты. В рамках одной ячейки мы интегрируем дополнительные операции: калибровку деталей, прессовую посадку, маркировку, резку, гибку, автоматическую проверку прочности сварочного наплавления, укладку на поддоны и упаковку.",
-        "a": "1"
-    },
-    "Наш портфель включає si n gle - а також багатопозиційні лінії, традиційні та інверторні верстати, апарати для проекційного, шовного, точкового та багатоточкового зварювання. У межах однієї лінії ми інтегруємо додаткові операції: калібрування деталей, пресове з'єднання, маркування, різання, гнуття, автоматичну перевірку міцності зварювальних наплавок, палетування та пакування.": {
-        "en": "Our portfolio includes single- and multi-station cells, conventional and inverter machines, projection, seam, spot and multi-spot welders. Within one cell we integrate extra operations: part calibration, press-fitting, marking, cutting, bending, automatic nugget-strength checks, palletising and packing.",
-        "ru": "Наш портфель проектов включает в себя si n gle - а также многопозиционные ячейки, традиционные и инверторные станки, проекционные, шовные, точечные и многоточечные сварочные аппараты. В рамках одной ячейки мы интегрируем дополнительные операции: калибровку деталей, прессовую посадку, маркировку, резку, гибку, автоматическую проверку прочности сварочного наплавления, укладку на поддоны и упаковку.",
         "a": "1"
     },
     "Перевірений на практиці": {
@@ -1006,20 +979,9 @@
         "ru": "Проверенный на практике в отрасли",
         "a": "1"
     },
-    "exp": {
-        "a": "1"
-    },
-    "erienc": {
-        "a": "1"
-    },
     "- десятки проектів для вимогливих автомобільних заводів.": {
         "en": "- dozens of projects for demanding automotive plants.",
         "ru": "- десятки проектов для требовательных автомобильных заводов.",
-        "a": "1"
-    },
-    "Перевірений на практиці exp erienc e - десятки проектів для вимогливих автомобільних заводів.": {
-        "en": "Industry-proven exp erienc e - dozens of projects for demanding automotive plants.",
-        "ru": "Проверенный на практике в отрасли exp erienc e - десятки проектов для требовательных автомобильных заводов.",
         "a": "1"
     },
     "Наш": {
@@ -1029,20 +991,6 @@
     "Машини": {
         "en": "machines",
         "ru": "Машины",
-        "a": "1"
-    },
-    "r": {
-        "a": "1"
-    },
-    "un": {
-        "a": "1"
-    },
-    "у пла": {
-        "en": "in pla",
-        "ru": "в пла",
-        "a": "1"
-    },
-    "nts": {
         "a": "1"
     },
     "у Польщі": {
@@ -1055,22 +1003,9 @@
         "ru": "и вокруг",
         "a": "1"
     },
-    "сві": {
-        "en": "worl",
-        "ru": "мир",
-        "a": "1"
-    },
-    "Наш Машини r un у пла nts у Польщі та навколо сві d": {
-        "en": "Our machines run in plants in Poland and around the world",
-        "ru": "Наш Машины r un в пла nts в Польше и вокруг мир d",
-        "a": "1"
-    },
     "Наші партнери": {
         "en": "Our partners",
         "ru": "Наши партнеры",
-        "a": "1"
-    },
-    ":": {
         "a": "1"
     },
     "Наші партнери :": {
@@ -2248,21 +2183,6 @@
         "ru": "Польский производитель, для которого это дело всей жизни",
         "a": "1"
     },
-    "anc e": {
-        "en": "resistance",
-        "ru": "противостоять anc",
-        "a": "1"
-    },
-    "Our portfolio includes si n gle - and multi-station cells, conventional and inverter machines, projection, seam, spot and multi-spot welders. Within one cell we integrate extra operations: part calibration, press-fitting, marking, cutting, bending, automatic nugget-strength checks, palletising and packing.": {
-        "en": "Our portfolio includes single - and multi-station cells, conventional and inverter machines, projection, seam, spot and multi-spot welders. Within one cell we integrate extra operations: part calibration, press-fitting, marking, cutting, bending, automatic nugget-strength checks, palletising and packing.",
-        "a": "1",
-        "u": "1"
-    },
-    "r un у пла nts у Польщі та навколо сві d": {
-        "en": "run in plants in Poland and around the world",
-        "ru": "r un в пла nts в Польше и вокруг мир d",
-        "a": "1"
-    },
     "- відповідаємо українською, польською та англійською.": {
         "en": "- We respond in Ukrainian, Polish, and English.",
         "ru": "- отвечаем на украинском, польском и английском языках.",
@@ -2309,12 +2229,12 @@
         "a": "1"
     },
     "Наш асортимент включає одно- та багатопозиційні лінії, традиційні та інверторні верстати, а також апарати для проекційного, шовного, точкового та багатоточкового зварювання. У рамках однієї лінії ми інтегруємо додаткові операції: калібрування деталей, пресове з'єднання, маркування, різання, гнуття, автоматичну перевірку міцності зварювальних наплавок, палетування та пакування.": {
-        "en": "Our portfolio includes single - and multi-station cells, conventional and inverter machines, projection, seam, spot and multi-spot welders. Within one cell we integrate extra operations: part calibration, press-fitting, marking, cutting, bending, automatic nugget-strength checks, palletising and packing.",
+        "en": "Our portfolio includes single- and multi-station cells, conventional and inverter machines, projection, seam, spot and multi-spot welders. Within one cell we integrate extra operations: part calibration, press-fitting, marking, cutting, bending, automatic nugget-strength checks, palletising and packing.",
         "ru": "В наш ассортимент входят одно- и многопозиционные ячейки, станки традиционного типа и с инверторным приводом, а также проекционные, шовные, точечные и многоточечные сварочные аппараты. В рамках одной ячейки мы интегрируем дополнительные операции: калибровку деталей, прессовую посадку, маркировку, резку, гибку, автоматическую проверку прочности сварных узелков, укладку на поддоны и упаковку.",
         "a": "1"
     },
-    "Досвід , що зарекомендував себе в галузі - десятки проєктів для вимогливих автомобільних заводів.": {
-        "en": "Industry-proven exp erienc e - dozens of projects for demanding automotive plants.",
+    "Досвід, що зарекомендував себе в галузі - десятки проєктів для вимогливих автомобільних заводів.": {
+        "en": "Industry-proven experience - dozens of projects for demanding automotive plants.",
         "ru": "Проверенный в отрасли опыт - десятки проектов для автомобильных заводов с высокими требованиями.",
         "a": "1"
     },
