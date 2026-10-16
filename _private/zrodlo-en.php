@@ -413,22 +413,27 @@ function st_i18n_auto(string $text, string $target, bool $html): array
         }
     }
     $cfg = st_i18n_engine_cfg();
-    if ($cfg['key'] === '') return ['ok' => false, 'text' => $text];
     $cache = st_i18n_cache_get();
-    $ck = 'src:' . $cfg['engine'] . ':en:' . $target . ($html ? ':h:' : ':') . substr(sha1($text), 0, 20);
+    $ck = 'src:' . ($cfg['key'] === '' ? 'auto' : $cfg['engine']) . ':en:' . $target . ($html ? ':h:' : ':') . substr(sha1($text), 0, 20);
     if (isset($cache[$ck]) && is_string($cache[$ck]) && $cache[$ck] !== '') {
         return ['ok' => true, 'text' => $cache[$ck]];
     }
+    /* A new sentence is translated on save. The paid key is used when it is set.
+       Without it, the same engines that already translate the rest of the site are used. */
+    if (!$html && $cfg['key'] === '') return st_i18n_auto_store($cache, $ck, st_i18n_auto_fallback($text, $target));
+    if ($cfg['key'] === '') return ['ok' => false, 'text' => $text];
     $send = $html ? $text : st_i18n_shield($text);
     try {
         $batch = $cfg['engine'] === 'google'
             ? st_i18n_google_cloud([$send], $target, true)
             : st_i18n_deepl([$send], $target, true);
     } catch (Throwable) {
-        return ['ok' => false, 'text' => $text];
+        return $html ? ['ok' => false, 'text' => $text] : st_i18n_auto_store($cache, $ck, st_i18n_auto_fallback($text, $target));
     }
     $got = $batch[0] ?? '';
-    if (!is_string($got) || trim($got) === '') return ['ok' => false, 'text' => $text];
+    if (!is_string($got) || trim($got) === '') {
+        return $html ? ['ok' => false, 'text' => $text] : st_i18n_auto_store($cache, $ck, st_i18n_auto_fallback($text, $target));
+    }
     $got = st_i18n_unshield($got);
     if (!$html) $got = st_i18n_plain($got);
     if ($target === 'uk' && !$html) $got = st_i18n_sense_polish($got, $text);
@@ -436,6 +441,70 @@ function st_i18n_auto(string $text, string $target, bool $html): array
     $cache[$ck] = $got;
     st_i18n_cache_put($cache);
     return ['ok' => true, 'text' => $got];
+}
+
+/** Translate one plain English sentence when the paid key is missing or did not answer. */
+function st_i18n_auto_fallback(string $text, string $target): array
+{
+    $got = st_i18n_once($text, $target, 'en');
+    if (!st_i18n_usable($text, $got)) return ['ok' => false, 'text' => $text];
+    if (!preg_match('/\p{Cyrillic}/u', $got) && st_i18n_sense_still_en($got)) return ['ok' => false, 'text' => $text];
+    if ($target === 'uk') $got = st_i18n_sense_polish($got, $text);
+    return ['ok' => true, 'text' => $got];
+}
+
+function st_i18n_auto_store(array $cache, string $key, array $result): array
+{
+    if (empty($result['ok'])) return $result;
+    $cache[$key] = (string) $result['text'];
+    st_i18n_cache_put($cache);
+    return $result;
+}
+
+/** A sentence typed in English and saved into the Ukrainian page. Names and product codes are not sentences. */
+function st_i18n_english_sentence(string $text): bool
+{
+    $t = st_i18n_plain($text);
+    if ($t === '' || preg_match('/\p{Cyrillic}/u', $t)) return false;
+    if (preg_match('~https?://|www\.|@|\.(?:com|net|org|ua|pl|eu|io|de|uk|jpg|jpeg|png|webp|gif|svg|html|js|css)\b~i', $t)) return false;
+    if (!st_i18n_sense_still_en($t)) return false;
+    $parts = preg_split('/\s+/u', $t) ?: [];
+    if (count($parts) < 4) return false;
+    preg_match_all('/\b[a-z]{3,}\b/u', $t, $m);
+    return count($m[0]) >= 3;
+}
+
+/** An English sentence stuck on the end of a Ukrainian paragraph. */
+function st_i18n_english_tails(string $text): array
+{
+    $t = st_i18n_plain($text);
+    if ($t === '' || !preg_match('/\p{Cyrillic}/u', $t)) return [];
+    if (!preg_match_all('/(?:^|(?<=[.!?]\s)|(?<=\p{Cyrillic}\s))([A-Z][A-Za-z0-9][A-Za-z0-9\'’,-]*(?:\s+[A-Za-z0-9][A-Za-z0-9\'’,-]*){3,}[.?!]?)/u', $t, $m)) {
+        return [];
+    }
+    $out = [];
+    foreach ($m[1] as $sentence) {
+        $sentence = trim((string) $sentence);
+        if (st_i18n_english_sentence($sentence)) $out[] = $sentence;
+    }
+    return $out;
+}
+
+function st_i18n_replace_sentence(string $html, string $old, string $new): string
+{
+    $oldN = st_i18n_plain($old);
+    if ($oldN === '' || st_i18n_plain($new) === $oldN) return $html;
+    return preg_replace_callback('/>([^<]*)</u', static function (array $m) use ($oldN, $new): string {
+        $decoded = html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $plain = st_i18n_plain($decoded);
+        if (!str_contains($plain, $oldN)) return $m[0];
+        $pos = strpos($plain, $oldN);
+        $before = ($pos === false || $pos === 0) ? '' : substr($plain, 0, (int) $pos);
+        if ($before !== '' && !preg_match('/(?:[.!?]|\p{Cyrillic})\s*$/u', $before)) return $m[0];
+        $updated = preg_replace('/' . preg_quote($oldN, '/') . '/u', $new, $decoded, 1);
+        if (!is_string($updated) || $updated === $decoded) return $m[0];
+        return '>' . htmlspecialchars($updated, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '<';
+    }, $html) ?? $html;
 }
 
 function st_i18n_auto_from(string $text, string $source, string $target): array
@@ -501,6 +570,80 @@ function st_i18n_dict_en_uk(string $en): string
         }
     }
     return $rev[st_i18n_norm_en($en)] ?? '';
+}
+
+/** Ukrainian sentence already paired with this English, with the original dashes kept. */
+function st_i18n_canonical_uk(string $en, ?array $overlay = null): string
+{
+    $norm = st_i18n_norm_en($en);
+    if ($norm === '') return '';
+    $overlay ??= st_i18n_overlay_load();
+    $fallback = '';
+    foreach ($overlay as $uk => $row) {
+        if (!is_string($uk) || !is_array($row) || !preg_match('/\p{Cyrillic}/u', $uk)) continue;
+        $rowEn = (string) ($row['en'] ?? '');
+        if ($rowEn === '' || st_i18n_norm_en($rowEn) !== $norm) continue;
+        if (($row['a'] ?? '') === '1') return $uk;
+        if ($fallback === '') $fallback = $uk;
+    }
+    if ($fallback !== '') return $fallback;
+    $exact = st_i18n_sense_exact(st_i18n_plain_show($en));
+    if ($exact !== '' && preg_match('/\p{Cyrillic}/u', $exact)) return $exact;
+    $dict = st_i18n_dict_en_uk($en);
+    if ($dict === '' || !preg_match('/\p{Cyrillic}/u', $dict)) return '';
+    $want = st_i18n_norm_en($dict);
+    foreach ($overlay as $uk => $row) {
+        if (is_string($uk) && preg_match('/\p{Cyrillic}/u', $uk) && st_i18n_norm_en($uk) === $want) return $uk;
+    }
+    return $dict;
+}
+
+/** Plain text currently stored inside a marked element, dashes kept. */
+function st_i18n_element_text(array $docs, string $xid): string
+{
+    if ($xid === '') return '';
+    foreach ($docs as $html) {
+        if (!is_string($html) || !str_contains($html, 'data-st-xid="' . $xid . '"')) continue;
+        $span = st_i18n_xid_span($html, $xid);
+        if ($span === null) return '';
+        return st_i18n_plain_show(substr($html, $span['inner'], $span['innerEnd'] - $span['inner']));
+    }
+    return '';
+}
+
+/** Colour spans in the English HTML, as the editor's data-st-enmark list. */
+function st_i18n_enmark_from_html(string $html): ?string
+{
+    $html = st_i18n_clean_rich($html);
+    if ($html === '' || !preg_match('/<span\b/i', $html)) return null;
+    $parts = preg_split('/(<[^>]+>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if (!is_array($parts)) return null;
+    $pos = 0;
+    $stack = [];
+    $items = [];
+    foreach ($parts as $part) {
+        if ($part === '') continue;
+        if (preg_match('/^<span\b([^>]*)>$/i', $part, $m)) {
+            $color = '';
+            if (preg_match('/\bcolor:\s*(#[0-9a-f]{3}|#[0-9a-f]{6})\b/i', $m[1], $cm)) $color = strtolower($cm[1]);
+            $stack[] = $color;
+            continue;
+        }
+        if (preg_match('/^<\/span>$/i', $part)) {
+            array_pop($stack);
+            continue;
+        }
+        if ($part[0] === '<') continue;
+        $text = html_entity_decode($part, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $color = $stack === [] ? '' : (string) $stack[count($stack) - 1];
+        if ($color !== '' && trim($text) !== '') {
+            $items[] = ['t' => $text, 'at' => $pos, 'tag' => 'span', 'c' => $color];
+        }
+        $pos += mb_strlen($text);
+    }
+    if ($items === []) return null;
+    $json = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return is_string($json) ? $json : null;
 }
 
 function st_i18n_tag_count(string $html): int
@@ -869,6 +1012,28 @@ function st_i18n_harvest_pending(array &$docs, array $ledger, array $overlay, ar
     return $pairs;
 }
 
+/** English sentences that were typed into the page and never marked for translation. */
+function st_i18n_harvest_english(array $docs, array &$seen): array
+{
+    $pairs = [];
+    foreach ($docs as $html) {
+        if (!is_string($html) || $html === '') continue;
+        $scan = preg_replace('/<(script|style|noscript)\b[^>]*>.*?<\/\1>/is', '', $html) ?? $html;
+        if (!preg_match_all('/>([^<]+)</u', $scan, $matches)) continue;
+        foreach ($matches[1] as $piece) {
+            $plain = st_i18n_plain(html_entity_decode((string) $piece, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $bits = st_i18n_english_sentence($plain) ? [$plain] : st_i18n_english_tails($plain);
+            foreach ($bits as $en) {
+                $sig = st_i18n_norm_en($en) . "\n" . $en;
+                if (isset($seen[$sig])) continue;
+                $pairs[] = ['role' => 'en', 'uk' => $en, 'en' => $en, 'prevEn' => '', 'fresh' => 1, 'retry' => 1];
+                $seen[$sig] = true;
+            }
+        }
+    }
+    return $pairs;
+}
+
 /** Fetch all DeepL translations a save needs in one go: one request per language, both languages in parallel. Fills the cache only. */
 function st_i18n_prefetch(array $jobs): void
 {
@@ -963,7 +1128,11 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $seenUk = st_i18n_plain((string) ($row['uk'] ?? ''));
         if ($seenEn !== '') $seen[st_i18n_norm_en($seenEn) . "\n" . $seenUk] = true;
     }
-    foreach (st_i18n_harvest_pending($docs, $ledger, $overlay, $seen) as $extra) $pairs[] = $extra;
+    foreach (st_i18n_harvest_pending($docs, $ledger, $overlay, $seen) as $extra) {
+        $pairs[] = $extra;
+        $seen[st_i18n_norm_en((string) ($extra['en'] ?? '')) . "\n" . st_i18n_plain((string) ($extra['uk'] ?? ''))] = true;
+    }
+    foreach (st_i18n_harvest_english($docs, $seen) as $extra) $pairs[] = $extra;
 
     $put = static function (string $uk, string $en, string $ru, bool $untranslated) use (&$overlay, &$touch): void {
         if ($uk === '') return;
@@ -1058,13 +1227,44 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $sameWords = !$fresh && $prev !== '' && $normEn === $normPrev;
         if ($sameWords && !$rich && !$retry) continue;
         if (preg_match('/\p{Cyrillic}/u', $en) && !preg_match('/[A-Za-z]/', $en)) continue;
-        if ($sameWords && $rich && !$retry) {
-            $held = $ledger['byEn'][st_i18n_norm_en($prev)] ?? null;
-            if (is_array($held) && (!empty($held['ukLock']) || !empty($held['ruLock']))) {
-                if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, ['data-st-enhtml' => $enHtml]);
+        /* Colour on a sentence that already translates must not be translated again.
+           A fresh pass would move the colour onto the wrong words and could leave the
+           English sentence on the Russian page. Keep the original Ukrainian wording. */
+        $canonUk = st_i18n_canonical_uk($en, $overlay);
+        $elementText = st_i18n_element_text($docs, $xid);
+        if ($elementText === '') $elementText = st_i18n_plain_show((string) ($row['uk'] ?? ''));
+        $elementIsCanon = $canonUk !== '' && $elementText === $canonUk;
+        $elementIsThisEn = $normEn !== '' && st_i18n_norm_en($elementText) === $normEn;
+        $wordsUnchanged = $sameWords || $fresh || $elementIsThisEn
+            || ($canonUk !== '' && st_i18n_norm_en($elementText) === st_i18n_norm_en($canonUk));
+        if ($canonUk !== '' && $wordsUnchanged) {
+            $held = $ledger['byEn'][st_i18n_norm_en($prev !== '' ? $prev : $en)] ?? null;
+            if ($sameWords && is_array($held) && (!empty($held['ukLock']) || !empty($held['ruLock']))) {
+                if ($xid !== '' && $rich) st_i18n_docs_replace($docs, $xid, '', '', null, ['data-st-enhtml' => $enHtml]);
                 $locked++;
                 continue;
             }
+            if ($rich || !$elementIsCanon) {
+                $attrs = [
+                    'data-st-ruhtml' => null,
+                    'data-st-untranslated' => null,
+                ];
+                if ($rich) {
+                    $attrs['data-st-enhtml'] = $enHtml;
+                    $mark = st_i18n_enmark_from_html($enHtml);
+                    if ($mark !== null) $attrs['data-st-enmark'] = $mark;
+                }
+                $inner = $elementIsCanon ? null : htmlspecialchars($canonUk, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                if ($xid !== '') {
+                    st_i18n_docs_replace($docs, $xid, '', '', $inner, $attrs);
+                } elseif ($inner !== null) {
+                    foreach ($docs as $dk => $html) {
+                        if (is_string($html)) $docs[$dk] = st_i18n_replace_sentence($html, $en, $canonUk);
+                    }
+                }
+                if (!$elementIsCanon) $translated++;
+            }
+            continue;
         }
 
         $lock = $ledger['byEn'][st_i18n_norm_en($prev)] ?? null;
@@ -1112,6 +1312,11 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
             $touch = true;
         } else {
             st_i18n_docs_replace($docs, $xid, $uk, $newUk, null, $attrs);
+            if ($fresh) {
+                foreach ($docs as $dk => $html) {
+                    if (is_string($html)) $docs[$dk] = st_i18n_replace_sentence($html, $en, $newUk);
+                }
+            }
         }
         $put($newUk, $en, $newRu, !$ruOk);
         $ledger['byEn'][st_i18n_norm_en($en)] = [
