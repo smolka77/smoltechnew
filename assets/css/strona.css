@@ -1434,10 +1434,11 @@ picture:has(> img[data-st-crop]),
 .area__body .arrow-link { margin-top: auto; padding-top: .5rem; }
 .area__pick { margin-top: auto; padding-top: .5rem; position: relative; }
 .area__pick-btn {
-  display: inline-flex; align-items: center; gap: .45rem;
+  display: inline-flex; align-items: center; justify-content: flex-start; gap: .45rem;
+  width: fit-content; max-width: 100%;
   padding: 0; border: 0; background: none; cursor: pointer;
   font: inherit; font-weight: 700; font-size: .84rem; letter-spacing: .07em;
-  text-transform: uppercase; color: var(--brand);
+  text-transform: uppercase; text-align: left; color: var(--brand);
 }
 .area__pick-btn svg { width: 1.15em; height: 1.15em; transition: transform .22s var(--ease); }
 .area__pick-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
@@ -4944,13 +4945,24 @@ h1, h2, h3, h4, p, li, a, td, th, label, dt, dd {
 }
 
 
-/* Editor alignment on a single arrow link (only that link moves). */
+/* Editor alignment on a card link or the spot-machine menu button.
+   Left / Center / Right move that control only, the same way as normal text.
+   A button's own default is centered, so Left has to set text-align, not clear it. */
+.arrow-link[style*="text-align:left"], .arrow-link[style*="text-align: left"],
+.area__pick-btn[style*="text-align:left"], .area__pick-btn[style*="text-align: left"] {
+  display: flex; width: fit-content; max-width: 100%;
+  margin-left: 0; margin-right: auto;
+  justify-content: flex-start; text-align: left;
+}
+.arrow-link[style*="text-align:center"], .arrow-link[style*="text-align: center"],
+.area__pick-btn[style*="text-align:center"], .area__pick-btn[style*="text-align: center"] {
+  display: flex; width: fit-content; max-width: 100%;
+  margin-left: auto; margin-right: auto;
+  justify-content: center; text-align: center;
+}
 .arrow-link[style*="text-align:right"], .arrow-link[style*="text-align: right"],
-.arrow-link[style*="text-align:center"], .arrow-link[style*="text-align: center"] { display: flex; width: fit-content; }
-.arrow-link[style*="text-align:right"], .arrow-link[style*="text-align: right"] { margin-left: auto; }
-.arrow-link[style*="text-align:center"], .arrow-link[style*="text-align: center"] { margin-left: auto; margin-right: auto; }
-
-/* Editor alignment on card arrow links (Left / Center / Right behave like normal text) */
-.arrow-link[style*="text-align: center"], .arrow-link[style*="text-align:center"] { display: flex; justify-content: center; text-align: center; }
-.arrow-link[style*="text-align: right"], .arrow-link[style*="text-align:right"] { display: flex; justify-content: flex-end; text-align: right; }
-.arrow-link[style*="text-align: left"], .arrow-link[style*="text-align:left"] { display: flex; justify-content: flex-start; text-align: left; }
+.area__pick-btn[style*="text-align:right"], .area__pick-btn[style*="text-align: right"] {
+  display: flex; width: fit-content; max-width: 100%;
+  margin-left: auto; margin-right: 0;
+  justify-content: flex-end; text-align: right;
+}
