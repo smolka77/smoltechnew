@@ -10,6 +10,8 @@ declare(strict_types=1);
  * With no key, the English is kept and the field is marked untranslated.
  */
 
+require_once __DIR__ . '/farba.php';
+
 const ST_I18N_SOURCE = ST_ROOT . '/_build/zrodlo-en.json';
 
 function st_i18n_engine_cfg(): array
@@ -265,6 +267,10 @@ function st_i18n_clean_rich(string $html): string
         $next = preg_replace('/<span(?: style="[^"]*")?><\/span>/u', '', $next) ?? $next;
         if ($next === $html) break;
         $html = $next;
+    }
+    if (function_exists('st_paint_normalize') || is_file(__DIR__ . '/farba.php')) {
+        require_once __DIR__ . '/farba.php';
+        $html = st_paint_normalize($html);
     }
     return $html;
 }
@@ -1122,17 +1128,31 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
     }
     $pairs = $rest;
     $seen = [];
+    $paintSkipXid = [];
+    $paintSkipEn = [];
     foreach ($pairs as $row) {
         if (!is_array($row)) continue;
         $seenEn = st_i18n_plain((string) ($row['en'] ?? ''));
         $seenUk = st_i18n_plain((string) ($row['uk'] ?? ''));
         if ($seenEn !== '') $seen[st_i18n_norm_en($seenEn) . "\n" . $seenUk] = true;
+        if (!empty($row['paintOnly'])) {
+            $px = (string) ($row['xid'] ?? '');
+            if ($px !== '') $paintSkipXid[$px] = true;
+            if ($seenEn !== '') $paintSkipEn[st_i18n_norm_en($seenEn)] = true;
+        }
     }
     foreach (st_i18n_harvest_pending($docs, $ledger, $overlay, $seen) as $extra) {
+        $hx = (string) ($extra['xid'] ?? '');
+        $he = st_i18n_norm_en((string) ($extra['en'] ?? ''));
+        if (($hx !== '' && isset($paintSkipXid[$hx])) || ($he !== '' && isset($paintSkipEn[$he]))) continue;
         $pairs[] = $extra;
         $seen[st_i18n_norm_en((string) ($extra['en'] ?? '')) . "\n" . st_i18n_plain((string) ($extra['uk'] ?? ''))] = true;
     }
-    foreach (st_i18n_harvest_english($docs, $seen) as $extra) $pairs[] = $extra;
+    foreach (st_i18n_harvest_english($docs, $seen) as $extra) {
+        $he = st_i18n_norm_en((string) ($extra['en'] ?? ''));
+        if ($he !== '' && isset($paintSkipEn[$he])) continue;
+        $pairs[] = $extra;
+    }
 
     $put = static function (string $uk, string $en, string $ru, bool $untranslated) use (&$overlay, &$touch): void {
         if ($uk === '') return;
@@ -1145,9 +1165,11 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $touch = true;
     };
 
+    $ledgerBefore = json_encode($ledger);
     $jobs = [];
     foreach ($pairs as $row) {
-        if (!is_array($row) || (($row['role'] ?? 'en') !== 'en' && isset($row['role']))) continue;
+        if (!is_array($row) || !empty($row['paintOnly'])) continue;
+        if (($row['role'] ?? 'en') !== 'en' && isset($row['role'])) continue;
         $pre = st_i18n_clean_rich((string) ($row['enHtml'] ?? ''));
         if ($pre !== '' && preg_match('/<(?:strong|em|u|b|i|a|span)\b/i', $pre)) $jobs[] = [st_i18n_shield($pre), true];
         $pl = st_i18n_plain_show((string) ($row['en'] ?? ''));
@@ -1167,6 +1189,14 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $xid = preg_match('/^[a-z][a-z0-9]{0,11}$/', (string) ($row['xid'] ?? '')) ? (string) $row['xid'] : '';
         if ($prev === '' && $uk !== '') $prev = st_i18n_current_en($uk, $overlay);
         if ($en === '' && $prev !== '') $en = $prev;
+
+        if (!empty($row['paintOnly'])) {
+            $attrs = [];
+            if (array_key_exists('enHtml', $row)) $attrs['data-st-enhtml'] = st_i18n_clean_rich((string) $row['enHtml']);
+            if (array_key_exists('ruHtml', $row)) $attrs['data-st-ruhtml'] = st_i18n_clean_rich((string) $row['ruHtml']);
+            if ($xid !== '' && $attrs !== []) st_i18n_docs_replace($docs, $xid, '', '', null, $attrs);
+            continue;
+        }
 
         if ($role === 'uk') {
             $next = st_i18n_plain((string) ($row['nextUk'] ?? ''));
@@ -1199,7 +1229,9 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
                     'pending' => 0,
                 ];
             }
-            if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, ['data-st-lock' => 'ru']);
+            $ruAttrs = ['data-st-lock' => 'ru'];
+            if (array_key_exists('ruHtml', $row)) $ruAttrs['data-st-ruhtml'] = st_i18n_clean_rich((string) $row['ruHtml']);
+            if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, $ruAttrs);
             $locked++;
             continue;
         }
@@ -1225,6 +1257,14 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         }
         $retry = $marked || (is_array($pendingRow) && !empty($pendingRow['pending']));
         $sameWords = !$fresh && $prev !== '' && $normEn === $normPrev;
+        /* Colour-only: the words did not change, so keep the Ukrainian sentence and
+           store the English HTML even when the last colour span has been removed. */
+        if ($sameWords && !$retry && !$fresh && array_key_exists('enHtml', $row)) {
+            $attrs = ['data-st-enhtml' => $enHtml];
+            if (array_key_exists('ruHtml', $row)) $attrs['data-st-ruhtml'] = st_i18n_clean_rich((string) $row['ruHtml']);
+            if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, $attrs);
+            continue;
+        }
         if ($sameWords && !$rich && !$retry) continue;
         if (preg_match('/\p{Cyrillic}/u', $en) && !preg_match('/[A-Za-z]/', $en)) continue;
         /* Colour on a sentence that already translates must not be translated again.
@@ -1407,7 +1447,7 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         if (is_string($html)) $docs[$k] = preg_replace('/\sdata-st-xid="[a-z0-9]+"/i', '', $html) ?? $html;
     }
     if ($touch) st_i18n_overlay_save($overlay);
-    st_i18n_source_save($ledger);
+    if (json_encode($ledger) !== $ledgerBefore) st_i18n_source_save($ledger);
     if ($replacedManual > 0) {
         $warnings[] = $replacedManual === 1
             ? 'One manual Ukrainian or Russian edit was translated again because its English changed.'
