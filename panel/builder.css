@@ -375,9 +375,13 @@
 .stb--side > .stb__stage { grid-column: 1; grid-row: 1; min-width: 0; }
 .stb--side > .stb__side {
   grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overflow-anchor: none; user-select: none;
   display: flex; flex-direction: column; gap: .5rem; padding: .6rem .6rem 1rem;
   background: #f3f3f4; border-left: 1px solid rgba(22, 22, 22, .12);
 }
+.stb--side > .stb__side input,
+.stb--side > .stb__side textarea,
+.stb--side > .stb__side select { user-select: text; }
 .stb--side .stb__side > * { margin: 0; }
 .stb--side .stb__bar, .stb--side .stb__tools { padding: 0; background: transparent; border: 0; position: static; }
 .stb--side .stb__bar { gap: .4rem; }
@@ -385,7 +389,10 @@
 .stb--side .stb__bar .stb__lang { flex: 1 0 100%; display: flex; }
 .stb--side .stb__bar .stb__lang button { flex: 1 1 0; }
 .stb--side .stb__hint { flex: 1 0 100%; margin: 0; font-size: .74rem; color: #5a5c60; }
-.stb--side .stb__tools { flex-direction: column; flex-wrap: nowrap; gap: .5rem; overflow: visible; }
+.stb--side .stb__tools {
+  flex-direction: column; flex-wrap: nowrap; gap: .5rem; overflow: visible;
+  position: sticky; top: 0; z-index: 3; background: #f3f3f4; overflow-anchor: none;
+}
 .stb--side .stb__grp { width: 100%; box-sizing: border-box; padding: .45rem .5rem .5rem; gap: .25rem; }
 .stb--side .stb__grp--layout { margin-top: 1.35rem; padding-top: .85rem; border-top: 10px solid #e4e4e7; }
 .stb--side .stb__grp-h { order: -3; font-size: .66rem; margin-bottom: .1rem; }

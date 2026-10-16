@@ -6,7 +6,15 @@ var uk = 'Від серійних машин точкового та рельє�
 var en = 'From serial spot and projection welders to complex lines.';
 
 assert.strictEqual(ST.canRevealSource(uk, 'welders'), false);
+assert.strictEqual(ST.canRevealSource(uk, 'сварки'), false);
+assert.strictEqual(ST.canRevealSource(uk, 'Від короткого речення.'), false);
 assert.strictEqual(ST.canRevealSource(uk, en), true);
+assert.strictEqual(ST.selectionWins('uil', 'build'), true);
+assert.strictEqual(ST.selectionWins('build', 'build'), false);
+assert.strictEqual(ST.selectionWins('', 'e'), false);
+assert.strictEqual(ST.dragShrinks('build', 'uil'), true);
+assert.strictEqual(ST.dragShrinks('build', 'build'), false);
+assert.strictEqual(ST.dragShrinks('build', 'other'), false);
 assert.strictEqual(ST.canRevealSource(uk, uk), true);
 assert.strictEqual(ST.canRevealSource('projection', 'projection'), true);
 assert.strictEqual(ST.applyIfCurrent(1, 2, en, uk.slice(0, 12)), en);

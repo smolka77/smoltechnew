@@ -1235,7 +1235,17 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         if ($role === 'ru') {
             $ru = st_i18n_plain((string) ($row['ru'] ?? ''));
             if ($uk === '' || $ru === '' || $ru === $uk) continue;
+            $ruHtmlGiven = array_key_exists('ruHtml', $row);
+            /* A short fragment must not replace the Russian sentence for the whole key. */
+            $fragment = mb_strlen($uk) > mb_strlen($ru) * 1.6 && mb_strlen($uk) - mb_strlen($ru) > 8;
+            if ($fragment && !$ruHtmlGiven) continue;
             $src = $prev !== '' ? $prev : st_i18n_current_en($uk, $overlay);
+            if ($fragment) {
+                $ruAttrs = [];
+                if ($ruHtmlGiven) $ruAttrs = st_i18n_paint_store($row, 'ruHtml', 'data-st-ruhtml', 'data-st-rumark');
+                if ($xid !== '' && $ruAttrs !== []) st_i18n_docs_replace($docs, $xid, '', '', null, $ruAttrs);
+                continue;
+            }
             $put($uk, $src, $ru, false);
             if ($src !== '') {
                 $prevRow = $ledger['byEn'][st_i18n_norm_en($src)] ?? ['en' => $src, 'uk' => $uk, 'ukLock' => 0];
@@ -1307,7 +1317,6 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
             }
             if ($rich || !$elementIsCanon) {
                 $attrs = [
-                    'data-st-ruhtml' => null,
                     'data-st-untranslated' => null,
                 ];
                 if ($rich) {

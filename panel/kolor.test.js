@@ -39,6 +39,13 @@ assert.strictEqual(again.ok, true);
 assert.strictEqual(blue.textContent, word);
 assert.strictEqual(blue.innerHTML, 'p<span style="color:#112233">rojectio</span>n welders');
 
+var build = paint('build', 0, 5, '#d10a11');
+assert.strictEqual(build.innerHTML, '<span style="color:#d10a11">build</span>');
+var midBlue = STColor.applyOffsets(build, 1, 4, 'color', '#1d4ed8');
+assert.strictEqual(midBlue.ok, true);
+assert.strictEqual(build.textContent, 'build');
+assert.strictEqual(build.innerHTML, '<span style="color:#d10a11">b</span><span style="color:#1d4ed8">uil</span><span style="color:#d10a11">d</span>');
+
 var letter = paint(word, 4, 5, '#d10a11');
 assert.strictEqual(letter.textContent, word);
 assert.strictEqual(letter.innerHTML, 'proj<span style="color:#d10a11">e</span>ction welders');

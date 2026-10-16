@@ -111,4 +111,33 @@ st_paint_assert(str_contains($sameHtml, 'rojectio') && !str_contains($sameHtml, 
 st_paint_assert(str_contains($sameHtml, $uk), 'same words uk kept');
 st_paint_assert(str_contains($sameHtml, 'data-st-ruhtml="русский"'), 'same words ru kept');
 
+$ukRu = 'Коротке речення про колір.';
+$ruHtml = 'Короткое <span style="color:#d10a11">предложение</span> про цвет.';
+$paintedRu = st_i18n_apply_documents(['main' => '<p data-st-xid="r1">' . $ukRu . '</p>'], [[
+    'role' => 'ru',
+    'xid' => 'r1',
+    'uk' => $ukRu,
+    'ru' => 'Короткое предложение про цвет.',
+    'ruHtml' => $ruHtml,
+    'paintOnly' => 1,
+]]);
+$ruDoc = (string) ($paintedRu['docs']['main'] ?? '');
+st_paint_assert(str_contains($ruDoc, $ukRu), 'ru paint keeps uk body: ' . $ruDoc);
+st_paint_assert(str_contains($ruDoc, 'color:#d10a11'), 'ru paint keeps colour: ' . $ruDoc);
+st_paint_assert(str_contains($ruDoc, 'data-st-ruhtml='), 'ru paint stores html: ' . $ruDoc);
+st_paint_assert(!str_contains($ruDoc, 'data-st-xid'), 'ru paint strips xid');
+
+$fragSrc = '<p data-st-xid="r2" data-st-ruhtml="' . htmlspecialchars($ruHtml, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">' . $ukRu . '</p>';
+$beforeFrag = $GLOBALS['ST_I18N_DRY_OVERLAY'][$ukRu]['ru'] ?? '';
+$fragment = st_i18n_apply_documents(['main' => $fragSrc], [[
+    'role' => 'ru',
+    'xid' => 'r2',
+    'uk' => $ukRu,
+    'ru' => 'цвет',
+]]);
+$fragHtml = (string) ($fragment['docs']['main'] ?? '');
+st_paint_assert(str_contains($fragHtml, $ukRu), 'fragment keeps the sentence: ' . $fragHtml);
+st_paint_assert(str_contains($fragHtml, 'color:#d10a11'), 'fragment keeps stored colour: ' . $fragHtml);
+st_paint_assert(($GLOBALS['ST_I18N_DRY_OVERLAY'][$ukRu]['ru'] ?? '') === $beforeFrag, 'fragment did not override russian');
+
 echo "farba-test.php: ok\n";

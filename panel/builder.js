@@ -103,7 +103,7 @@
     var uploadFile = ctx.uploadFile || function () {};
     var doc = null;
     var frame = null;
-    var mode = 'en';
+    var mode = storedLang() || 'en';
     var page = null;
     var pageUkMeta = null;
     var dirty = false;
@@ -442,6 +442,10 @@
 
     function beforeChange() {
       editGen += 1;
+      /* A colour, paste, or other command ends a typing burst so Undo
+         restores only that command, not the command plus the typing. */
+      typing = false;
+      clearTimeout(typeTimer);
       if (!doc) return;
       var snap = capture();
       var last = undoStack[undoStack.length - 1];
@@ -606,7 +610,11 @@
       else if (act === 'resetpos') resetPhoto();
       else if (act === 'alt') editAlt();
       else if (act === 'noimg') removeImage();
-      else if (act === 'clearcolor') paint('');
+      else if (act === 'clearcolor') {
+        var hexBox = host.querySelector('#stb-hex');
+        if (hexBox) hexBox.value = '';
+        paint('');
+      }
       else if (act === 'applycolor') applyHex();
       else if (act === 'nosize') applySize('inherit');
       else if (act === 'desk' || act === 'tab' || act === 'phone') setStage(act);
@@ -981,13 +989,93 @@
         var live = d.getSelection();
         if (live && live.rangeCount && !live.isCollapsed) {
         try { heldRange = live.getRangeAt(0).cloneRange(); } catch (err) { heldRange = null; }
-        var sameArmed = armedStyle && flat(live.toString()) === armedStyle.text;
-        if ((!armedStyle || armedStyle.used) && !sameArmed) armedStyle = null;
+        var liveText = flat(live.toString());
+        if (armedStyle && window.STEdit && STEdit.selectionWins(liveText, armedStyle.text)) armedStyle = null;
         }
         if (!pickedEl || !pickedEl.isConnected) { pickedEl = null; return; }
         if (!live || !live.rangeCount || live.isCollapsed) return;
         if (live.anchorNode && !pickedEl.contains(live.anchorNode)) pickedEl = null;
       });
+      var dragCaret = null;
+      function caretFromPoint(x, y) {
+        try {
+          if (d.caretPositionFromPoint) {
+            var pos = d.caretPositionFromPoint(x, y);
+            if (pos && pos.offsetNode) return { node: pos.offsetNode, offset: pos.offset };
+          }
+        } catch (err) { /* older browsers */ }
+        try {
+          if (d.caretRangeFromPoint) {
+            var found = d.caretRangeFromPoint(x, y);
+            if (found) return { node: found.startContainer, offset: found.startOffset };
+          }
+        } catch (err2) { /* ignore */ }
+        return null;
+      }
+      d.addEventListener('mousedown', function (e) {
+        dragCaret = null;
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        var t = e.target && (e.target.nodeType === 1 ? e.target : e.target.parentElement);
+        if (!t || !t.closest || !t.closest(PHRASE_SEL)) return;
+        var caret = caretFromPoint(e.clientX, e.clientY);
+        if (!caret || !caret.node) return;
+        dragCaret = caret;
+        var sel = d.getSelection();
+        var cur = null;
+        if (sel && sel.rangeCount && !sel.isCollapsed) {
+          try { cur = sel.getRangeAt(0); } catch (err) { cur = null; }
+        }
+        var inside = false;
+        if (cur) {
+          try { inside = cur.comparePoint(caret.node, caret.offset) === 0; } catch (err2) { inside = false; }
+        }
+        if (inside && sel) {
+          try {
+            var collapsed = d.createRange();
+            collapsed.setStart(caret.node, caret.offset);
+            collapsed.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(collapsed);
+          } catch (err3) { /* the previous selection stays */ }
+        }
+        heldRange = null;
+        armedStyle = null;
+      }, true);
+      d.addEventListener('mouseup', function (e) {
+        var start = dragCaret;
+        dragCaret = null;
+        if (!start || e.button !== 0) return;
+        var end = caretFromPoint(e.clientX, e.clientY);
+        if (!end || !end.node || (start.node === end.node && start.offset === end.offset)) return;
+        var drag = null;
+        try {
+          drag = d.createRange();
+          drag.setStart(start.node, start.offset);
+          drag.setEnd(end.node, end.offset);
+          if (drag.collapsed) {
+            var flipped = d.createRange();
+            flipped.setStart(end.node, end.offset);
+            flipped.setEnd(start.node, start.offset);
+            drag = flipped;
+          }
+        } catch (err) { return; }
+        if (!drag || drag.collapsed || !flat(drag.toString())) return;
+        var sel = d.getSelection();
+        var browserText = '';
+        try {
+          if (sel && sel.rangeCount && !sel.isCollapsed) browserText = flat(sel.toString());
+        } catch (err2) { browserText = ''; }
+        var dragText = flat(drag.toString());
+        var shrink = window.STEdit && STEdit.dragShrinks(browserText, dragText);
+        if (!shrink && browserText && browserText !== dragText) return;
+        try {
+          if (!sel) return;
+          sel.removeAllRanges();
+          sel.addRange(drag);
+          heldRange = drag.cloneRange();
+          armedStyle = null;
+        } catch (err3) { /* the browser selection stands */ }
+      }, true);
       d.addEventListener('click', onClick, true);
       d.addEventListener('dblclick', onDblClick, true);
       d.addEventListener('keydown', onKey, true);
@@ -1001,10 +1089,7 @@
         if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
           var phrasePaste = e.target && e.target.closest && e.target.closest(PHRASE_SEL);
           if (phrasePaste && (mode === 'en' || mode === 'ru')) ensureUkSnap(phrasePaste);
-          if (!typing) beforeChange();
-          typing = true;
-          clearTimeout(typeTimer);
-          typeTimer = setTimeout(function () { typing = false; }, 700);
+          beforeChange();
           e.preventDefault();
           return;
         }
@@ -2114,6 +2199,59 @@
       });
     }
 
+    function repairRuPlain() {
+      if (mode !== 'ru' || !doc) return;
+      var win = frame.contentWindow;
+      if (!win || !win.ST || typeof win.ST.lookup !== 'function') return;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (host.closest && host.closest('script, style, noscript')) return;
+        if (host.querySelector('br, img, svg, a')) return;
+        var uk = flat(host.stbUkFull || '');
+        if (!uk && host.stbUkSnap) {
+          var snapBox = doc.createElement('div');
+          snapBox.innerHTML = host.stbUkSnap;
+          uk = phrasePlain(snapBox);
+        }
+        if (!uk) {
+          var acc = '';
+          rawTextNodes(host).forEach(function (n) {
+            if (n.stbUk != null) acc += String(n.stbUk);
+          });
+          uk = flat(acc);
+        }
+        var cur = phrasePlain(host);
+        if (!uk) uk = cur;
+        var tr = uk ? String(win.ST.lookup(uk, 'ru') || '').trim() : '';
+        var stored = String(host.getAttribute('data-st-ruhtml') || '');
+        if (stored.trim()) {
+          var hold = doc.createElement('div');
+          hold.innerHTML = stored;
+          var storedPlain = phrasePlain(hold);
+          if (storedPlain && storedPlain !== uk) return;
+          if (!(storedPlain === uk && tr && flat(tr) !== uk)) return;
+        } else if (!tr || flat(tr) === uk || cur !== uk) return;
+        if (host.stbUkSnap == null) {
+          host.stbUkSnap = host.innerHTML;
+          host.stbUkFull = uk;
+        }
+        host.textContent = tr;
+        if (host.firstChild && host.firstChild.nodeType === 3) host.firstChild.stbUk = uk;
+      });
+    }
+
+    function storedLang() {
+      try {
+        var v = window.localStorage && localStorage.getItem('stb-last-lang');
+        if (v === 'uk' || v === 'en' || v === 'ru') return v;
+      } catch (err) { /* private browsing */ }
+      return '';
+    }
+
+    function rememberLang(lang) {
+      if (lang !== 'uk' && lang !== 'en' && lang !== 'ru') return;
+      try { localStorage.setItem('stb-last-lang', lang); } catch (err) { /* private browsing */ }
+    }
+
     function applyLang(lang) {
       if (!doc) return;
       if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') lang = 'en';
@@ -2149,6 +2287,7 @@
         return;
       }
       mode = lang;
+      rememberLang(lang);
       holdSourceSnaps();
       if (lang === 'uk') {
         walkText(doc, function (node) { putSource(node); });
@@ -2170,6 +2309,7 @@
       if (lang === 'ru') overlayLang('ru');
       if (lang === 'ru') paintAllRuMarks();
       showStoredLangHtml(lang);
+      if (lang === 'ru') repairRuPlain();
       paintAllLangStyles();
       showMeta(lang);
       markLocks();
@@ -2707,6 +2847,12 @@
 
     function stylePhrase(prop, value) {
       var armed = armedStyle && armedStyle.mode === mode && armedStyle.host && armedStyle.host.isConnected ? armedStyle : null;
+      var live = activeRange();
+      var liveText = live ? flat(live.toString()) : '';
+      if (armed && window.STEdit && STEdit.selectionWins(liveText, armed.text)) {
+        armed = null;
+        armedStyle = null;
+      }
       if (armed && armed.used) {
         if (!updateArmedStyle(armed, prop, value)) {
           say(prop === 'color' ? 'Those words could not be coloured.' : 'Those words could not be resized.', 'err');
@@ -2715,7 +2861,7 @@
         return 'applied';
       }
       var range = armed && armed.range && armed.range.startContainer && armed.range.startContainer.isConnected && !armed.range.collapsed
-        ? armed.range : activeRange();
+        ? armed.range : (live && live.startContainer && live.startContainer.isConnected ? live : activeRange());
       if (!range || !flat(range.toString())) return '';
       var ok = applySelectionStyle(range, prop, value);
       if (ok && armed) armed.used = true;
@@ -2992,10 +3138,22 @@
       while ((n = tw.nextNode())) copy.push(n);
       var i;
       for (i = 0; i < live.length && i < copy.length; i++) {
-        if (live[i].stbUk != null) copy[i].nodeValue = live[i].stbUk;
+        if (live[i].stbUk == null) continue;
+        var srcUk = String(live[i].stbUk);
+        var curUk = String(copy[i].nodeValue || '');
+        if (window.STEdit && !STEdit.canRevealSource(srcUk, curUk)) continue;
+        copy[i].nodeValue = srcUk;
       }
       host.stbUkSnap = box.innerHTML;
       if (!host.stbUkFull) host.stbUkFull = flat(box.textContent);
+    }
+
+    function detachSplitSource(host) {
+      if (!host) return;
+      rawTextNodes(host).forEach(function (n) {
+        if (n.stbUk == null) return;
+        if (String(n.stbUk).length !== String(n.nodeValue || '').length) n.stbUk = null;
+      });
     }
 
     function markPaintHost(host) {
@@ -3027,6 +3185,7 @@
         beforeChange();
         var res = STColor.apply(host, range, css, value || '');
         if (!res || !res.ok) return false;
+        detachSplitSource(host);
         markPaintHost(host);
         if (armedStyle) {
           armedStyle.engine = true;
@@ -3287,6 +3446,7 @@
         var css = (prop === 'fontSize' || prop === 'font-size') ? 'font-size' : prop;
         var res = STColor.applyOffsets(armed.host, armed.start, armed.end, css, value || '');
         if (!res || !res.ok) return false;
+        detachSplitSource(armed.host);
         markPaintHost(armed.host);
         restorePaintRange(armed.host, armed.start, armed.end);
         markDirty(whereOf(armed.host));
@@ -3982,6 +4142,9 @@
 
     function showRuHost(host) {
       if (!host) return;
+      /* Saved Russian HTML is the Russian view. Rebuilding it from the dictionary
+         drops the colour and can put the Ukrainian sentence back on screen. */
+      if (String(host.getAttribute('data-st-ruhtml') || '').trim()) return;
       if (host.stbRuSnap != null) host.innerHTML = host.stbRuSnap;
       else if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
@@ -4020,6 +4183,7 @@
     function restoreRuSnaps() {
       if (!doc) return;
       doc.querySelectorAll('[data-st-rumark], [data-st-rustyle]').forEach(function (host) {
+        if (host.stbRuEdited) return;
         if (host.stbRuSnap != null) {
           host.innerHTML = host.stbRuSnap;
           host.stbRuSnap = null;
@@ -4768,7 +4932,7 @@
             if (host.stbRuEdited && !freshRu && flat(shown) === flat(prevEn)) enRow.paintOnly = 1;
             pairs.push(enRow);
             host.removeAttribute('data-st-rumark');
-          } else if (host.stbRuEdited && shown) {
+          } else if (host.stbRuEdited && shown && !(flat(shown) === flat(ukText) && knownRu && flat(knownRu) !== flat(shown))) {
             var ruRow = {
               role: 'ru',
               xid: markXid(host),

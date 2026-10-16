@@ -20,14 +20,31 @@
     return incoming;
   }
 
-  /* A whole Ukrainian sentence may replace its English translation.
-     It must not replace a short fragment left behind after a split (Undo, then Bold). */
+  /* A whole sentence may replace its translation when the lengths are close.
+     It must not replace a short fragment left after a split (Undo, colour, Bold),
+     in English or in Russian. */
   function canRevealSource(src, cur) {
     src = src == null ? '' : String(src);
     cur = cur == null ? '' : String(cur);
     if (!cur || src === cur) return true;
-    if (/[\u0400-\u04FF]/.test(src) && !/[\u0400-\u04FF]/.test(cur) && src.length > cur.length * 1.6 && src.length - cur.length > 8) return false;
+    if (/[\u0400-\u04FF]/.test(src) && src.length > cur.length * 1.6 && src.length - cur.length > 8) return false;
     return true;
+  }
+
+  /* The words selected now win over a range remembered from the previous colour. */
+  function selectionWins(current, previous) {
+    current = String(current || '').replace(/\s+/g, ' ').trim();
+    previous = String(previous || '').replace(/\s+/g, ' ').trim();
+    if (!current) return false;
+    return current !== previous;
+  }
+
+  /* A drag inside a coloured word can be reported as the whole span. Keep the drag. */
+  function dragShrinks(browserText, dragText) {
+    browserText = String(browserText || '').replace(/\s+/g, ' ').trim();
+    dragText = String(dragText || '').replace(/\s+/g, ' ').trim();
+    if (!dragText || !browserText || dragText === browserText) return false;
+    return dragText.length < browserText.length && browserText.indexOf(dragText) >= 0;
   }
 
   function normalizeHex(raw) {
@@ -71,6 +88,8 @@
     isCurrent: isCurrent,
     applyIfCurrent: applyIfCurrent,
     canRevealSource: canRevealSource,
+    selectionWins: selectionWins,
+    dragShrinks: dragShrinks,
     normalizeHex: normalizeHex,
     plainPaste: plainPaste,
     editorHistoryAction: editorHistoryAction
