@@ -61,15 +61,22 @@ STColor.normalize(empty);
 assert.strictEqual(empty.innerHTML, 'abcd');
 assert.strictEqual(empty.textContent, 'abcd');
 
-var split = host('p <span style="color:#d10a11">rojectio</span> n welders');
-STColor.normalize(split);
-assert.strictEqual(split.textContent, word);
-assert.strictEqual(split.innerHTML, 'p<span style="color:#d10a11">rojectio</span>n welders');
+function keepWords(html, text) {
+  var el = host(html);
+  STColor.normalize(el);
+  assert.strictEqual(el.textContent, text, html);
+  return el;
+}
 
-var innerGap = host('p<span style="color:#d10a11"> rojectio </span>n welders');
-STColor.normalize(innerGap);
-assert.strictEqual(innerGap.textContent, word);
-assert.strictEqual(innerGap.innerHTML, 'p<span style="color:#d10a11">rojectio</span>n welders');
+keepWords('Зварюємо в <span style="color:#d10a11">Польщі</span> і Німеччині', 'Зварюємо в Польщі і Німеччині');
+keepWords('Варим в <span style="color:#d10a11">Польше</span> и Германии', 'Варим в Польше и Германии');
+keepWords('I <span style="color:#d10a11">am</span> a welder', 'I am a welder');
+
+var am = host('I am a welder');
+var amRes = STColor.applyOffsets(am, 2, 4, 'color', '#d10a11');
+assert.strictEqual(amRes.ok, true);
+assert.strictEqual(am.textContent, 'I am a welder');
+assert.strictEqual(am.innerHTML, 'I <span style="color:#d10a11">am</span> a welder');
 
 var plus = host('<span class="stats__v" data-count="15">15</span><span>+</span>');
 STColor.normalize(plus);

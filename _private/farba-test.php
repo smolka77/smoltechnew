@@ -21,13 +21,27 @@ st_paint_assert($nested === 'TECNA<span style="color:#d10a11">+</span>', 'nested
 $dup = st_paint_normalize('Industry-proven <span style="color:#af5555">exp<u>erienc</u></span><span style="color:#af5555">e</span> — dozens');
 st_paint_assert($dup === 'Industry-proven <span style="color:#af5555">exp<u>erienc</u>e</span> — dozens', 'dup: ' . $dup);
 
-$split = st_paint_normalize('p <span style="color:#d10a11">rojectio</span> n welders');
-st_paint_assert($split === 'p<span style="color:#d10a11">rojectio</span>n welders', 'split: ' . $split);
-st_paint_assert(st_paint_plain($split) === 'projection welders', 'split plain');
+$words = [
+    'Зварюємо в <span style="color:#d10a11">Польщі</span> і Німеччині' => 'Зварюємо в Польщі і Німеччині',
+    'Варим в <span style="color:#d10a11">Польше</span> и Германии' => 'Варим в Польше и Германии',
+    'I <span style="color:#d10a11">am</span> a welder' => 'I am a welder',
+];
+foreach ($words as $html => $plain) {
+    $norm = st_paint_normalize($html);
+    st_paint_assert(st_paint_plain($norm) === $plain, 'words plain: ' . st_paint_plain($norm) . ' from ' . $html);
+    st_paint_assert($norm === $html, 'words html kept: ' . $norm);
+    $doc = '<p>' . $html . '</p>';
+    st_paint_assert(st_paint_normalize_document($doc) === $doc, 'words document: ' . st_paint_normalize_document($doc));
+    $attr = '<p data-st-enhtml="' . htmlspecialchars($html, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">x</p>';
+    st_paint_assert(st_paint_normalize_document($attr) === $attr, 'words attr: ' . st_paint_normalize_document($attr));
+}
 
-$inner = st_paint_normalize('p<span style="color:#d10a11"> rojectio </span>n welders');
-st_paint_assert(st_paint_plain($inner) === 'projection welders', 'inner plain: ' . $inner);
-st_paint_assert($inner === 'p<span style="color:#d10a11">rojectio</span>n welders', 'inner: ' . $inner);
+$ledger = json_decode((string) file_get_contents(ST_ROOT . '/_build/zrodlo-en.json'), true);
+$fixedKey = 'from standard spot and projection welders to complex automatic lines and machines with fixture for a specific part.';
+$brokenKey = 'from standard spot and p rojectio n welders to complex automatic lines and machines with fixture for a specific part.';
+st_paint_assert(is_array($ledger['byEn'][$fixedKey] ?? null), 'ledger projection key');
+st_paint_assert(!isset($ledger['byEn'][$brokenKey]), 'ledger broken projection key');
+st_paint_assert(($ledger['byEn'][$fixedKey]['uk'] ?? '') !== '' && ($ledger['byEn'][$fixedKey]['ru'] ?? '') !== '', 'ledger uk/ru kept');
 
 $kept = 'Our <span style="color:#000000">machines</span> run';
 st_paint_assert(st_paint_normalize($kept) === $kept, 'kept machines');
@@ -50,9 +64,11 @@ st_paint_assert(st_i18n_plain_show('p<em>rojectio</em>n') === 'projection', 'pla
 st_paint_assert(st_i18n_plain('<p>one</p><br>two') === 'one two', 'plain block: ' . st_i18n_plain('<p>one</p><br>two'));
 st_paint_assert(st_cms_strip('a<br/>b') === 'a b', 'br space');
 
-$mark = st_i18n_enmark_from_html('p <span style="color:#d10a11">rojectio</span> n welders');
+$mark = st_i18n_enmark_from_html('p<span style="color:#d10a11">rojectio</span>n welders');
 st_paint_assert(is_string($mark) && str_contains($mark, '"t":"rojectio"') && str_contains($mark, '"at":1') && str_contains($mark, '#d10a11'), 'enmark: ' . (string) $mark);
-st_paint_assert(!str_contains((string) $mark, '#000000') && !str_contains((string) $mark, 'prrojectio'), 'enmark not blackened');
+$spacedMark = st_i18n_enmark_from_html('p <span style="color:#d10a11">rojectio</span> n welders');
+st_paint_assert(is_string($spacedMark) && str_contains($spacedMark, '"t":"rojectio"') && str_contains($spacedMark, '"at":2'), 'spaced enmark: ' . (string) $spacedMark);
+st_paint_assert(!str_contains((string) $mark, '#000000') && !str_contains((string) $spacedMark, 'prrojectio'), 'enmark not blackened');
 
 $uk = 'Наш асортимент';
 $oldEn = 'p <span style="color:#d10a11">rojectio</span> n welders';

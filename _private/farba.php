@@ -207,74 +207,11 @@ function st_paint_changed_normalize(DOMElement $root): bool
             }
             if (!$moved) break;
         }
-        $spans = [];
-        foreach ($root->getElementsByTagName('span') as $sp) $spans[] = $sp;
-        foreach ($spans as $sp) {
-            if (!$sp->parentNode || $sp->getElementsByTagName('*')->length) continue;
-            $text = null;
-            $only = true;
-            for ($c = $sp->firstChild; $c !== null; $c = $c->nextSibling) {
-                if ($c->nodeType !== XML_TEXT_NODE) { $only = false; break; }
-                if ($text !== null) { $only = false; break; }
-                $text = $c;
-            }
-            if (!$only || !$text instanceof DOMText) continue;
-            $left = st_paint_flank($sp, 'left');
-            $right = st_paint_flank($sp, 'right');
-            if ($left === null || $right === null) continue;
-            $raw = (string) $text->nodeValue;
-            $mid = preg_replace('/^\s+|\s+$/u', '', $raw) ?? '';
-            if (!preg_match('/^[A-Za-z\x{0400}-\x{04FF}]{2,}$/u', $mid)) continue;
-            $gapL = $left['gap'] || preg_match('/^\s/u', $raw);
-            $gapR = $right['gap'] || preg_match('/\s$/u', $raw);
-            if (!$gapL || !$gapR) continue;
-            $left['node']->nodeValue = $left['keep'] . $left['letter'];
-            if ($left['gapNode'] instanceof DOMNode && $left['gapNode']->parentNode) $left['gapNode']->parentNode->removeChild($left['gapNode']);
-            $right['node']->nodeValue = $right['letter'] . $right['rest'];
-            if ($right['gapNode'] instanceof DOMNode && $right['gapNode']->parentNode) $right['gapNode']->parentNode->removeChild($right['gapNode']);
-            $text->nodeValue = $mid;
-            $pass = true;
-        }
         $root->normalize();
         if (!$pass) break;
         $changed = true;
     }
     return $changed;
-}
-
-/** @return array{node: DOMText, lead: string, letter: string, tail: string, gap: bool, gapNode: ?DOMNode}|null */
-function st_paint_flank(DOMElement $sp, string $side): ?array
-{
-    $sib = $side === 'left' ? $sp->previousSibling : $sp->nextSibling;
-    $gapNode = null;
-    if ($sib instanceof DOMText && preg_match('/^\s+$/u', (string) $sib->nodeValue)) {
-        $gapNode = $sib;
-        $sib = $side === 'left' ? $sib->previousSibling : $sib->nextSibling;
-    }
-    if (!$sib instanceof DOMText) return null;
-    $raw = (string) $sib->nodeValue;
-    if ($side === 'left') {
-        if (!preg_match('/^(.*)([A-Za-z\x{0400}-\x{04FF}])(\s*)$/u', $raw, $m)) return null;
-        if ($m[1] !== '' && preg_match('/[A-Za-z\x{0400}-\x{04FF}]$/u', $m[1])) return null;
-        return [
-            'node' => $sib,
-            'keep' => $m[1],
-            'letter' => $m[2],
-            'rest' => '',
-            'gap' => $m[3] !== '' || $gapNode !== null,
-            'gapNode' => $gapNode,
-        ];
-    }
-    if (!preg_match('/^(\s*)([A-Za-z\x{0400}-\x{04FF}])([\s\S]*)$/u', $raw, $m)) return null;
-    if ($m[3] !== '' && preg_match('/^[A-Za-z\x{0400}-\x{04FF}]/u', $m[3])) return null;
-    return [
-        'node' => $sib,
-        'keep' => '',
-        'letter' => $m[2],
-        'rest' => $m[3],
-        'gap' => $m[1] !== '' || $gapNode !== null,
-        'gapNode' => $gapNode,
-    ];
 }
 
 function st_paint_fragment(string $html): array
@@ -371,22 +308,6 @@ function st_paint_rewrite_spans(string $html): string
     return $out;
 }
 
-function st_paint_repair_gaps(string $html): string
-{
-    $letter = '[A-Za-z\x{0400}-\x{04FF}]';
-    $html = preg_replace(
-        '/(?<!' . $letter . ')(' . $letter . ')[ \x{00A0}]+(<span\b[^>]*>)[ \x{00A0}]*(' . $letter . '{2,})[ \x{00A0}]*(<\/span>)[ \x{00A0}]+(' . $letter . ')(?!' . $letter . ')/u',
-        '$1$2$3$4$5',
-        $html
-    ) ?? $html;
-    $html = preg_replace(
-        '/(?<!' . $letter . ')(' . $letter . ')(<span\b[^>]*>)[ \x{00A0}]+(' . $letter . '{2,})[ \x{00A0}]+(<\/span>)(' . $letter . ')(?!' . $letter . ')/u',
-        '$1$2$3$4$5',
-        $html
-    ) ?? $html;
-    return $html;
-}
-
 function st_paint_normalize_attrs(string $html): string
 {
     return preg_replace_callback(
@@ -394,7 +315,6 @@ function st_paint_normalize_attrs(string $html): string
         static function (array $m): string {
             $decoded = html_entity_decode($m[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $norm = st_paint_normalize($decoded);
-            $norm = st_paint_repair_gaps($norm);
             if ($norm === $decoded || st_paint_skeleton($norm) !== st_paint_skeleton($decoded)) return $m[0];
             return ' ' . strtolower($m[1]) . '="' . htmlspecialchars($norm, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         },
@@ -407,6 +327,5 @@ function st_paint_normalize_document(string $html): string
     if ($html === '' || stripos($html, '<span') === false) return $html;
     $html = st_paint_normalize_attrs($html);
     $html = st_paint_rewrite_spans($html);
-    $html = st_paint_repair_gaps($html);
     return $html;
 }

@@ -302,58 +302,6 @@
     return changed;
   }
 
-  function readFlank(sp, side) {
-    var step = side === 'left' ? 'previousSibling' : 'nextSibling';
-    var sib = sp[step];
-    var gapNode = null;
-    if (sib && sib.nodeType === 3 && /^\s+$/.test(sib.nodeValue || '')) {
-      gapNode = sib;
-      sib = sib[step];
-    }
-    if (!sib || sib.nodeType !== 3) return null;
-    var raw = sib.nodeValue || '';
-    if (side === 'left') {
-      var m = /^(.*)([A-Za-z\u0400-\u04FF])(\s*)$/.exec(raw);
-      if (!m || (m[1] && /[A-Za-z\u0400-\u04FF]$/.test(m[1]))) return null;
-      return { node: sib, keep: m[1], letter: m[2], rest: '', gap: m[3].length > 0 || !!gapNode, gapNode: gapNode };
-    }
-    var m2 = /^(\s*)([A-Za-z\u0400-\u04FF])([\s\S]*)$/.exec(raw);
-    if (!m2 || (m2[3] && /^[A-Za-z\u0400-\u04FF]/.test(m2[3]))) return null;
-    return { node: sib, keep: '', letter: m2[2], rest: m2[3], gap: m2[1].length > 0 || !!gapNode, gapNode: gapNode };
-  }
-
-  function repairGaps(root) {
-    var changed = false;
-    var spans = Array.prototype.slice.call(root.querySelectorAll('span'));
-    spans.forEach(function (sp) {
-      if (!sp.parentNode || sp.children.length) return;
-      var text = null;
-      var c;
-      for (c = sp.firstChild; c; c = c.nextSibling) {
-        if (c.nodeType !== 3) return;
-        if (text) return;
-        text = c;
-      }
-      if (!text) return;
-      var left = readFlank(sp, 'left');
-      var right = readFlank(sp, 'right');
-      if (!left || !right) return;
-      var raw = text.nodeValue || '';
-      var mid = raw.replace(/^\s+|\s+$/g, '');
-      if (!/^[A-Za-z\u0400-\u04FF]{2,}$/.test(mid)) return;
-      var gapL = left.gap || /^\s/.test(raw);
-      var gapR = right.gap || /\s$/.test(raw);
-      if (!gapL || !gapR) return;
-      left.node.nodeValue = left.keep + left.letter;
-      if (left.gapNode && left.gapNode.parentNode) left.gapNode.parentNode.removeChild(left.gapNode);
-      right.node.nodeValue = right.letter + right.rest;
-      if (right.gapNode && right.gapNode.parentNode) right.gapNode.parentNode.removeChild(right.gapNode);
-      text.nodeValue = mid;
-      changed = true;
-    });
-    return changed;
-  }
-
   function tidyMarks(root) {
     var changed = false;
     var spans = Array.prototype.slice.call(root.querySelectorAll('span'));
@@ -385,7 +333,6 @@
       if (unwrapBare(root)) changed = true;
       if (collapseNested(root)) changed = true;
       if (mergeAdjacent(root)) changed = true;
-      if (repairGaps(root)) changed = true;
       if (root.normalize) root.normalize();
     }
     return root;
