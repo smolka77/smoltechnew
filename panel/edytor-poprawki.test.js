@@ -479,7 +479,43 @@ waitFor(window, function (doc) {
         var again = doc2.querySelector('p.lead');
         again.dispatchEvent(inputEvent(typed.window, 'beforeinput', 'historyRedo'));
         assert.ok(/Redone/.test(typed.window.document.querySelector('#stb-status').textContent), 'history redo says Redone');
-        console.log('edytor-poprawki.test.js ok');
+
+        var once = boot(pageEn);
+        return waitFor(once.window, function (doc3) {
+          return textOf(doc3.querySelector('p.lead')) === EN;
+        }, 'hex apply page').then(function () {
+          var doc3 = frameDoc(once.window);
+          var lead3 = doc3.querySelector('p.lead');
+          var pub = once.window.document.createElement('button');
+          pub.id = 'btn-publish';
+          pub.textContent = 'Site is up to date';
+          once.window.document.body.appendChild(pub);
+          selectWord(doc3, lead3, 'welders');
+          paintSwatch(once.window, doc3, lead3, 'welders', '#d10a11');
+          assert.strictEqual(pub.textContent, 'Unsaved changes', 'a colour marks the site badge');
+          assert.strictEqual(once.window.document.querySelector('#stb-dirty').hidden, false, 'the editor badge is visible');
+          var hex3 = once.window.document.querySelector('#stb-hex');
+          hex3.focus();
+          doc3.getSelection().removeAllRanges();
+          hex3.value = '#00aa00';
+          var apply3 = once.window.document.querySelector('[data-act="applycolor"]');
+          apply3.dispatchEvent(new once.window.PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, button: 0 }));
+          apply3.dispatchEvent(new once.window.PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 1, button: 0 }));
+          lead3 = doc3.querySelector('p.lead');
+          var word = null;
+          Array.prototype.forEach.call(lead3.querySelectorAll('span'), function (sp) {
+            if (sp.textContent === 'welders') word = sp;
+          });
+          assert.ok(word, 'first Apply still has the word: ' + lead3.innerHTML);
+          assert.ok(/color:\s*#00aa00/i.test(word.getAttribute('style') || ''), 'swatch then hex then one Apply uses #00aa00: ' + lead3.innerHTML);
+          doc3.dispatchEvent(new once.window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+          assert.strictEqual(doc3.getSelection().toString(), 'welders', 'undo selects the changed word');
+          doc3.dispatchEvent(new once.window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+          assert.strictEqual(pub.textContent, 'Site is up to date', 'undo back to the saved page clears the badge');
+          assert.strictEqual(once.window.document.querySelector('#stb-dirty').hidden, true, 'the editor badge hides when nothing is unsaved');
+          assert.strictEqual(once.window.document.querySelector('#stb-dirty').hidden, true, 'the editor badge hides when nothing is unsaved');
+          console.log('edytor-poprawki.test.js ok');
+        });
       });
     });
   });

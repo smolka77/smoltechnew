@@ -183,11 +183,18 @@
   function syncPublishBtn() {
     var btn = document.getElementById('btn-publish');
     if (!btn) return;
+    if (btn.classList.contains('is-editor-dirty')) {
+      btn.disabled = false;
+      btn.classList.add('is-pending');
+      btn.textContent = 'Unsaved changes';
+      return;
+    }
     var on = !!overview.pending;
     btn.disabled = !on;
     btn.classList.toggle('is-pending', on);
     btn.textContent = on ? t('Zatwierdź na witrynie') : t('Witryna aktualna');
   }
+  window.STPublish = { sync: syncPublishBtn };
 
   function draftBanner() {
     if (!overview.pending) return '';
@@ -4779,6 +4786,7 @@
     });
   });
   document.getElementById('btn-publish').addEventListener('click', function () {
+    if (this.classList.contains('is-editor-dirty')) return;
     if (!overview.pending) return;
     if (!confirm(t('Zatwierdzić zapisane zmiany na witrynie? Klienci zobaczą nową wersję strony.'))) return;
     var btn = document.getElementById('btn-publish');

@@ -119,6 +119,8 @@
     var typing = false;
     var typeTimer = null;
     var pasteSnap = false;
+    var hexApplyHold = null;
+    var hexApplyAt = 0;
     /* Undo focuses the paragraph, and Chrome then sends a stray beforeinput
        that would wipe the redo stack. Ignore those events briefly. */
     var historyQuiet = false;
@@ -303,9 +305,34 @@
       status.className = 'stb__status' + (kind ? ' is-' + kind : '');
     }
 
+    function editorIsDirty() {
+      return !!(dirty || formDirty || chromeDirty || metaDirty);
+    }
+
     function syncDirty() {
+      var on = editorIsDirty();
       var badge = host.querySelector('#stb-dirty');
-      if (badge) badge.hidden = !(dirty || formDirty || chromeDirty || metaDirty);
+      if (badge) badge.hidden = !on;
+      var pub = document.getElementById('btn-publish');
+      if (pub) pub.classList.toggle('is-editor-dirty', on);
+      if (window.STPublish && typeof window.STPublish.sync === 'function') window.STPublish.sync();
+      else if (pub) {
+        if (on) {
+          if (!pub.getAttribute('data-stb-clean')) pub.setAttribute('data-stb-clean', pub.textContent || '');
+          pub.textContent = 'Unsaved changes';
+        } else if (pub.hasAttribute('data-stb-clean')) {
+          pub.textContent = pub.getAttribute('data-stb-clean');
+          pub.removeAttribute('data-stb-clean');
+        }
+      }
+    }
+
+    function settleDirty(where) {
+      if (undoStack.length || metaDirty || formDirty || chromeDirty) markDirty(where || 'page');
+      else {
+        dirty = false;
+        syncDirty();
+      }
     }
 
     function syncBanner() {
@@ -426,7 +453,7 @@
       clone.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
       });
-      return { html: clone.innerHTML, texts: texts, ph: ph, hosts: hosts };
+      return { html: clone.innerHTML, texts: texts, ph: ph, hosts: hosts, sel: selectionSnap() };
     }
 
     function restore(state, opts) {
@@ -480,7 +507,7 @@
       historyQuietTimer = setTimeout(function () { historyQuiet = false; }, 120);
     }
 
-    function beforeChange() {
+    function beforeChange(rangeHint) {
       if (historyQuiet) return;
       editGen += 1;
       /* A colour, paste, or other command ends a typing burst so Undo
@@ -489,6 +516,8 @@
       clearTimeout(typeTimer);
       if (!doc) return;
       var snap = capture();
+      var hinted = rangeHint ? selectionFromRange(rangeHint) : null;
+      if (hinted) snap.sel = hinted;
       var last = undoStack[undoStack.length - 1];
       if (last && last.html === snap.html) {
         redoStack = [];
@@ -520,22 +549,79 @@
       return -1;
     }
 
-    function resumeEdit(idx) {
+    function selectionFromRange(range) {
+      if (!range || !doc || !PHRASE_SEL) return null;
+      var host = phraseHost(range.commonAncestorContainer);
+      if (!host) return null;
+      var list = doc.querySelectorAll(PHRASE_SEL);
+      var index = -1;
+      var i;
+      for (i = 0; i < list.length; i++) {
+        if (list[i] === host || list[i].contains(host)) { index = i; host = list[i]; break; }
+      }
+      if (index < 0) return null;
+      var start = textOffset(host, range.startContainer, range.startOffset);
+      var end = textOffset(host, range.endContainer, range.endOffset);
+      if (start < 0 || end < 0) return null;
+      if (end < start) { var swap = start; start = end; end = swap; }
+      return { index: index, start: start, end: end };
+    }
+
+    function selectionSnap() {
+      if (!doc) return null;
+      var sel = doc.getSelection();
+      if (!sel || !sel.rangeCount) return null;
+      try { return selectionFromRange(sel.getRangeAt(0)); } catch (err) { return null; }
+    }
+
+    function placeSnap(host, snap) {
+      if (!host || !snap || snap.start == null || snap.end == null) return null;
+      var start = snap.start;
+      var end = snap.end;
+      var nodes = rawTextNodes(host);
+      var r = doc.createRange();
+      var acc = 0;
+      var started = false;
+      var i;
+      for (i = 0; i < nodes.length; i++) {
+        var len = nodes[i].nodeValue.length;
+        if (!started && start <= acc + len) {
+          r.setStart(nodes[i], Math.max(0, Math.min(len, start - acc)));
+          started = true;
+        }
+        if (started && end <= acc + len) {
+          r.setEnd(nodes[i], Math.max(0, Math.min(len, end - acc)));
+          return r;
+        }
+        acc += len;
+      }
+      if (started && nodes.length) {
+        var last = nodes[nodes.length - 1];
+        r.setEnd(last, last.nodeValue.length);
+        return r;
+      }
+      return null;
+    }
+
+    function resumeEdit(idx, selSnap) {
       if (!doc || idx < 0 || !PHRASE_SEL) return;
       var el = doc.querySelectorAll(PHRASE_SEL)[idx];
       if (!el) return;
       startEdit(el);
       highlight(el);
       try {
-        var range = doc.createRange();
-        range.selectNodeContents(el);
-        range.collapse(false);
+        var range = selSnap ? placeSnap(el, selSnap) : null;
+        if (!range) {
+          range = doc.createRange();
+          range.selectNodeContents(el);
+          range.collapse(false);
+        }
         var sel = doc.getSelection();
         if (sel) {
           sel.removeAllRanges();
           sel.addRange(range);
         }
-        heldRange = null;
+        heldRange = range.collapsed ? null : range.cloneRange();
       } catch (err) { /* the paragraph stays editable */ }
     }
 
@@ -543,11 +629,13 @@
       if (!doc || !undoStack.length) return;
       holdHistoryQuiet();
       editGen += 1;
-      var idx = editingIndex();
+      var fallback = editingIndex();
+      var prev = undoStack.pop();
       redoStack.push(capture());
-      restore(undoStack.pop());
-      resumeEdit(idx);
-      markDirty('page');
+      restore(prev);
+      var selSnap = prev && prev.sel;
+      resumeEdit(selSnap && selSnap.index >= 0 ? selSnap.index : fallback, selSnap);
+      settleDirty('page');
       syncHist();
       say('Undone.');
       historyStatusUntil = Date.now() + 250;
@@ -557,18 +645,32 @@
       if (!doc || !redoStack.length) return;
       holdHistoryQuiet();
       editGen += 1;
-      var idx = editingIndex();
+      var fallback = editingIndex();
+      var next = redoStack.pop();
       undoStack.push(capture());
-      restore(redoStack.pop());
-      resumeEdit(idx);
-      markDirty('page');
+      restore(next);
+      var selSnap = next && next.sel;
+      resumeEdit(selSnap && selSnap.index >= 0 ? selSnap.index : fallback, selSnap);
+      settleDirty('page');
       syncHist();
       say('Redone.');
       historyStatusUntil = Date.now() + 250;
     }
 
     function toolbarField(e) {
-      var nodes = [e && e.target, typeof document !== 'undefined' ? document.activeElement : null];
+      var inParent = !e || !e.view || e.view === window;
+      var nodes = [];
+      if (inParent) {
+        if (e && e.target) nodes.push(e.target);
+        if (typeof document !== 'undefined' && document.activeElement) nodes.push(document.activeElement);
+      } else if (typeof document !== 'undefined' && document.activeElement && host.contains(document.activeElement)) {
+        var target = e && e.target;
+        var editing = target && (target.isContentEditable || (target.closest && target.closest('[contenteditable="true"]')));
+        if (!editing && doc && doc.activeElement && doc.activeElement.isContentEditable) editing = true;
+        var key = String(e && e.key || '').toLowerCase();
+        var selectAll = (e.ctrlKey || e.metaKey) && !e.altKey && key === 'a';
+        if (!editing || selectAll) nodes.push(document.activeElement);
+      }
       var i;
       for (i = 0; i < nodes.length; i++) {
         var n = nodes[i];
@@ -633,8 +735,11 @@
     document.addEventListener('keydown', onKey, true);
 
     host.querySelector('#stb-back').addEventListener('click', function () {
-      if ((dirty || formDirty || chromeDirty || metaDirty) && !window.confirm('There are unsaved changes. Leave without saving?')) return;
+      if (editorIsDirty() && !window.confirm('There are unsaved changes. Leave without saving?')) return;
       dropPending(function () {
+        var pub = document.getElementById('btn-publish');
+        if (pub) pub.classList.remove('is-editor-dirty');
+        if (window.STPublish && typeof window.STPublish.sync === 'function') window.STPublish.sync();
         if (typeof ctx.back === 'function') ctx.back();
       });
     });
@@ -664,7 +769,8 @@
       });
     });
 
-    host.querySelector('#stb-color').addEventListener('mousedown', function () {
+    host.querySelector('#stb-color').addEventListener('mousedown', function (e) {
+      if (e.target.closest && e.target.closest('[data-act="applycolor"], #stb-hex')) return;
       armStyleRange();
     });
     host.querySelector('#stb-size').addEventListener('mousedown', armStyleRange);
@@ -676,6 +782,24 @@
       applyHex();
     });
     bindHexField(host.querySelector('#stb-hex'));
+    var applyBtn = host.querySelector('[data-act="applycolor"]');
+    if (applyBtn) {
+      applyBtn.addEventListener('pointerdown', function (e) {
+        var live = activeRange();
+        var armed = armedStyle && armedStyle.range ? armedStyle.range : null;
+        var kept = null;
+        try { kept = (live || armed) ? (live || armed).cloneRange() : null; } catch (err) { kept = null; }
+        hexApplyHold = kept;
+        try { if (e.pointerId != null) applyBtn.setPointerCapture(e.pointerId); } catch (err2) { /* the click still lands */ }
+        e.preventDefault();
+      }, true);
+      applyBtn.addEventListener('pointerup', function () {
+        var hold = hexApplyHold;
+        hexApplyHold = null;
+        hexApplyAt = Date.now();
+        applyHex(hold);
+      }, true);
+    }
     host.querySelector('#stb-color').addEventListener('click', function (e) {
       var sw = e.target.closest && e.target.closest('.stb__swatch');
       if (!sw) return;
@@ -728,7 +852,12 @@
         if (hexBox) hexBox.value = '';
         paint('');
       }
-      else if (act === 'applycolor') applyHex();
+      else if (act === 'applycolor') {
+        if (Date.now() - hexApplyAt < 400) return;
+        var held = hexApplyHold;
+        hexApplyHold = null;
+        applyHex(held);
+      }
       else if (act === 'nosize') applySize('inherit');
       else if (act === 'desk' || act === 'tab' || act === 'phone') setStage(act);
     });
@@ -3169,15 +3298,50 @@
       });
     }
 
-    function applyHex() {
+    function applyHex(hold) {
       var input = host.querySelector('#stb-hex');
       var raw = input ? input.value : '';
       var hex = window.STEdit ? STEdit.normalizeHex(raw) : '';
       if (!hex) { say('Type a colour as #rrggbb, for example #d10a11.', 'err'); return; }
       if (input) input.value = hex;
+      if (hold && doc) {
+        try {
+          var sel = doc.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(hold);
+          }
+          heldRange = hold.cloneRange();
+          var phrase = phraseHost(hold.commonAncestorContainer);
+          if (phrase && flat(hold.toString())) {
+            armedStyle = {
+              host: phrase,
+              text: flat(hold.toString()),
+              mode: mode,
+              range: hold.cloneRange(),
+              used: false
+            };
+          }
+        } catch (err) { if (armedStyle) armedStyle.used = false; }
+      }
       /* A previous swatch left armed.used set. Apply must paint this field, not that swatch. */
       if (armedStyle) armedStyle.used = false;
       paint(hex);
+      var phrase = armedStyle && armedStyle.host && armedStyle.host.isConnected ? armedStyle.host : null;
+      if (phrase) {
+        var kept = heldRange;
+        startEdit(phrase);
+        if (kept) {
+          try {
+            var again = doc.getSelection();
+            if (again) {
+              again.removeAllRanges();
+              again.addRange(kept);
+            }
+            heldRange = kept.collapsed ? null : kept.cloneRange();
+          } catch (err3) { /* the colour is applied */ }
+        }
+      }
     }
 
     function paint(color) {
@@ -3389,7 +3553,7 @@
       var host = phraseHost(range.commonAncestorContainer);
       if (css && window.STColor && host && (!range.endContainer || phraseHost(range.endContainer) === host)) {
         if (mode === 'en' || mode === 'ru') ensureUkSnap(host);
-        beforeChange();
+        beforeChange(range);
         var res = STColor.apply(host, range, css, value || '');
         if (!res || !res.ok) return false;
         detachSplitSource(host);
