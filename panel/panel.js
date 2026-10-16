@@ -671,6 +671,7 @@
     flash(t('Usuwam stronę…'));
     api({ action: 'cms.page.delete', id: id }).then(function (res) {
       if (!res.ok) { flash(res.error || t('Nie usunięto')); return; }
+      try { if (localStorage.getItem('stb-last-page') === id) localStorage.removeItem('stb-last-page'); } catch (err) { /* ignore */ }
       flash(t('Usunięto. Strony już nie ma na witrynie.'));
       if (currentView === 'editor') setView('pages');
       else loadPages();
@@ -1148,6 +1149,7 @@
 
   function openEditor(id, opts) {
     opts = opts || {};
+    try { if (id) localStorage.setItem('stb-last-page', id); } catch (err) { /* ignore */ }
     if (window.STBuilder && typeof STBuilder.open === 'function') {
       rememberTrail(id, opts.trail || 'reset');
       var host = document.getElementById('view-editor');
@@ -4672,7 +4674,10 @@
     if (data.step) show(data.step);
     if (data.step === 'app') {
       renderList();
-      setView(currentView && currentView !== 'login' ? currentView : 'dash');
+      var lastPage = '';
+      try { lastPage = localStorage.getItem('stb-last-page') || ''; } catch (err) { lastPage = ''; }
+      if (lastPage && /^[A-Za-z0-9_-]+$/.test(lastPage)) openEditor(lastPage, { trail: 'reset' });
+      else setView(currentView && currentView !== 'login' ? currentView : 'dash');
       syncPublishBtn();
     }
   }

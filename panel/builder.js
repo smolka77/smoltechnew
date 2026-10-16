@@ -115,6 +115,7 @@
     var field = null;
     var undoStack = [];
     var redoStack = [];
+    var editGen = 0;
     var typing = false;
     var typeTimer = null;
     var drag = null;
@@ -158,7 +159,18 @@
             '<button type="button" data-act="italic" title="Italic"><i>I</i></button>' +
             '<button type="button" data-act="under" title="Underline"><u>U</u></button>' +
             '<label class="stb__mini" title="Text size">Size <select id="stb-size" title="Text size"><option value="">Size</option><option value="0.85rem">Small</option><option value="1rem">Normal</option><option value="1.25rem">Large</option><option value="1.6rem">Larger</option></select></label>' +
-            '<label class="stb__mini" title="Text color">Color <input type="color" id="stb-color" value="#d10a11" title="Text color"></label>' +
+            '<div class="stb__color" id="stb-color" role="group" aria-label="Text color">' +
+              '<span class="stb__color-lab">Color</span>' +
+              '<button type="button" class="stb__swatch" data-color="#161616" style="background:#161616" title="#161616"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#5c5c5c" style="background:#5c5c5c" title="#5c5c5c"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#d10a11" style="background:#d10a11" title="Brand #d10a11"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#c2410c" style="background:#c2410c" title="#c2410c"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#0f766e" style="background:#0f766e" title="#0f766e"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#1d4ed8" style="background:#1d4ed8" title="#1d4ed8"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#7c3aed" style="background:#7c3aed" title="#7c3aed"></button>' +
+              '<label class="stb__hex">Hex <input type="text" id="stb-hex" value="#d10a11" maxlength="7" spellcheck="false" autocomplete="off" title="Custom colour #rrggbb"></label>' +
+              '<button type="button" data-act="applycolor" title="Apply the hex colour">Apply</button>' +
+            '</div>' +
             '<button type="button" data-act="clearcolor" title="Default colour">Default colour</button>' +
             '<button type="button" data-act="nosize" title="Remove size">Remove size</button>' +
             '<button type="button" data-act="left" title="Align left">Left</button>' +
@@ -169,14 +181,6 @@
             '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">Bullets</button>' +
             '<button type="button" data-act="link" title="Link the selected words">Link</button>' +
           '</div>' +
-          '<div class="stb__grp" data-grp="layout">' +
-            '<span class="stb__grp-h">Layout</span>' +
-            '<button type="button" data-act="add" title="Insert a ready-made section">Add block</button>' +
-            '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
-            '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
-            '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
-            '<button type="button" data-act="del" title="Delete the selected text, card, or whole section">Delete</button>' +
-          '</div>' +
           '<div class="stb__grp" data-grp="media">' +
             '<span class="stb__grp-h">Photo</span>' +
             '<button type="button" data-act="img" title="Change the selected photo" disabled>Change</button>' +
@@ -184,6 +188,14 @@
             '<button type="button" data-act="resetpos" title="Put the photo back in the middle of its frame" disabled>Reset</button>' +
             '<button type="button" data-act="alt" title="Description (alt)" disabled>Description (alt)</button>' +
             '<button type="button" data-act="noimg" title="Remove the selected photo" disabled>Remove</button>' +
+          '</div>' +
+          '<div class="stb__grp stb__grp--layout" data-grp="layout">' +
+            '<span class="stb__grp-h">Layout</span>' +
+            '<button type="button" data-act="add" title="Insert a ready-made section">Add block</button>' +
+            '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
+            '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
+            '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
+            '<button type="button" data-act="del" title="Delete the selected text, card, or whole section">Delete</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="page">' +
             '<span class="stb__grp-h">Page</span>' +
@@ -301,11 +313,56 @@
       host.querySelector('#stb-redo').disabled = redoStack.length === 0;
     }
 
+    function textSnap(node) {
+      return {
+        uk: node.stbUk != null ? String(node.stbUk) : null,
+        en: node.stbEn != null ? String(node.stbEn) : null,
+        ru: node.stbRu != null ? String(node.stbRu) : null,
+        synthetic: !!node.stbSynthetic,
+        placed: !!node.stbPlaced,
+        fresh: !!node.stbFresh
+      };
+    }
+
+    function hostSnaps() {
+      var rows = [];
+      if (!doc) return rows;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        rows.push({
+          ukSnap: host.stbUkSnap != null ? String(host.stbUkSnap) : null,
+          ukFull: host.stbUkFull || '',
+          stored: host.stbStored || '',
+          enEdited: !!host.stbEnEdited,
+          ruEdited: !!host.stbRuEdited,
+          ruSnap: host.stbRuSnap != null ? String(host.stbRuSnap) : null,
+          ukLeaf: host.stbUkLeaf != null ? String(host.stbUkLeaf) : null
+        });
+      });
+      return rows;
+    }
+
+    function applyHostSnaps(rows) {
+      if (!doc || !rows) return;
+      var hosts = doc.querySelectorAll(PHRASE_SEL);
+      rows.forEach(function (row, i) {
+        var host = hosts[i];
+        if (!host || !row) return;
+        host.stbUkSnap = row.ukSnap;
+        host.stbUkFull = row.ukFull || '';
+        host.stbStored = row.stored || '';
+        host.stbEnEdited = !!row.enEdited;
+        host.stbRuEdited = !!row.ruEdited;
+        host.stbRuSnap = row.ruSnap;
+        if (row.ukLeaf != null) host.stbUkLeaf = row.ukLeaf;
+      });
+    }
+
     function capture() {
       var texts = [];
       var ph = [];
-      if (!doc || !doc.body) return { html: '', texts: texts, ph: ph };
-      walkText(doc, function (node) { texts.push(node.stbUk != null ? String(node.stbUk) : null); });
+      var hosts = hostSnaps();
+      if (!doc || !doc.body) return { html: '', texts: texts, ph: ph, hosts: hosts };
+      walkText(doc, function (node) { texts.push(textSnap(node)); });
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         ph.push(el.stbUk != null ? String(el.stbUk) : null);
       });
@@ -335,22 +392,37 @@
       clone.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
       });
-      return { html: clone.innerHTML, texts: texts, ph: ph };
+      return { html: clone.innerHTML, texts: texts, ph: ph, hosts: hosts };
     }
 
-    function restore(state) {
+    function restore(state, opts) {
+      opts = opts || {};
       if (!doc || !state) return;
       doc.body.innerHTML = state.html;
       var i = 0;
       walkText(doc, function (node) {
-        if (state.texts[i] != null) node.stbUk = state.texts[i];
+        var row = state.texts[i];
         i++;
+        if (row == null) return;
+        if (typeof row === 'string') { node.stbUk = row; return; }
+        if (row.uk != null) node.stbUk = row.uk;
+        if (row.en != null) node.stbEn = row.en;
+        if (row.ru != null) node.stbRu = row.ru;
+        node.stbSynthetic = !!row.synthetic;
+        node.stbPlaced = !!row.placed;
+        node.stbFresh = !!row.fresh;
       });
       var j = 0;
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         if (state.ph[j] != null) el.stbUk = state.ph[j];
         j++;
       });
+      applyHostSnaps(state.hosts);
+      if (opts.quiet) {
+        paintAllLangStyles();
+        showAttrs(mode);
+        return;
+      }
       selected = null;
       image = null;
       field = null;
@@ -358,8 +430,8 @@
       currentSection = null;
       currentItem = null;
       currentField = null;
-      showMarkedHosts();
-      if (mode === 'ru') paintAllRuMarks();
+      /* The snapshot is the text the user saw. Rebuilding it from the dictionary
+         is what dropped Ukrainian into an English paragraph after Undo. */
       paintAllLangStyles();
       showAttrs(mode);
       renderPick();
@@ -369,6 +441,7 @@
     }
 
     function beforeChange() {
+      editGen += 1;
       if (!doc) return;
       var snap = capture();
       var last = undoStack[undoStack.length - 1];
@@ -392,6 +465,7 @@
 
     function undo() {
       if (!doc || !undoStack.length) return;
+      editGen += 1;
       redoStack.push(capture());
       restore(undoStack.pop());
       markDirty('page');
@@ -401,6 +475,7 @@
 
     function redo() {
       if (!doc || !redoStack.length) return;
+      editGen += 1;
       undoStack.push(capture());
       restore(redoStack.pop());
       markDirty('page');
@@ -421,12 +496,21 @@
         }
         return;
       }
-      if (!(e.ctrlKey || e.metaKey)) return;
-      var z = e.key === 'z' || e.key === 'Z';
-      var y = e.key === 'y' || e.key === 'Y';
-      if (editing && (z || y)) return;
-      if (z && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); }
-      else if (y || (z && e.shiftKey)) { e.preventDefault(); e.stopPropagation(); redo(); }
+      var act = window.STEdit && STEdit.editorHistoryAction({
+        key: e.key,
+        ctrl: !!(e.ctrlKey),
+        meta: !!(e.metaKey),
+        shift: !!(e.shiftKey),
+        tag: t && t.tagName
+      });
+      if (!act && (e.ctrlKey || e.metaKey)) {
+        var z = e.key === 'z' || e.key === 'Z';
+        var y = e.key === 'y' || e.key === 'Y';
+        if (z && !e.shiftKey) act = 'undo';
+        else if (y || (z && e.shiftKey)) act = 'redo';
+      }
+      if (act === 'undo') { e.preventDefault(); e.stopPropagation(); undo(); }
+      else if (act === 'redo') { e.preventDefault(); e.stopPropagation(); redo(); }
     }
     if (host._stbKey) document.removeEventListener('keydown', host._stbKey, true);
     host._stbKey = onKey;
@@ -464,12 +548,24 @@
       });
     });
 
-    host.querySelector('#stb-color').addEventListener('mousedown', armStyleRange);
+    host.querySelector('#stb-color').addEventListener('mousedown', function () {
+      armStyleRange();
+    });
     host.querySelector('#stb-size').addEventListener('mousedown', armStyleRange);
     host.querySelector('[data-act="clearcolor"]').addEventListener('mousedown', armStyleRange);
     host.querySelector('[data-act="nosize"]').addEventListener('mousedown', armStyleRange);
-    host.querySelector('#stb-color').addEventListener('input', function (e) {
-      paint(e.target.value);
+    host.querySelector('#stb-hex').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      applyHex();
+    });
+    host.querySelector('#stb-color').addEventListener('click', function (e) {
+      var sw = e.target.closest && e.target.closest('.stb__swatch');
+      if (!sw) return;
+      var color = sw.getAttribute('data-color') || '';
+      var hex = host.querySelector('#stb-hex');
+      if (hex && color) hex.value = color;
+      paint(color);
     });
     host.querySelector('#stb-size').addEventListener('change', function (e) {
       applySize(e.target.value);
@@ -511,6 +607,7 @@
       else if (act === 'alt') editAlt();
       else if (act === 'noimg') removeImage();
       else if (act === 'clearcolor') paint('');
+      else if (act === 'applycolor') applyHex();
       else if (act === 'nosize') applySize('inherit');
       else if (act === 'desk' || act === 'tab' || act === 'phone') setStage(act);
     });
@@ -545,7 +642,7 @@
           live.href = res.url + (res.url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
         }
         host.querySelector('#stb-delpage').hidden = !res.canDelete;
-        mode = 'en';
+        if (!pendingLang) pendingLang = mode || 'en';
         pickedEl = null;
         linkRange = null;
         dirty = false;
@@ -584,13 +681,18 @@
       field = null;
       syncImageTools();
       syncPageTools();
-      var nextLang = pendingLang || 'en';
+      var nextLang = pendingLang || mode || 'en';
       pendingLang = null;
       applyLang(nextLang);
       var folded = foldSplitBlocks(doc.getElementById('main') || doc.body);
       if (ctx.i18nSwept !== id && (folded || sourceHasEnglishSentence())) {
         ctx.i18nSwept = id;
-        setTimeout(function () { save(); }, 0);
+        var sweepGen = editGen;
+        setTimeout(function () {
+          if (sweepGen !== editGen) return;
+          if (dirty || formDirty || chromeDirty || metaDirty) return;
+          save();
+        }, 0);
       }
       if (ctx.keepY) {
         var keepAt = ctx.keepY;
@@ -892,17 +994,54 @@
       d.addEventListener('submit', function (e) { e.preventDefault(); }, true);
       d.addEventListener('beforeinput', function (e) {
         if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
-          var box = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
-          if (box || (e.target && e.target.isContentEditable)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
+          var phrasePaste = e.target && e.target.closest && e.target.closest(PHRASE_SEL);
+          if (phrasePaste && (mode === 'en' || mode === 'ru')) ensureUkSnap(phrasePaste);
+          if (!typing) beforeChange();
+          typing = true;
+          clearTimeout(typeTimer);
+          typeTimer = setTimeout(function () { typing = false; }, 700);
           e.preventDefault();
           return;
         }
+        var phraseHold = e.target && e.target.closest && e.target.closest(PHRASE_SEL);
+        if (phraseHold && (mode === 'en' || mode === 'ru')) ensureUkSnap(phraseHold);
         if (!typing) beforeChange();
         typing = true;
         clearTimeout(typeTimer);
         typeTimer = setTimeout(function () { typing = false; }, 700);
       });
+      d.addEventListener('paste', function (e) {
+        var box = editableBox(d, e);
+        if (!box) return;
+        var cd = e.clipboardData || (d.defaultView && d.defaultView.clipboardData);
+        var raw = cd ? (cd.getData('text/plain') || cd.getData('text/html') || '') : '';
+        var text = window.STEdit ? STEdit.plainPaste(raw) : String(raw || '').replace(/<[^>]+>/g, '');
+        e.preventDefault();
+        e.stopPropagation();
+        var sel = d.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        var range = sel.getRangeAt(0);
+        if (!box.contains(range.commonAncestorContainer) && range.commonAncestorContainer !== box) return;
+        if (!range.collapsed) range.deleteContents();
+        if (!text) return;
+        var node = d.createTextNode(text);
+        range.insertNode(node);
+        var parent = node.parentElement;
+        if (parent && parent.childNodes && parent.childNodes.length === 1 && parent.stbUkLeaf && node.stbUk == null) node.stbUk = null;
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        try { box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })); }
+        catch (err) { box.dispatchEvent(new Event('input', { bubbles: true })); }
+      }, true);
       d.addEventListener('input', function (e) {
+        editGen += 1;
         var t = e.target;
         var where = 'page';
         if (t.closest && t.closest('#zapyt')) where = 'form';
@@ -1982,21 +2121,29 @@
       if (lang === 'ru' && win && !win.ST_RU) {
         if (applyLang.waiting) return;
         applyLang.waiting = true;
+        var ruGen = editGen;
         loadFrameRu().then(function () {
           applyLang.waiting = false;
+          if (ruGen !== editGen) return;
           if (win.ST_RU) applyLang('ru');
           else say('Russian did not load.', 'err');
         }, function () {
           applyLang.waiting = false;
+          if (ruGen !== editGen) return;
           say('Russian did not load.', 'err');
         });
         return;
       }
+      var langGen = editGen;
+      showHost.force = true;
+      showHost.gen = langGen;
       restoreRuSnaps();
       clearLangVisuals();
       restoreMarkSnaps();
       if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
         mode = 'uk';
+        showHost.force = false;
+        showHost.gen = null;
         say('Translations did not load. Showing the Ukrainian source.', 'err');
         syncLangButtons();
         return;
@@ -2004,9 +2151,7 @@
       mode = lang;
       holdSourceSnaps();
       if (lang === 'uk') {
-        walkText(doc, function (node) {
-          if (node.stbUk != null) node.nodeValue = node.stbUk;
-        });
+        walkText(doc, function (node) { putSource(node); });
         doc.querySelectorAll('[placeholder]').forEach(function (el) {
           if (el.stbUk != null) el.setAttribute('placeholder', el.stbUk);
         });
@@ -2033,6 +2178,9 @@
       syncBanner();
       syncImageTools();
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
+      showHost.force = false;
+      showHost.gen = null;
+      if (langGen !== editGen) return;
     }
 
     function move(dir) {
@@ -2643,132 +2791,64 @@
       if (!tag) return;
       var range = savedRange();
       if (!range || range.collapsed || !flat(range.toString())) { say('Select the words you want to format.', 'err'); return; }
+      var host = phraseHost(range.commonAncestorContainer);
+      if (!host || (range.endContainer && phraseHost(range.endContainer) !== host)) {
+        say('Select words inside a single sentence.', 'err');
+        return;
+      }
+      /* Format the words on screen. Do not rebuild the sentence from the other language. */
+      if (mode === 'en' || mode === 'ru') ensureUkSnap(host);
+      beforeChange();
       var node = range.commonAncestorContainer;
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       var on = el && el.closest && el.closest(tag);
-      var stH = storedHost(range.commonAncestorContainer);
-      if (stH && (!range.endContainer || phraseHost(range.endContainer) === stH)) {
-        /* English shown from its saved HTML: format the DOM in place (one text unit). */
-        beforeChange();
-        if (on && stH.contains(on) && on !== stH) {
-          unwrapEl(on);
-          say('Formatting removed. Save to publish.');
-        } else {
-          var nodesF = selectedTexts(stH, range);
-          if (!nodesF.length) { say('Select the words you want to format.', 'err'); return; }
-          nodesF.forEach(function (n) {
-            var w = doc.createElement(tag);
-            n.parentNode.insertBefore(w, n);
-            w.appendChild(n);
-          });
-          stH.querySelectorAll(tag).forEach(function (x) {
-            var nx = x.nextSibling;
-            while (nx && nx.nodeType === 1 && nx.tagName === x.tagName && !nx.attributes.length && !x.attributes.length) {
-              while (nx.firstChild) x.appendChild(nx.firstChild);
-              var gone = nx; nx = nx.nextSibling; gone.parentNode.removeChild(gone);
-            }
-          });
-          say('Formatting applied to the English text only. The Ukrainian sentence is unchanged.');
-        }
-        tidyInline(stH);
-        stH.stbEnEdited = true;
-        markDirty(whereOf(stH));
-        return;
-      }
-      if (on && phraseHost(on)) {
-        var host = phraseHost(on);
-        if (mode === 'ru' && !on.hasAttribute('data-st-ru-only')) {
-          say('That formatting is on the Ukrainian text. Switch to Українська to change it.', 'err');
-          return;
-        }
-        beforeChange();
-        if (on.hasAttribute('data-st-ru-only')) {
-          dropRuMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
-          showRuHost(host);
-          markDirty(whereOf(host));
-          say('Formatting removed. Save to publish.');
-          return;
-        }
-        if (on.hasAttribute('data-st-en-only')) dropMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
-        else unwrapEl(on);
-        showHost(host);
+      if (on && host.contains(on) && on !== host) {
+        unwrapEl(on);
+        tidyInline(host);
+        if (mode === 'en') { host.stbEnEdited = true; host.stbStored = 'en'; }
+        if (mode === 'ru') host.stbRuEdited = true;
         markDirty(whereOf(host));
         say('Formatting removed. Save to publish.');
         return;
       }
-      var plan = planPhrase(range);
-      if (!plan) { say('Select words inside a single sentence.', 'err'); return; }
-      beforeChange();
-      var made = null;
-      if (plan.ruOnly) {
-        addRuMark(plan.host, plan.selected, plan.ruStart, tag, '', false);
-        made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
-        if (!made) {
-          dropRuMark(plan.host, plan.selected, plan.ruStart, tag);
-          showRuHost(plan.host);
+      var nodesF = selectedTexts(host, range);
+      if (!nodesF.length) { say('Select the words you want to format.', 'err'); return; }
+      nodesF.forEach(function (n) {
+        var w = doc.createElement(tag);
+        if (mode === 'ru') w.setAttribute('data-st-ru-only', '');
+        n.parentNode.insertBefore(w, n);
+        w.appendChild(n);
+      });
+      host.querySelectorAll(tag).forEach(function (x) {
+        var nx = x.nextSibling;
+        while (nx && nx.nodeType === 1 && nx.tagName === x.tagName && !nx.attributes.length && !x.attributes.length) {
+          while (nx.firstChild) x.appendChild(nx.firstChild);
+          var gone = nx; nx = nx.nextSibling; gone.parentNode.removeChild(gone);
         }
-      }
-      if (!made && plan.auto) {
-        made = wrapPhrase(plan.host, plan.ukPhrase, plan.ukStart, tag);
-        if (made) {
-          made.setAttribute('data-st-en', plan.enPhrase);
-          if (plan.enStart != null && plan.enStart >= 0) made.setAttribute('data-st-at', String(plan.enStart));
-          rememberUk(plan.host);
-          showHost(plan.host);
-          if (!paintedPhrase(plan.host, tag, mode === 'en' ? plan.enPhrase : plan.ukPhrase)) made = null;
-        }
-      }
-      if (!made && mode === 'uk') made = wrapCurrentUk(plan, tag);
-      if (!made && mode === 'en' && !plan.auto) {
-        addEnMark(plan.host, plan.selected, plan.enStart, tag, '', false);
-        made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
-        if (!made) {
-          dropMark(plan.host, plan.selected, plan.enStart, tag);
-          showHost(plan.host);
-        }
-      }
-      if (!made) { say('Those words could not be formatted.', 'err'); return; }
-      markDirty(whereOf(made));
+      });
+      tidyInline(host);
+      if (mode === 'en') { host.stbEnEdited = true; host.stbStored = 'en'; }
+      if (mode === 'ru') host.stbRuEdited = true;
+      markDirty(whereOf(host));
       say(mode === 'en'
         ? 'Formatting applied to the English text only. The Ukrainian sentence is unchanged.'
         : (mode === 'ru' ? 'Formatting applied to the Russian text only. The Ukrainian sentence is unchanged.' : 'Formatting applied. Save to publish.'));
     }
 
+    function applyHex() {
+      var input = host.querySelector('#stb-hex');
+      var hex = window.STEdit ? STEdit.normalizeHex(input && input.value) : '';
+      if (!hex) { say('Type a colour as #rrggbb, for example #d10a11.', 'err'); return; }
+      if (input) input.value = hex;
+      paint(hex);
+    }
+
     function paint(color) {
       if (!doc) return;
       var painted = stylePhrase('color', color || '');
-      if (painted) {
-        if (painted === 'applied') say(colorMessage(!!color));
-        return;
-      }
-      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
-      if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
-      if (mode === 'ru' || mode === 'en') {
-        beforeChange();
-        var colorHost = (hostEl.closest && hostEl.closest(PHRASE_SEL)) || hostEl;
-        var colorSpec = mode === 'ru' ? readRuStyle(colorHost) : readEnStyle(colorHost);
-        if (!color) delete colorSpec.color;
-        else colorSpec.color = color;
-        if (mode === 'ru') writeRuStyle(colorHost, colorSpec);
-        else writeEnStyle(colorHost, colorSpec);
-        applyLangVisual(colorHost);
-        markDirty(whereOf(colorHost));
-        say(color
-          ? (mode === 'ru'
-            ? 'Colour applied to the Russian text only. The Ukrainian sentence is unchanged.'
-            : 'Colour applied to the English text only. The Ukrainian sentence is unchanged.')
-          : (mode === 'ru'
-            ? 'Colour reset on the Russian text only. The Ukrainian sentence is unchanged.'
-            : 'Colour reset on the English text only. The Ukrainian sentence is unchanged.'));
-        return;
-      }
-      beforeChange();
-      if (!color) hostEl.style.color = '';
-      else hostEl.style.color = color;
-      if (!hostEl.getAttribute('style')) hostEl.removeAttribute('style');
-      if (hostEl.stbBaseStyle) hostEl.stbBaseStyle.color = hostEl.style.color || '';
-      markDirty(whereOf(hostEl));
-      say(color ? 'Colour applied. Save to publish.' : 'Colour reset to the default. Save to publish.');
+      if (painted === 'applied') { say(colorMessage(!!color)); return; }
+      if (painted === 'failed') return;
+      say(color ? 'Select the words you want to colour.' : 'Select the words whose colour you want to clear.', 'err');
     }
 
     function colorMessage(on) {
@@ -2824,14 +2904,14 @@
 
     function selectedTexts(host, range) {
       if (range.startContainer.nodeType === 3 && range.startOffset > 0 && range.startOffset < range.startContainer.nodeValue.length) {
-        var tail = range.startContainer.splitText(range.startOffset);
+        var tail = splitAt(range.startContainer, range.startOffset);
         if (range.endContainer === range.startContainer) {
           range.setEnd(tail, range.endOffset - range.startOffset);
         }
         range.setStart(tail, 0);
       }
       if (range.endContainer.nodeType === 3 && range.endOffset > 0 && range.endOffset < range.endContainer.nodeValue.length) {
-        range.endContainer.splitText(range.endOffset);
+        splitAt(range.endContainer, range.endOffset);
       }
       return rawTextNodes(host).filter(function (n) {
         if (!n.nodeValue) return false;
@@ -3531,16 +3611,25 @@
         node.stbUk = uk.slice(0, node.nodeValue.length);
         right.stbUk = uk.slice(node.nodeValue.length);
       } else {
-        node.stbUk = node.nodeValue;
-        right.stbUk = right.nodeValue;
+        /* Visible text is a translation. Keep the source on the phrase, not on this fragment. */
+        node.stbUk = null;
+        right.stbUk = null;
       }
       return right;
     }
 
+    function putSource(node) {
+      if (!node || node.stbUk == null) return;
+      var src = String(node.stbUk);
+      var cur = String(node.nodeValue || '');
+      if (window.STEdit && !STEdit.canRevealSource(src, cur)) return;
+      node.nodeValue = src;
+    }
+
     function revealUk(host) {
       rawTextNodes(host).forEach(function (n) {
-        if (n.stbUk != null) n.nodeValue = n.stbUk;
-        else n.stbUk = n.nodeValue;
+        if (n.stbUk == null) { n.stbUk = n.nodeValue; return; }
+        putSource(n);
       });
     }
 
@@ -4186,8 +4275,10 @@
 
     function showHost(host) {
       if (!host) return;
-      /* English already shown from its saved HTML is the real text: never rebuild it from the Ukrainian copy. */
-      if (mode === 'en' && host.stbStored === 'en') return;
+      if (showHost.gen != null && showHost.gen !== editGen) return;
+      /* English already on screen is the real text. Rebuilding it from the Ukrainian
+         source is what replaced part of a paragraph after Undo and Bold. */
+      if (mode === 'en' && !showHost.force && (host.stbStored === 'en' || host.stbEnEdited)) return;
       if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
       if (mode !== 'en') return;
@@ -4697,6 +4788,7 @@
         });
         walkText(doc, function (node) {
           if (node.stbUk == null) return;
+          if (window.STEdit && !STEdit.canRevealSource(String(node.stbUk), String(node.nodeValue || ''))) return;
           var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
           var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
           var known = String(win.ST.lookup(uk, 'ru') || '').trim();
@@ -4708,7 +4800,7 @@
             if (node.stbEn && looksEn(node.stbEn)) row.en = slotBase(node.stbEn);
             pairs.push(row);
           }
-          node.nodeValue = node.stbUk;
+          putSource(node);
         });
         doc.querySelectorAll('[placeholder]').forEach(function (el) {
           if (el.stbUk == null) return;
@@ -4767,7 +4859,7 @@
           host.stbUkSnap = null; host.stbStored = '';
         } else {
           rawTextNodes(host).forEach(function (n) {
-            if (n.stbUk != null) n.nodeValue = n.stbUk;
+            putSource(n);
             n.stbSynthetic = false;
           });
         }
@@ -4776,11 +4868,12 @@
       });
       walkText(doc, function (node) {
         if (node.stbUk == null) return;
+        if (window.STEdit && !STEdit.canRevealSource(String(node.stbUk), String(node.nodeValue || ''))) return;
         if (node.stbPlaced) {
           var placedHost = phraseHost(node);
           var marked = node.parentElement && node.parentElement.closest('[data-st-en]');
           if (marked || (placedHost && placedHost.querySelector('[data-st-en]'))) {
-            if (node.stbUk != null) node.nodeValue = node.stbUk;
+            putSource(node);
             return;
           }
           node.stbPlaced = false;
@@ -4790,7 +4883,7 @@
         var known = String(win.ST.lookup(uk, 'en') || '').trim();
         var host = node.parentElement && node.parentElement.closest(PHRASE_SEL);
         if (host && host.getAttribute('data-st-xid')) {
-          node.nodeValue = node.stbUk;
+          putSource(node);
           return;
         }
         var freshNode = !!(node.stbFresh && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk));
@@ -4798,7 +4891,7 @@
         if ((cur && cur !== uk && looksEn(cur) && cur !== known) || freshNode || waitingNode) {
           pairs.push({ role: 'en', xid: markXid(host || node.parentElement), uk: uk, en: cur, prevEn: known, fresh: freshNode ? 1 : 0 });
         }
-        node.nodeValue = node.stbUk;
+        putSource(node);
       });
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         if (el.stbUk == null) return;
@@ -4902,6 +4995,8 @@
     function saveBody(btn, after) {
       var keepY = 0;
       try { keepY = doc.defaultView ? (doc.defaultView.scrollY || 0) : 0; } catch (e) { keepY = 0; }
+      var view = null;
+      try { view = capture(); } catch (errView) { view = null; }
       var pairs = collectPairs();
       var formEl = doc.getElementById('zapyt');
       freshForm = !!(formEl && formEl.getAttribute('data-stb-newform') === '1');
@@ -4917,17 +5012,25 @@
         else if (freshForm || !(page && page.hasForm)) keepForm = true;
         formEl.replaceWith(doc.createTextNode('\n{{FORMULARZ}}\n'));
       } else if (page && page.hasForm) dropForm = true;
-      var payload = { action: 'cms.page.commit', id: id, main: main.innerHTML, i18nPairs: pairs };
+      var mainHtml = main.innerHTML;
+      var chromeHtml = null;
+      if (chromeDirty) {
+        chromeHtml = {};
+        ['topbar', 'header', 'drawer', 'footer', 'mbar'].forEach(function (key) {
+          var el = doc.querySelector('[data-st-region="' + key + '"]');
+          if (el) chromeHtml[key] = el.outerHTML;
+        });
+      }
+      if (view) {
+        restore(view, { quiet: true });
+        injectChrome(doc);
+      }
+      var startedGen = editGen;
+      var payload = { action: 'cms.page.commit', id: id, main: mainHtml, i18nPairs: pairs };
       if (dropForm) payload.dropForm = true;
       if (formHtml) payload.form = formHtml;
       if (keepForm) payload.keepForm = true;
-      if (chromeDirty) {
-        payload.chrome = {};
-        ['topbar', 'header', 'drawer', 'footer', 'mbar'].forEach(function (key) {
-          var el = doc.querySelector('[data-st-region="' + key + '"]');
-          if (el) payload.chrome[key] = el.outerHTML;
-        });
-      }
+      if (chromeHtml) payload.chrome = chromeHtml;
       if (metaDirty) {
         payload.meta = {
           title: host.querySelector('#stb-title').value,
@@ -4939,9 +5042,15 @@
       }
       api(payload).then(function (res) {
         btn.disabled = false;
+        if (startedGen !== editGen) {
+          say('Saved the previous version. You edited again — Save once more to publish the latest text.', 'err');
+          markDirty('page');
+          return;
+        }
         if (!res || !res.ok) {
           say((res && res.error) || 'Not saved.', 'err');
           flash((res && res.error) || 'Not saved.');
+          if (!pendingLang) pendingLang = mode || 'en';
           ctx.keepY = keepY;
           load();
           return;
@@ -4968,6 +5077,7 @@
         }
         say(noteText, res.i18nPending ? 'err' : 'ok');
         flash(noteText);
+        if (!pendingLang) pendingLang = mode || 'en';
         ctx.keepY = keepY;
         load();
       }).catch(function () {
@@ -6049,6 +6159,7 @@
       if (!window.confirm('Delete the page “' + label + '”? It leaves the site immediately.')) return;
       api({ action: 'cms.page.delete', id: id }).then(function (res) {
         if (!res || !res.ok) { say((res && res.error) || 'Not deleted.', 'err'); return; }
+        try { if (localStorage.getItem('stb-last-page') === id) localStorage.removeItem('stb-last-page'); } catch (err) { /* ignore */ }
         flash('Deleted. The page is no longer on the site.');
         if (typeof ctx.back === 'function') ctx.back();
       });
