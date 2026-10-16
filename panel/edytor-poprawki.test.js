@@ -293,10 +293,10 @@ waitFor(window, function (doc) {
   sw.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
   sw.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
   var hex = window.document.querySelector('#stb-hex');
-  hex.value = '#112233';
+  assert.strictEqual(hex.value.toLowerCase(), '#d10a11', 'the red swatch filled the hex field');
   var apply = window.document.querySelector('[data-act="applycolor"]');
   apply.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-  hex.value = '#d10a11';
+  hex.value = '#00aa00';
   apply.click();
   lead = doc.querySelector('p.lead');
   var weSpan = null;
@@ -304,7 +304,7 @@ waitFor(window, function (doc) {
     if (sp.textContent === 'We') weSpan = sp;
   });
   assert.ok(weSpan, 'Apply coloured the selected word: ' + lead.innerHTML);
-  assert.ok(/color:\s*#112233/i.test(weSpan.getAttribute('style') || ''), 'Apply uses the hex field, not the previous swatch: ' + lead.innerHTML);
+  assert.ok(/color:\s*#00aa00/i.test(weSpan.getAttribute('style') || ''), 'Apply reads the hex field at click time: ' + lead.innerHTML);
 
   lead.setAttribute('contenteditable', 'true');
   lead.focus();
@@ -318,11 +318,13 @@ waitFor(window, function (doc) {
   assert.ok(lead.classList.contains('stb-ink-light') || lead.classList.contains('stb-ink-dark'), 'undo keeps the edit border');
   var sel = doc.getSelection();
   assert.ok(sel && sel.anchorNode && lead.contains(sel.anchorNode), 'undo leaves the caret in the paragraph');
+  lead.dispatchEvent(inputEvent(window, 'beforeinput', 'insertText'));
   var redoEv = new window.KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true, cancelable: true });
   doc.dispatchEvent(redoEv);
   lead = doc.querySelector('p.lead');
   assert.strictEqual(lead.getAttribute('contenteditable'), 'true', 'redo keeps the paragraph editable');
   assert.ok(textOf(lead).indexOf('Q') === 0, 'redo restores the typed letter');
+  assert.ok(/Redone/.test(window.document.querySelector('#stb-status').textContent), 'Ctrl+Y says Redone: ' + window.document.querySelector('#stb-status').textContent);
 
   var saveEv = new window.KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true });
   doc.dispatchEvent(saveEv);
@@ -418,7 +420,68 @@ waitFor(window, function (doc) {
     lead = doc.querySelector('p.lead');
     assert.ok(textOf(lead).indexOf('ZZ') < 0, 'one undo drops only the paste');
     assert.ok(/color:\s*#d10a11/i.test(lead.innerHTML), 'paste undo keeps the colour: ' + lead.innerHTML);
-    console.log('edytor-poprawki.test.js ok');
+
+    var lang = boot(pageRu, 'ru');
+    return waitFor(lang.window, function (doc2) {
+      return textOf(doc2.querySelector('p.hero__sub')) === RU2;
+    }, 'language status page').then(function () {
+      var status = lang.window.document.querySelector('#stb-status');
+      lang.window.document.querySelector('[data-lang="en"]').click();
+      assert.ok(/Now editing English/.test(status.textContent), 'RU to EN names English: ' + status.textContent);
+      assert.ok(status.textContent.indexOf('Russian') < 0, status.textContent);
+      lang.window.document.querySelector('[data-lang="uk"]').click();
+      assert.ok(/Now editing Ukrainian/.test(status.textContent), 'names Ukrainian: ' + status.textContent);
+      lang.window.document.querySelector('[data-lang="ru"]').click();
+      assert.ok(/Now editing Russian/.test(status.textContent), 'UK to RU names Russian: ' + status.textContent);
+      assert.ok(status.textContent.indexOf('Ukrainian') < 0, status.textContent);
+
+      var hex = typed.window.document.querySelector('#stb-hex');
+      hex.value = '#d10a11';
+      hex.dispatchEvent(new typed.window.FocusEvent('focus', { bubbles: true }));
+      hex.dispatchEvent(new typed.window.MouseEvent('mouseup', { bubbles: true, detail: 3 }));
+      return new Promise(function (r) { setTimeout(r, 20); }).then(function () {
+        assert.strictEqual(hex.selectionStart, 0, 'focus selects the hex field');
+        assert.strictEqual(hex.selectionEnd, hex.value.length, 'focus selects every character');
+        hex.value = '##00aa00';
+        hex.dispatchEvent(new typed.window.Event('input', { bubbles: true }));
+        assert.strictEqual(hex.value, '#00aa00', 'a doubled hash collapses to one colour');
+        hex.value = '#d10a11';
+        hex.setSelectionRange(1, 7);
+        var pasteHex = new typed.window.Event('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(pasteHex, 'clipboardData', { value: { getData: function () { return '#00aa00'; } } });
+        hex.dispatchEvent(pasteHex);
+        assert.strictEqual(hex.value, '#00aa00', 'pasting a colour does not leave ##');
+        hex.value = '#d10a11';
+        hex.setSelectionRange(0, 0);
+        var hashEv;
+        try { hashEv = new typed.window.InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: '#' }); }
+        catch (err) { hashEv = new typed.window.Event('beforeinput', { bubbles: true, cancelable: true }); }
+        if (!hashEv.data) Object.defineProperty(hashEv, 'data', { value: '#' });
+        hex.dispatchEvent(hashEv);
+        assert.ok(hex.value.indexOf('##') < 0, 'typing # does not duplicate the hash: ' + hex.value);
+
+        selectWord(doc, lead, 'build');
+        hex.focus();
+        var paragraph = doc.getSelection().toString();
+        var selectAll = new typed.window.KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true, cancelable: true });
+        hex.dispatchEvent(selectAll);
+        assert.strictEqual(selectAll.defaultPrevented, true, 'Ctrl+A is handled by the hex field');
+        assert.notStrictEqual(doc.getSelection().toString(), textOf(lead), 'Ctrl+A does not select the paragraph');
+        assert.strictEqual(doc.getSelection().toString(), paragraph, 'the editor selection stays on the word');
+        var leaked = new typed.window.KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true, cancelable: true });
+        doc.dispatchEvent(leaked);
+        assert.strictEqual(leaked.defaultPrevented, true, 'Ctrl+A while the hex field is focused does not reach the editor');
+        assert.strictEqual(doc.getSelection().toString(), paragraph, 'the paragraph stays as it was');
+
+        return new Promise(function (r) { setTimeout(r, 150); });
+      }).then(function () {
+        var doc2 = frameDoc(typed.window);
+        var again = doc2.querySelector('p.lead');
+        again.dispatchEvent(inputEvent(typed.window, 'beforeinput', 'historyRedo'));
+        assert.ok(/Redone/.test(typed.window.document.querySelector('#stb-status').textContent), 'history redo says Redone');
+        console.log('edytor-poprawki.test.js ok');
+      });
+    });
   });
 }).catch(function (err) {
   console.error(err);

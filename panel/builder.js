@@ -119,6 +119,11 @@
     var typing = false;
     var typeTimer = null;
     var pasteSnap = false;
+    /* Undo focuses the paragraph, and Chrome then sends a stray beforeinput
+       that would wipe the redo stack. Ignore those events briefly. */
+    var historyQuiet = false;
+    var historyQuietTimer = null;
+    var historyStatusUntil = 0;
     var drag = null;
     var moveMode = false;
     var photoTap = null;
@@ -293,6 +298,7 @@
     var nameEl = host.querySelector('#stb-name');
 
     function say(msg, kind) {
+      if (msg === 'Unsaved changes.' && historyStatusUntil && Date.now() < historyStatusUntil) return;
       status.textContent = msg || '';
       status.className = 'stb__status' + (kind ? ' is-' + kind : '');
     }
@@ -468,7 +474,14 @@
       host.querySelector('#stb-ph-wrap').hidden = true;
     }
 
+    function holdHistoryQuiet() {
+      historyQuiet = true;
+      clearTimeout(historyQuietTimer);
+      historyQuietTimer = setTimeout(function () { historyQuiet = false; }, 120);
+    }
+
     function beforeChange() {
+      if (historyQuiet) return;
       editGen += 1;
       /* A colour, paste, or other command ends a typing burst so Undo
          restores only that command, not the command plus the typing. */
@@ -528,6 +541,7 @@
 
     function undo() {
       if (!doc || !undoStack.length) return;
+      holdHistoryQuiet();
       editGen += 1;
       var idx = editingIndex();
       redoStack.push(capture());
@@ -536,10 +550,12 @@
       markDirty('page');
       syncHist();
       say('Undone.');
+      historyStatusUntil = Date.now() + 250;
     }
 
     function redo() {
       if (!doc || !redoStack.length) return;
+      holdHistoryQuiet();
       editGen += 1;
       var idx = editingIndex();
       undoStack.push(capture());
@@ -548,6 +564,20 @@
       markDirty('page');
       syncHist();
       say('Redone.');
+      historyStatusUntil = Date.now() + 250;
+    }
+
+    function toolbarField(e) {
+      var nodes = [e && e.target, typeof document !== 'undefined' ? document.activeElement : null];
+      var i;
+      for (i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (!n || !n.tagName) continue;
+        var tag = n.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') continue;
+        if (host.contains(n)) return n;
+      }
+      return null;
     }
 
     function onKey(e) {
@@ -558,8 +588,20 @@
         save();
         return;
       }
+      var field = toolbarField(e);
+      if (field) {
+        /* Shortcuts typed in the toolbar must not reach the paragraph. */
+        var key = String(e.key || '').toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+          e.stopPropagation();
+          if (key === 'a') {
+            e.preventDefault();
+            try { field.select(); } catch (err) { /* the field keeps its own caret */ }
+          }
+        }
+        return;
+      }
       var t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
       var editing = t && (t.isContentEditable || (t.closest && t.closest('[contenteditable="true"]')));
       if (!editing && doc && doc.activeElement && doc.activeElement.isContentEditable) editing = true;
       if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !editing) {
@@ -633,10 +675,7 @@
       e.preventDefault();
       applyHex();
     });
-    host.querySelector('[data-act="applycolor"]').addEventListener('pointerdown', function (e) {
-      var input = host.querySelector('#stb-hex');
-      e.currentTarget._pendingHex = input ? String(input.value) : '';
-    }, true);
+    bindHexField(host.querySelector('#stb-hex'));
     host.querySelector('#stb-color').addEventListener('click', function (e) {
       var sw = e.target.closest && e.target.closest('.stb__swatch');
       if (!sw) return;
@@ -689,7 +728,7 @@
         if (hexBox) hexBox.value = '';
         paint('');
       }
-      else if (act === 'applycolor') applyHex(btn._pendingHex);
+      else if (act === 'applycolor') applyHex();
       else if (act === 'nosize') applySize('inherit');
       else if (act === 'desk' || act === 'tab' || act === 'phone') setStage(act);
     });
@@ -1158,6 +1197,15 @@
       d.addEventListener('submit', function (e) { e.preventDefault(); }, true);
       d.addEventListener('beforeinput', function (e) {
         if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
+          e.preventDefault();
+          e.stopPropagation();
+          /* Keydown already ran undo or redo. A second call would put "Undone." back. */
+          if (historyQuiet) return;
+          if (e.inputType === 'historyUndo') undo();
+          else redo();
+          return;
+        }
+        if (historyQuiet) {
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -2406,6 +2454,8 @@
       showHost.force = false;
       showHost.gen = null;
       if (langGen !== editGen) return;
+      var langName = lang === 'uk' ? 'Ukrainian' : (lang === 'ru' ? 'Russian' : 'English');
+      say('Now editing ' + langName + '.');
     }
 
     function move(dir) {
@@ -3066,9 +3116,62 @@
         : (mode === 'ru' ? 'Formatting applied to the Russian text only. The Ukrainian sentence is unchanged.' : 'Formatting applied. Save to publish.'));
     }
 
-    function applyHex(explicit) {
+    function singleHash(raw) {
+      var s = String(raw || '').replace(/\s+/g, '');
+      var marks = 0;
+      var i;
+      for (i = 0; i < s.length; i++) if (s.charAt(i) === '#') marks += 1;
+      if (marks <= 1) return s.slice(0, 7);
+      return ('#' + s.replace(/#/g, '')).slice(0, 7);
+    }
+
+    function bindHexField(input) {
+      if (!input) return;
+      function selectAll() {
+        setTimeout(function () {
+          try { input.setSelectionRange(0, input.value.length); } catch (err) { /* the field stays as it is */ }
+        }, 0);
+      }
+      input.addEventListener('focus', selectAll);
+      input.addEventListener('mouseup', function (e) {
+        if (e.detail >= 2) selectAll();
+      });
+      input.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+      input.addEventListener('beforeinput', function (e) {
+        if (!e.data || e.data.indexOf('#') < 0) return;
+        var start = input.selectionStart || 0;
+        var end = input.selectionEnd == null ? start : input.selectionEnd;
+        var next = input.value.slice(0, start) + e.data + input.value.slice(end);
+        if (next.indexOf('#') === next.lastIndexOf('#')) return;
+        e.preventDefault();
+        var hex = window.STEdit ? STEdit.normalizeHex(e.data) : '';
+        input.value = hex || singleHash(next);
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch (err) { /* caret stays */ }
+      });
+      input.addEventListener('paste', function (e) {
+        var cd = e.clipboardData;
+        var text = cd ? (cd.getData('text/plain') || '') : '';
+        if (!text) return;
+        var hex = window.STEdit ? STEdit.normalizeHex(text) : '';
+        if (!hex && text.indexOf('#') < 0) return;
+        e.preventDefault();
+        if (hex) input.value = hex;
+        else {
+          var start = input.selectionStart || 0;
+          var end = input.selectionEnd == null ? start : input.selectionEnd;
+          input.value = singleHash(input.value.slice(0, start) + text + input.value.slice(end));
+        }
+        try { input.setSelectionRange(0, input.value.length); } catch (err) { /* the value is already one colour */ }
+      });
+      input.addEventListener('input', function () {
+        var tidy = singleHash(input.value);
+        if (tidy !== input.value) input.value = tidy;
+      });
+    }
+
+    function applyHex() {
       var input = host.querySelector('#stb-hex');
-      var raw = explicit == null ? (input ? input.value : '') : String(explicit);
+      var raw = input ? input.value : '';
       var hex = window.STEdit ? STEdit.normalizeHex(raw) : '';
       if (!hex) { say('Type a colour as #rrggbb, for example #d10a11.', 'err'); return; }
       if (input) input.value = hex;
