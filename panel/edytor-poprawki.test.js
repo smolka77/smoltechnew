@@ -426,14 +426,33 @@ waitFor(window, function (doc) {
       return textOf(doc2.querySelector('p.hero__sub')) === RU2;
     }, 'language status page').then(function () {
       var status = lang.window.document.querySelector('#stb-status');
+      var langDoc = frameDoc(lang.window);
+      assert.strictEqual(langDoc.documentElement.getAttribute('lang'), 'ru', 'editing Russian sets html lang');
       lang.window.document.querySelector('[data-lang="en"]').click();
       assert.ok(/Now editing English/.test(status.textContent), 'RU to EN names English: ' + status.textContent);
       assert.ok(status.textContent.indexOf('Russian') < 0, status.textContent);
+      assert.strictEqual(langDoc.documentElement.getAttribute('lang'), 'en', 'editing English sets html lang');
       lang.window.document.querySelector('[data-lang="uk"]').click();
       assert.ok(/Now editing Ukrainian/.test(status.textContent), 'names Ukrainian: ' + status.textContent);
+      assert.strictEqual(langDoc.documentElement.getAttribute('lang'), 'uk-UA', 'editing Ukrainian sets html lang');
       lang.window.document.querySelector('[data-lang="ru"]').click();
       assert.ok(/Now editing Russian/.test(status.textContent), 'UK to RU names Russian: ' + status.textContent);
       assert.ok(status.textContent.indexOf('Ukrainian') < 0, status.textContent);
+      assert.strictEqual(langDoc.documentElement.getAttribute('lang'), 'ru', 'back to Russian keeps html lang');
+      lang.window.document.querySelector('[data-lang="en"]').click();
+      var sub = langDoc.querySelector('p.hero__sub');
+      sub.removeAttribute('contenteditable');
+      langDoc.caretPositionFromPoint = function () {
+        var node = findText(sub, 'design');
+        return { offsetNode: node, offset: node.nodeValue.indexOf('design') + 1 };
+      };
+      [1, 2].forEach(function (detail) {
+        ['mousedown', 'mouseup', 'click'].forEach(function (type) {
+          sub.dispatchEvent(new lang.window.MouseEvent(type, { bubbles: true, cancelable: true, detail: detail, clientX: 12, clientY: 12, button: 0 }));
+        });
+      });
+      sub.dispatchEvent(new lang.window.MouseEvent('dblclick', { bubbles: true, cancelable: true, detail: 2, clientX: 12, clientY: 12, button: 0 }));
+      assert.strictEqual(langDoc.getSelection().toString(), 'design', 'first double-click after a language switch selects the word');
 
       var hex = typed.window.document.querySelector('#stb-hex');
       hex.value = '#d10a11';
@@ -510,11 +529,25 @@ waitFor(window, function (doc) {
           assert.ok(/color:\s*#00aa00/i.test(word.getAttribute('style') || ''), 'swatch then hex then one Apply uses #00aa00: ' + lead3.innerHTML);
           doc3.dispatchEvent(new once.window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
           assert.strictEqual(doc3.getSelection().toString(), 'welders', 'undo selects the changed word');
+          assert.strictEqual(once.window.document.querySelector('#stb-hex').value, '#d10a11', 'undo shows the colour still on the word');
+          assert.ok(once.window.document.querySelector('.stb__swatch[data-color="#d10a11"]').classList.contains('is-on'), 'the swatch matches the restored colour');
           doc3.dispatchEvent(new once.window.KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
           assert.strictEqual(pub.textContent, 'Site is up to date', 'undo back to the saved page clears the badge');
           assert.strictEqual(once.window.document.querySelector('#stb-dirty').hidden, true, 'the editor badge hides when nothing is unsaved');
-          assert.strictEqual(once.window.document.querySelector('#stb-dirty').hidden, true, 'the editor badge hides when nothing is unsaved');
-          console.log('edytor-poprawki.test.js ok');
+          assert.strictEqual(once.window.document.querySelector('#stb-hex').value, '', 'undo to plain text clears the hex field');
+          assert.strictEqual(once.window.document.querySelector('.stb__swatch.is-on'), null, 'no swatch stays lit after the colour is gone');
+
+          var enSave = boot(pageEn);
+          return waitFor(enSave.window, function (doc4) {
+            return textOf(doc4.querySelector('p.lead')) === EN;
+          }, 'english save status').then(function () {
+            enSave.window.document.querySelector('#stb-save').click();
+            return new Promise(function (r) { setTimeout(r, 80); });
+          }).then(function () {
+            assert.strictEqual(enSave.window.document.querySelector('#stb-status').textContent, 'Saved. Now editing English.');
+            assert.strictEqual(frameDoc(enSave.window).documentElement.getAttribute('lang'), 'en');
+            console.log('edytor-poprawki.test.js ok');
+          });
         });
       });
     });

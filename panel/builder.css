@@ -414,7 +414,7 @@
 .stb__color { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .28rem; margin-top: .15rem; }
 .stb__color-lab { flex: 1 0 100%; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6d7076; }
 .stb__swatch { width: 1.35rem; height: 1.35rem; padding: 0; border-radius: 999px; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(22, 22, 22, .28); cursor: pointer; }
-.stb__swatch:hover, .stb__swatch:focus { box-shadow: 0 0 0 2px #161616; }
+.stb__swatch:hover, .stb__swatch:focus, .stb__swatch.is-on { box-shadow: 0 0 0 2px #161616; }
 .stb__hex { display: inline-flex; align-items: center; gap: .25rem; font-size: .72rem; color: #3a3a3a; }
 .stb__hex input { width: 6.2rem; font: 600 .78rem/1.2 ui-monospace, monospace; padding: .2rem .35rem; border: 1px solid rgba(22, 22, 22, .2); border-radius: 6px; }
 .stb__side-tog { display: none; }

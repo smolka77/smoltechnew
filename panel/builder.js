@@ -141,6 +141,8 @@
     var heldRange = null;
     var pickedEl = null;
     var pendingLang = null;
+    var savedReload = false;
+    var lastPointer = null;
     var pendingPages = [];
 
     var oldBlocks = document.getElementById('stb-blocks');
@@ -449,6 +451,7 @@
       clone.querySelectorAll('[contenteditable]').forEach(function (el) {
         el.removeAttribute('contenteditable');
         el.removeAttribute('spellcheck');
+        el.removeAttribute('lang');
       });
       clone.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
@@ -622,7 +625,198 @@
           sel.addRange(range);
         }
         heldRange = range.collapsed ? null : range.cloneRange();
+        syncColourTools(range);
       } catch (err) { /* the paragraph stays editable */ }
+    }
+
+    function frameLangCode(lang) {
+      if (lang === 'uk') return 'uk-UA';
+      if (lang === 'ru') return 'ru';
+      return 'en';
+    }
+
+    function langStatusName(lang) {
+      if (lang === 'uk') return 'Ukrainian';
+      if (lang === 'ru') return 'Russian';
+      return 'English';
+    }
+
+    function setFrameLang(lang) {
+      if (!doc || !doc.documentElement) return;
+      var code = frameLangCode(lang);
+      doc.documentElement.setAttribute('lang', code);
+      doc.documentElement.setAttribute('xml:lang', code);
+    }
+
+    function cssHex(v) {
+      v = String(v || '').trim();
+      var hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+      if (hex) {
+        var h = hex[1].toLowerCase();
+        if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+        return '#' + h;
+      }
+      var rgb = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i.exec(v);
+      if (rgb) {
+        function byte(n) {
+          var s = Math.max(0, Math.min(255, n | 0)).toString(16);
+          return s.length === 1 ? '0' + s : s;
+        }
+        return '#' + byte(+rgb[1]) + byte(+rgb[2]) + byte(+rgb[3]);
+      }
+      return window.STEdit ? (STEdit.normalizeHex(v) || '') : '';
+    }
+
+    function inlineColour(node) {
+      var el = !node ? null : (node.nodeType === 1 ? node : node.parentElement);
+      var stop = node ? phraseHost(node) : null;
+      while (el && el !== stop && el !== doc.body && el !== doc.documentElement) {
+        var raw = (el.style && el.style.color) || '';
+        if (!raw && el.getAttribute) {
+          var found = /(?:^|;)\s*color\s*:\s*([^;]+)/i.exec(el.getAttribute('style') || '');
+          if (found) raw = found[1];
+        }
+        var hex = cssHex(raw);
+        if (hex) return hex;
+        el = el.parentElement;
+      }
+      return '';
+    }
+
+    function selectionColour(range) {
+      if (!range || !doc) return '';
+      var spots = [];
+      function add(node) { if (node) spots.push(node); }
+      add(range.startContainer);
+      add(range.endContainer);
+      if (range.startContainer && range.startContainer.nodeType === 1) add(range.startContainer.childNodes[range.startOffset]);
+      if (range.endContainer && range.endContainer.nodeType === 1 && range.endOffset > 0) add(range.endContainer.childNodes[range.endOffset - 1]);
+      var i;
+      for (i = 0; i < spots.length; i++) {
+        var hex = inlineColour(spots[i]);
+        if (hex) return hex;
+      }
+      try {
+        var box = doc.createElement('div');
+        box.appendChild(range.cloneContents());
+        var coloured = box.querySelector('[style*="color"]');
+        if (coloured) return inlineColour(coloured);
+      } catch (err) { /* the live ends already answered */ }
+      return '';
+    }
+
+    function markSwatches(color) {
+      var want = cssHex(color);
+      host.querySelectorAll('#stb-color .stb__swatch').forEach(function (sw) {
+        var on = !!want && cssHex(sw.getAttribute('data-color') || '') === want;
+        sw.classList.toggle('is-on', on);
+        if (!on && typeof document !== 'undefined' && document.activeElement === sw) {
+          try { sw.blur(); } catch (err) { /* the ring follows is-on */ }
+        }
+      });
+    }
+
+    function syncColourTools(range) {
+      var color = selectionColour(range);
+      var input = host.querySelector('#stb-hex');
+      var typing = input && typeof document !== 'undefined' && document.activeElement === input;
+      if (input && !typing) input.value = color;
+      markSwatches(typing ? input.value : color);
+    }
+
+    function wordChar(ch) {
+      if (!ch || /[\s\u00a0]/.test(ch)) return false;
+      return !/[.,;:!?()[\]{}"«»„“”/\\|]/.test(ch);
+    }
+
+    function textAt(node, offset) {
+      if (!node) return null;
+      if (node.nodeType === 3) return { node: node, offset: offset || 0 };
+      var kids = node.childNodes || [];
+      var child = kids[offset] || kids[offset - 1] || null;
+      if (child && child.nodeType === 3) {
+        return { node: child, offset: child === kids[offset] ? 0 : (child.nodeValue || '').length };
+      }
+      var walk = child;
+      while (walk && walk.nodeType === 1 && walk.firstChild) walk = walk.firstChild;
+      if (walk && walk.nodeType === 3) return { node: walk, offset: 0 };
+      var i;
+      for (i = 0; i < kids.length; i++) {
+        if (kids[i].nodeType === 3 && /\S/.test(kids[i].nodeValue || '')) return { node: kids[i], offset: 0 };
+      }
+      return null;
+    }
+
+    function notePointer(e) {
+      if (!e || !PHRASE_SEL) return;
+      var t = e.target;
+      var el = t && (t.nodeType === 1 ? t : t.parentElement);
+      if (!el || !el.closest || !el.closest(PHRASE_SEL)) return;
+      lastPointer = { clientX: e.clientX, clientY: e.clientY, time: Date.now(), detail: e.detail || 1 };
+    }
+
+    function selectWordAt(e) {
+      if (!doc || !e) return;
+      var caret = null;
+      var x = e.clientX;
+      var y = e.clientY;
+      if (typeof x === 'number' && typeof y === 'number') {
+        try {
+          if (doc.caretPositionFromPoint) {
+            var pos = doc.caretPositionFromPoint(x, y);
+            if (pos && pos.offsetNode) caret = textAt(pos.offsetNode, pos.offset);
+          }
+        } catch (err) { caret = null; }
+        if (!caret) {
+          try {
+            if (doc.caretRangeFromPoint) {
+              var found = doc.caretRangeFromPoint(x, y);
+              if (found) caret = textAt(found.startContainer, found.startOffset);
+            }
+          } catch (err2) { caret = null; }
+        }
+      }
+      var sel = doc.getSelection();
+      if (!caret || !caret.node || caret.node.nodeType !== 3) {
+        if (sel && sel.rangeCount && !sel.isCollapsed && flat(sel.toString())) {
+          try {
+            heldRange = sel.getRangeAt(0).cloneRange();
+            syncColourTools(heldRange);
+          } catch (err3) { /* the browser selection stands */ }
+        }
+        return;
+      }
+      var text = caret.node.nodeValue || '';
+      var i = Math.max(0, Math.min(text.length, caret.offset || 0));
+      if (i >= text.length) i = text.length - 1;
+      if (i > 0 && !wordChar(text.charAt(i))) i -= 1;
+      if (i < 0 || !wordChar(text.charAt(i))) return;
+      var start = i;
+      var end = i + 1;
+      while (start > 0 && wordChar(text.charAt(start - 1))) start -= 1;
+      while (end < text.length && wordChar(text.charAt(end))) end += 1;
+      var range = doc.createRange();
+      try {
+        range.setStart(caret.node, start);
+        range.setEnd(caret.node, end);
+      } catch (err4) { return; }
+      if (!flat(range.toString())) return;
+      var phrase = phraseHost(caret.node);
+      if (phrase) startEdit(phrase);
+      sel = doc.getSelection();
+      if (!sel) return;
+      try {
+        sel.removeAllRanges();
+        sel.addRange(range);
+        heldRange = range.cloneRange();
+      } catch (err5) { return; }
+      syncColourTools(range);
+    }
+
+    function replayWordSelection() {
+      if (!lastPointer || Date.now() - lastPointer.time > 700) return;
+      if ((lastPointer.detail || 1) < 2) return;
+      selectWordAt(lastPointer);
     }
 
     function undo() {
@@ -806,6 +1000,7 @@
       var color = sw.getAttribute('data-color') || '';
       var hex = host.querySelector('#stb-hex');
       if (hex && color) hex.value = color;
+      markSwatches(color);
       paint(color);
     });
     host.querySelector('#stb-size').addEventListener('change', function (e) {
@@ -850,6 +1045,7 @@
       else if (act === 'clearcolor') {
         var hexBox = host.querySelector('#stb-hex');
         if (hexBox) hexBox.value = '';
+        markSwatches('');
         paint('');
       }
       else if (act === 'applycolor') {
@@ -960,8 +1156,12 @@
       syncDirty();
       var hello = ctx.hello || '';
       ctx.hello = '';
-      var langName = nextLang === 'uk' ? 'Ukrainian' : (nextLang === 'ru' ? 'Russian' : 'English');
-      say(hello || (nextLang !== 'en' ? 'Saved. Now editing ' + langName + '.' : 'Click text to edit it. Double-click a link to open that page. Save publishes immediately.'));
+      var fromSave = savedReload;
+      savedReload = false;
+      var langName = langStatusName(nextLang);
+      if (hello) say(hello);
+      else if (fromSave || nextLang !== 'en') say('Saved. Now editing ' + langName + '.');
+      else say('Click text to edit it. Double-click a link to open that page. Save publishes immediately.');
     });
 
     function injectChrome(d) {
@@ -1234,6 +1434,7 @@
         try { heldRange = live.getRangeAt(0).cloneRange(); } catch (err) { heldRange = null; }
         var liveText = flat(live.toString());
         if (armedStyle && window.STEdit && STEdit.selectionWins(liveText, armedStyle.text)) armedStyle = null;
+        try { if (heldRange) syncColourTools(heldRange); } catch (err2) { /* the toolbar keeps its colour */ }
         }
         if (!pickedEl || !pickedEl.isConnected) { pickedEl = null; return; }
         if (!live || !live.rangeCount || live.isCollapsed) return;
@@ -1261,6 +1462,9 @@
         if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
         var t = e.target && (e.target.nodeType === 1 ? e.target : e.target.parentElement);
         if (!t || !t.closest || !t.closest(PHRASE_SEL)) return;
+        notePointer(e);
+        /* The second press of a double-click selects the word. A drag would collapse it. */
+        if (e.detail >= 2) return;
         var caret = caretFromPoint(e.clientX, e.clientY);
         if (!caret || !caret.node) return;
         dragCaret = caret;
@@ -1661,7 +1865,8 @@
       if (!el) return;
       clearEdit();
       el.setAttribute('contenteditable', 'true');
-      el.setAttribute('spellcheck', 'false');
+      el.setAttribute('spellcheck', 'true');
+      el.setAttribute('lang', frameLangCode(mode));
       var color = '#161616';
       try { color = frame.contentWindow.getComputedStyle(el).color; } catch (err) { /* keep default */ }
       el.classList.add(lum(color) > 0.7 ? 'stb-ink-light' : 'stb-ink-dark');
@@ -1738,14 +1943,18 @@
       var t = e.target;
       if (!t || t.nodeType !== 1) t = t && t.parentElement;
       if (!t) return;
+      notePointer(e);
       var a = t.closest('a[href]');
-      if (!a) return;
-      var href = a.getAttribute('href') || '';
-      if (!href || href.charAt(0) === '#' || /^(?:mailto|tel|javascript):/i.test(href)) return;
-      if (!pageByUrl(href)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openFromAnchor(a);
+      var href = a ? (a.getAttribute('href') || '') : '';
+      var opens = a && href && href.charAt(0) !== '#' && !/^(?:mailto|tel|javascript):/i.test(href) && pageByUrl(href);
+      if (opens) {
+        e.preventDefault();
+        e.stopPropagation();
+        openFromAnchor(a);
+        return;
+      }
+      /* Language changes rewrite the preview. Select the word here so that reload cannot drop the click. */
+      selectWordAt(e);
     }
 
     function toggleNav(e) {
@@ -1929,8 +2138,9 @@
       if (hostEl && !hostEl.matches('img')) startEdit(hostEl);
       else if (!hostEl) clearEdit();
       var clickedLink = textLinkFrom(t);
-      if (clickedLink) selectInside(clickedLink);
+      if (clickedLink && e.detail < 2) selectInside(clickedLink);
       setNote(t);
+      if (e.detail >= 2) selectWordAt(e);
     }
 
     function selectInside(el) {
@@ -2542,6 +2752,7 @@
       restoreMarkSnaps();
       if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
         mode = 'uk';
+        setFrameLang('uk');
         showHost.force = false;
         showHost.gen = null;
         say('Translations did not load. Showing the Ukrainian source.', 'err');
@@ -2549,6 +2760,7 @@
         return;
       }
       mode = lang;
+      setFrameLang(lang);
       rememberLang(lang);
       holdSourceSnaps();
       if (lang === 'uk') {
@@ -2583,8 +2795,8 @@
       showHost.force = false;
       showHost.gen = null;
       if (langGen !== editGen) return;
-      var langName = lang === 'uk' ? 'Ukrainian' : (lang === 'ru' ? 'Russian' : 'English');
-      say('Now editing ' + langName + '.');
+      replayWordSelection();
+      say('Now editing ' + langStatusName(lang) + '.');
     }
 
     function move(dir) {
@@ -5511,6 +5723,7 @@
       doc.querySelectorAll('[contenteditable]').forEach(function (el) {
         el.removeAttribute('contenteditable');
         el.removeAttribute('spellcheck');
+        el.removeAttribute('lang');
       });
       if (window.STColor) {
         doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
@@ -5640,6 +5853,7 @@
         say(noteText, res.i18nPending ? 'err' : 'ok');
         flash(noteText);
         if (!pendingLang) pendingLang = mode || 'en';
+        savedReload = true;
         ctx.keepY = keepY;
         load();
       }).catch(function () {
