@@ -18,6 +18,39 @@
     return /[A-Za-z0-9]/.test(s) && !/[\u0400-\u04FF]/.test(s);
   }
 
+  /* A real sentence, not a company name or a product code such as "Drawn Arc / Short Cycle". */
+  function englishSentence(text) {
+    var t = String(text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!t || /[\u0400-\u04FF]/.test(t)) return false;
+    if (/https?:\/\/|www\.|@|\.(?:com|net|org|ua|pl|eu|io|de|uk)\b/i.test(t)) return false;
+    if (t.split(/\s+/).length < 4) return false;
+    var words = t.match(/\b[a-z]{3,}\b/g);
+    return !!(words && words.length >= 3);
+  }
+
+  function englishTail(text) {
+    var t = String(text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!/[\u0400-\u04FF]/.test(t)) return '';
+    var m = t.match(/(?:^|(?:[.!?]\s)|(?:[\u0400-\u04FF]\s))([A-Z][A-Za-z0-9][A-Za-z0-9'’,-]*(?:\s+[A-Za-z0-9][A-Za-z0-9'’,-]*){3,}[.!?]?)$/);
+    var sentence = m ? m[1].trim() : '';
+    return englishSentence(sentence) ? sentence : '';
+  }
+
+  /* Enter inside a paragraph makes a classless div. That div is not a real block. */
+  function isPlainSplit(el) {
+    if (!el || el.nodeType !== 1 || el.tagName !== 'DIV') return false;
+    var cls = String(el.className || '').replace(/\bstb-[\w-]+\b/g, '').replace(/\s+/g, ' ').trim();
+    if (cls || el.id) return false;
+    var i, name;
+    for (i = 0; i < el.attributes.length; i++) {
+      name = el.attributes[i].name;
+      if (name === 'class' || name === 'contenteditable' || name === 'spellcheck') continue;
+      return false;
+    }
+    if (el.querySelector('div,p,ul,ol,li,table,figure,section,article,img,svg,video,iframe,input,button,textarea,select,h1,h2,h3,h4,h5,h6')) return false;
+    return true;
+  }
+
   function pad(orig, text) {
     var lead = (String(orig).match(/^\s*/) || [''])[0];
     var trail = (String(orig).match(/\s*$/) || [''])[0];
@@ -525,6 +558,22 @@
       }).catch(function () { say('Connection error.', 'err'); });
     }
 
+    function sourceHasEnglishSentence() {
+      if (!doc) return false;
+      var found = false;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (found || host.closest('script, style, noscript')) return;
+        /* Saved English HTML is the English view of that field, not a sentence waiting to be translated. */
+        if (host.stbStored === 'en') return;
+        rawTextNodes(host).forEach(function (node) {
+          var src = node.stbUk == null ? flat(node.nodeValue) : String(node.stbUk);
+          if (node.stbUk == null && !englishSentence(src)) return;
+          if (englishSentence(src) || englishTail(src)) found = true;
+        });
+      });
+      return found;
+    }
+
     frame.addEventListener('load', function () {
       doc = frame.contentDocument;
       if (!doc || !doc.body) return;
@@ -538,6 +587,11 @@
       var nextLang = pendingLang || 'en';
       pendingLang = null;
       applyLang(nextLang);
+      var folded = foldSplitBlocks(doc.getElementById('main') || doc.body);
+      if (ctx.i18nSwept !== id && (folded || sourceHasEnglishSentence())) {
+        ctx.i18nSwept = id;
+        setTimeout(function () { save(); }, 0);
+      }
       if (ctx.keepY) {
         var keepAt = ctx.keepY;
         ctx.keepY = 0;
@@ -572,7 +626,6 @@
         /* A coloured letter stays in the word. It does not get its own chip or lose its colour. */
         '.stb-ink-light [style*="color"],.stb-ink-dark [style*="color"],.stb-ink-light [data-stb-paint],.stb-ink-dark [data-stb-paint]{background-color:transparent!important;-webkit-text-fill-color:currentColor!important}',
         '[data-st-lock]{outline:1px dashed #b86e00!important;outline-offset:3px}',
-        '[data-st-untranslated]{outline:1px dashed #d10a11!important;outline-offset:3px}',
         'a.st-link,a[data-st-link]{color:#d10a11!important;-webkit-text-fill-color:#d10a11!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px}',
         '.stb-ink-light,.stb-ink-dark{border-radius:2px}',
         'a{cursor:text}',
@@ -600,7 +653,166 @@
       d.head.appendChild(style);
     }
 
+    var SPLIT_PHRASE = 'p, li, h1, h2, h3, h4, h5, h6, td, th, dd, dt, figcaption, summary, blockquote';
+
+    function previousPhrase(el) {
+      var prev = el ? el.previousElementSibling : null;
+      while (prev && isPlainSplit(prev)) prev = prev.previousElementSibling;
+      if (prev && prev.matches && prev.matches(SPLIT_PHRASE)) return prev;
+      return null;
+    }
+
+    function breakBefore(el) {
+      var n = el ? el.previousSibling : null;
+      while (n && n.nodeType === 3 && !String(n.nodeValue || '').trim()) n = n.previousSibling;
+      return !!(n && n.nodeType === 1 && n.tagName === 'BR');
+    }
+
+    function caretToEnd(el) {
+      if (!el || !doc) return;
+      try {
+        var sel = doc.getSelection();
+        var range = doc.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      } catch (err) { /* the block is already gone */ }
+    }
+
+    function unwrapSplit(div) {
+      var parent = div.parentNode;
+      if (!parent) return;
+      var sel = doc.getSelection();
+      var caretNode = null;
+      var caretOff = 0;
+      if (sel && sel.rangeCount && div.contains(sel.anchorNode)) {
+        caretNode = sel.anchorNode;
+        caretOff = sel.anchorOffset;
+      }
+      if (!breakBefore(div)) parent.insertBefore(doc.createElement('br'), div);
+      while (div.firstChild) parent.insertBefore(div.firstChild, div);
+      parent.removeChild(div);
+      if (!caretNode || !caretNode.parentNode || !sel) return;
+      try {
+        var range = doc.createRange();
+        var max = caretNode.nodeType === 3 ? caretNode.nodeValue.length : caretNode.childNodes.length;
+        range.setStart(caretNode, Math.min(caretOff, max));
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (err2) { /* the caret stays in the paragraph */ }
+    }
+
+    /* A new line stays in the same paragraph. An empty split box is removed. */
+    function foldSplitBlocks(root) {
+      if (!root || !root.querySelectorAll || !doc) return false;
+      var changed = false;
+      var pending = true;
+      var guard = 0;
+      while (pending && guard < 40) {
+        guard++;
+        pending = false;
+        Array.prototype.forEach.call(Array.from(root.querySelectorAll('div')).filter(isPlainSplit), function (div) {
+          if (!div.parentNode) return;
+          var text = flat(div.textContent);
+          if (!text) {
+            var prev = previousPhrase(div);
+            var wasEdit = div.getAttribute('contenteditable') === 'true' || div.classList.contains('stb-on');
+            if (selected === div) selected = prev || null;
+            div.remove();
+            changed = true;
+            pending = true;
+            if (wasEdit && prev) {
+              startEdit(prev);
+              highlight(prev);
+              caretToEnd(prev);
+            }
+            return;
+          }
+          var parentPhrase = div.parentElement && div.parentElement.closest(SPLIT_PHRASE);
+          if (parentPhrase && parentPhrase.contains(div) && !parentPhrase.matches(SKIP_HOST)) {
+            unwrapSplit(div);
+            if (parentPhrase.stbUkSnap != null || parentPhrase.stbUkFull) parentPhrase.stbEnEdited = true;
+            changed = true;
+            pending = true;
+            return;
+          }
+          var prevPhrase = previousPhrase(div);
+          if (!prevPhrase || prevPhrase.matches(SKIP_HOST)) return;
+          if (!breakBefore(div) || div.parentNode !== prevPhrase.parentNode) {
+            if (prevPhrase.lastChild && !(prevPhrase.lastChild.nodeType === 1 && prevPhrase.lastChild.tagName === 'BR')) {
+              prevPhrase.appendChild(doc.createElement('br'));
+            }
+          }
+          while (div.firstChild) prevPhrase.appendChild(div.firstChild);
+          if (prevPhrase.stbUkSnap != null || prevPhrase.stbUkFull) prevPhrase.stbEnEdited = true;
+          if (selected === div) selected = prevPhrase;
+          div.remove();
+          changed = true;
+          pending = true;
+        });
+      }
+      return changed;
+    }
+
+    function phrasePlain(el) {
+      if (!el) return '';
+      var parts = [];
+      function walk(node) {
+        if (!node) return;
+        if (node.nodeType === 3) { parts.push(node.nodeValue || ''); return; }
+        if (node.nodeType !== 1) return;
+        if (node.tagName === 'BR') { parts.push('\n'); return; }
+        Array.prototype.forEach.call(node.childNodes, walk);
+      }
+      walk(el);
+      return flat(parts.join(''));
+    }
+
+    function editableBox(d, e) {
+      var t = e && e.target;
+      var el = t && t.nodeType === 1 ? t : (t && t.parentElement);
+      var box = el && el.closest && el.closest('[contenteditable="true"]');
+      if (box) return box;
+      var sel = d.getSelection();
+      var node = sel && sel.anchorNode;
+      var from = node && (node.nodeType === 1 ? node : node.parentElement);
+      return from && from.closest ? from.closest('[contenteditable="true"]') : null;
+    }
+
+    function insertSoftBreak(d, box) {
+      var sel = d.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      var range = sel.getRangeAt(0);
+      if (!box.contains(range.startContainer)) return;
+      if (!range.collapsed) range.deleteContents();
+      var br = d.createElement('br');
+      range.insertNode(br);
+      /* One break at the end of a block stays on the same line. A second break holds the new line. */
+      if (!br.nextSibling) br.parentNode.appendChild(d.createElement('br'));
+      var next = d.createRange();
+      next.setStartAfter(br);
+      next.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(next);
+      if (box.stbUkSnap != null || box.stbUkFull) box.stbEnEdited = true;
+      try { box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertLineBreak' })); }
+      catch (err) { box.dispatchEvent(new Event('input', { bubbles: true })); }
+    }
+
     function bindFrame(d) {
+      d.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey) return;
+        var box = editableBox(d, e);
+        if (!box) return;
+        /* A new line stays in this paragraph. A new box would not translate, and an emptied box would stay. */
+        e.preventDefault();
+        e.stopPropagation();
+        insertSoftBreak(d, box);
+      }, true);
       d.addEventListener('keydown', function (e) {
         if (!(e.ctrlKey || e.metaKey)) return;
         var k = String(e.key || '').toLowerCase();
@@ -729,6 +941,7 @@
           syncVariantName(nameNode);
         }
         markDirty(where);
+        foldSplitBlocks(d.getElementById('main') || d.body);
       });
       d.addEventListener('focusout', function (e) {
         var t = e.target;
@@ -809,6 +1022,10 @@
             /* Bold, italic or a colour on part of a sentence: one text field, not a separate box. */
             var whole = n.parentElement.closest('p, li, h1, h2, h3, h4, h5, h6, dd, dt, td, th, figcaption, summary, blockquote, a, button');
             if (whole && !whole.matches(SKIP_HOST)) return whole;
+          }
+          if (n.tagName === 'DIV' && isPlainSplit(n)) {
+            var phrase = n.parentElement && n.parentElement.closest('p, li, h1, h2, h3, h4, h5, h6, dd, dt, td, th, figcaption, summary, blockquote');
+            if (phrase && !phrase.matches(SKIP_HOST)) return phrase;
           }
           return n;
         }
@@ -1194,6 +1411,13 @@
       }
       host.querySelector('#stb-ph-wrap').hidden = true;
       field = null;
+      if (t.closest && isPlainSplit(t.closest('div'))) {
+        var px = e.clientX;
+        var py = e.clientY;
+        foldSplitBlocks((t.closest('div') && t.closest('div').parentElement) || doc.body);
+        var again = typeof px === 'number' ? doc.elementFromPoint(px, py) : null;
+        if (again && again.nodeType === 1) t = again;
+      }
       var img = t.closest('img');
       var underPhoto = false;
       if (!img && t.querySelectorAll && typeof e.clientX === 'number') {
@@ -2271,10 +2495,10 @@
       var shown = '';
       try { shown = frame.contentWindow.getComputedStyle(hostEl).display || ''; } catch (e) { shown = ''; }
       if (editing && (/^inline/.test(shown) || /^(A|BUTTON)$/.test(hostEl.tagName))) {
-        /* A link or label on its own line (e.g. a card arrow link): align only it, not the whole card. */
+        /* A link or label on its own line (e.g. a card arrow link): align only it, not the whole card.
+           Left must be written out. Clearing it puts a button back on the browser's centered default. */
         beforeChange();
-        hostEl.style.textAlign = dir === 'left' ? '' : dir;
-        if (!hostEl.getAttribute('style')) hostEl.removeAttribute('style');
+        hostEl.style.textAlign = dir === 'right' ? 'right' : (dir === 'center' ? 'center' : 'left');
         markDirty(whereOf(hostEl));
         return;
       }
@@ -4340,6 +4564,33 @@
       var win = frame.contentWindow;
       if (mode === 'ru' && win.ST && typeof win.ST.lookup === 'function') {
         doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+          /* Russian view of a sentence that never translated is still the English.
+             A colour change has to travel with that English, or Save paints the old words. */
+          var shown = phrasePlain(host);
+          var htmlNow = richHtml(host);
+          if ((host.hasAttribute('data-st-untranslated') || englishSentence(shown)) && htmlNow && looksEn(shown)) {
+            var ukText = flat(host.stbUkFull || '');
+            if (!ukText && host.stbUkSnap) {
+              var box = doc.createElement('div');
+              box.innerHTML = host.stbUkSnap;
+              ukText = phrasePlain(box);
+            }
+            if (!ukText) ukText = shown;
+            var prevEn = ukText && ukText !== shown ? String(win.ST.lookup(ukText, 'en') || '').trim() : shown;
+            if (!prevEn || prevEn === ukText) prevEn = shown;
+            pairs.push({
+              role: 'en',
+              xid: markXid(host),
+              uk: ukText,
+              en: shown,
+              prevEn: prevEn,
+              enHtml: htmlNow,
+              fresh: !/[\u0400-\u04FF]/.test(ukText) && flat(ukText) === shown ? 1 : 0
+            });
+            host.removeAttribute('data-st-rumark');
+          }
+        });
+        doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
           if (host.stbUkSnap == null) return;
           host.innerHTML = host.stbUkSnap;
           host.stbUkSnap = null; host.stbStored = '';
@@ -4389,7 +4640,7 @@
         var synthetic = false;
         rawTextNodes(host).forEach(function (n) { if (n.stbSynthetic) synthetic = true; });
         if (host.stbUkSnap == null && !synthetic) return;
-        var cur = flat(host.textContent);
+        var cur = phrasePlain(host);
         var known = uk ? String(win.ST.lookup(uk, 'en') || '').trim() : '';
         var prevEn = known;
         if (host.hasAttribute('data-st-enhtml')) {
@@ -4451,6 +4702,23 @@
         var known = String(win.ST.lookup(uk, 'en') || '').trim();
         if (cur && cur !== uk && looksEn(cur) && cur !== known) pairs.push({ role: 'en', uk: uk, en: cur, prevEn: known });
         el.setAttribute('placeholder', el.stbUk);
+      });
+      /* A sentence added in English can land in its own paragraph. It has no Ukrainian
+         original, so the loops above leave it in the page. Send it now; save translates it. */
+      var queuedEn = {};
+      pairs.forEach(function (row) {
+        if (row && row.en) queuedEn[flat(row.en).toLowerCase()] = true;
+      });
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (host.closest('script, style, noscript')) return;
+        rawTextNodes(host).forEach(function (node) {
+          var cur = flat(node.nodeValue);
+          var tail = englishTail(cur);
+          var sentence = englishSentence(cur) ? cur : tail;
+          if (!sentence || queuedEn[sentence.toLowerCase()]) return;
+          queuedEn[sentence.toLowerCase()] = true;
+          pairs.push({ role: 'en', xid: markXid(host), uk: sentence, en: sentence, prevEn: '', fresh: 1 });
+        });
       });
       return pairs;
     }
