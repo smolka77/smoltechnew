@@ -111,4 +111,53 @@ st_paint_assert(str_contains($sameHtml, 'rojectio') && !str_contains($sameHtml, 
 st_paint_assert(str_contains($sameHtml, $uk), 'same words uk kept');
 st_paint_assert(str_contains($sameHtml, 'data-st-ruhtml="русский"'), 'same words ru kept');
 
+$ukRu = 'Коротке речення про колір.';
+$ruHtml = 'Короткое <span style="color:#d10a11">предложение</span> про цвет.';
+$paintedRu = st_i18n_apply_documents(['main' => '<p data-st-xid="r1">' . $ukRu . '</p>'], [[
+    'role' => 'ru',
+    'xid' => 'r1',
+    'uk' => $ukRu,
+    'ru' => 'Короткое предложение про цвет.',
+    'ruHtml' => $ruHtml,
+    'paintOnly' => 1,
+]]);
+$ruDoc = (string) ($paintedRu['docs']['main'] ?? '');
+st_paint_assert(str_contains($ruDoc, $ukRu), 'ru paint keeps uk body: ' . $ruDoc);
+st_paint_assert(str_contains($ruDoc, 'color:#d10a11'), 'ru paint keeps colour: ' . $ruDoc);
+st_paint_assert(str_contains($ruDoc, 'data-st-ruhtml='), 'ru paint stores html: ' . $ruDoc);
+st_paint_assert(!str_contains($ruDoc, 'data-st-xid'), 'ru paint strips xid');
+
+$fragSrc = '<p data-st-xid="r2" data-st-ruhtml="' . htmlspecialchars($ruHtml, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '">' . $ukRu . '</p>';
+$beforeFrag = $GLOBALS['ST_I18N_DRY_OVERLAY'][$ukRu]['ru'] ?? '';
+$fragment = st_i18n_apply_documents(['main' => $fragSrc], [[
+    'role' => 'ru',
+    'xid' => 'r2',
+    'uk' => $ukRu,
+    'ru' => 'цвет',
+]]);
+$fragHtml = (string) ($fragment['docs']['main'] ?? '');
+st_paint_assert(str_contains($fragHtml, $ukRu), 'fragment keeps the sentence: ' . $fragHtml);
+st_paint_assert(str_contains($fragHtml, 'color:#d10a11'), 'fragment keeps stored colour: ' . $fragHtml);
+st_paint_assert(($GLOBALS['ST_I18N_DRY_OVERLAY'][$ukRu]['ru'] ?? '') === $beforeFrag, 'fragment did not override russian');
+
+$staleRu = 'Проєктуємо й виробляємо машини <span style="color:#460ad1">точкового</span> зварювання.';
+$freshRu = 'Проектируем и <span style="color:#d10a11">изготавливаем</span> машины точечной сварки.';
+$staleSrc = '<p class="hero__sub" data-st-ruhtml="Проєктуємо й виробляємо машини <span style=&quot;color:#460ad1&quot;>точкового</span> зварювання." data-st-xid="e9">Проєктуємо й виробляємо машини точкового зварювання.</p>';
+$staleApplied = st_i18n_apply_documents(['main' => $staleSrc], [[
+    'role' => 'ru',
+    'xid' => 'e9',
+    'uk' => 'Проєктуємо й виробляємо машини точкового зварювання.',
+    'ru' => 'Проектируем и изготавливаем машины точечной сварки.',
+    'ruHtml' => $freshRu,
+    'paintOnly' => 1,
+]]);
+$staleDoc = (string) ($staleApplied['docs']['main'] ?? '');
+st_paint_assert(str_contains($staleDoc, 'color:#d10a11'), 'stale ruhtml replaced: ' . $staleDoc);
+st_paint_assert(str_contains($staleDoc, 'изготавливаем'), 'stale ruhtml is the russian sentence: ' . $staleDoc);
+st_paint_assert(!str_contains($staleDoc, '460ad1'), 'ukrainian mark dropped: ' . $staleDoc);
+st_paint_assert(!str_contains($staleDoc, 'data-st-xid'), 'stale xid stripped');
+st_paint_assert(st_i18n_missing_paint($staleDoc, [['ruHtml' => $freshRu]]) === '', 'saved colour is present');
+st_paint_assert(st_i18n_missing_paint('<p>plain</p>', [['ruHtml' => $freshRu]]) === '#d10a11', 'missing colour is reported');
+st_paint_assert($staleRu !== '' && $freshRu !== '', 'fixtures used');
+
 echo "farba-test.php: ok\n";

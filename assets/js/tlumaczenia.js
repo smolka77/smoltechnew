@@ -3205,6 +3205,18 @@
     return made;
   }
 
+  /* A colour stored on the Ukrainian sentence is not a Russian (or English) rendering. */
+  function foreignHtmlIsSource(node, html, lang) {
+    if (!html) return false;
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    var stored = (box.textContent || '').replace(/\s+/g, ' ').trim();
+    var own = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!stored || stored !== own) return false;
+    var tr = String(lookup(own, lang) || '').replace(/\s+/g, ' ').trim();
+    return tr !== '' && tr !== own;
+  }
+
   function walkText(node, lang) {
     if (node.nodeType === 1) {
       if (SKIP.test(node.tagName)) return;
@@ -3216,7 +3228,7 @@
           if (node.innerHTML !== node.stLangHtml) node.innerHTML = node.stLangHtml;
         } else {
           var langHtml = node.getAttribute(lang === 'ru' ? 'data-st-ruhtml' : 'data-st-enhtml') || '';
-          if (langHtml) {
+          if (langHtml && !foreignHtmlIsSource(node, langHtml, lang)) {
             node.innerHTML = langHtml;
             return;
           }
@@ -3242,7 +3254,7 @@
         if (lang === 'uk') return;
         if ((lang === 'en' && node.hasAttribute('data-st-enhtml')) || (lang === 'ru' && node.hasAttribute('data-st-ruhtml'))) {
           var storedHtml = node.getAttribute(lang === 'en' ? 'data-st-enhtml' : 'data-st-ruhtml') || '';
-          if (storedHtml) {
+          if (storedHtml && !foreignHtmlIsSource(node, storedHtml, lang)) {
             node.innerHTML = storedHtml;
             return;
           }

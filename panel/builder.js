@@ -103,7 +103,7 @@
     var uploadFile = ctx.uploadFile || function () {};
     var doc = null;
     var frame = null;
-    var mode = 'en';
+    var mode = storedLang() || 'en';
     var page = null;
     var pageUkMeta = null;
     var dirty = false;
@@ -115,8 +115,17 @@
     var field = null;
     var undoStack = [];
     var redoStack = [];
+    var editGen = 0;
     var typing = false;
     var typeTimer = null;
+    var pasteSnap = false;
+    var hexApplyHold = null;
+    var hexApplyAt = 0;
+    /* Undo focuses the paragraph, and Chrome then sends a stray beforeinput
+       that would wipe the redo stack. Ignore those events briefly. */
+    var historyQuiet = false;
+    var historyQuietTimer = null;
+    var historyStatusUntil = 0;
     var drag = null;
     var moveMode = false;
     var photoTap = null;
@@ -132,6 +141,8 @@
     var heldRange = null;
     var pickedEl = null;
     var pendingLang = null;
+    var savedReload = false;
+    var lastPointer = null;
     var pendingPages = [];
 
     var oldBlocks = document.getElementById('stb-blocks');
@@ -158,7 +169,18 @@
             '<button type="button" data-act="italic" title="Italic"><i>I</i></button>' +
             '<button type="button" data-act="under" title="Underline"><u>U</u></button>' +
             '<label class="stb__mini" title="Text size">Size <select id="stb-size" title="Text size"><option value="">Size</option><option value="0.85rem">Small</option><option value="1rem">Normal</option><option value="1.25rem">Large</option><option value="1.6rem">Larger</option></select></label>' +
-            '<label class="stb__mini" title="Text color">Color <input type="color" id="stb-color" value="#d10a11" title="Text color"></label>' +
+            '<div class="stb__color" id="stb-color" role="group" aria-label="Text color">' +
+              '<span class="stb__color-lab">Color</span>' +
+              '<button type="button" class="stb__swatch" data-color="#161616" style="background:#161616" title="#161616"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#5c5c5c" style="background:#5c5c5c" title="#5c5c5c"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#d10a11" style="background:#d10a11" title="Brand #d10a11"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#c2410c" style="background:#c2410c" title="#c2410c"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#0f766e" style="background:#0f766e" title="#0f766e"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#1d4ed8" style="background:#1d4ed8" title="#1d4ed8"></button>' +
+              '<button type="button" class="stb__swatch" data-color="#7c3aed" style="background:#7c3aed" title="#7c3aed"></button>' +
+              '<label class="stb__hex">Hex <input type="text" id="stb-hex" value="#d10a11" maxlength="7" spellcheck="false" autocomplete="off" title="Custom colour #rrggbb"></label>' +
+              '<button type="button" data-act="applycolor" title="Apply the hex colour">Apply</button>' +
+            '</div>' +
             '<button type="button" data-act="clearcolor" title="Default colour">Default colour</button>' +
             '<button type="button" data-act="nosize" title="Remove size">Remove size</button>' +
             '<button type="button" data-act="left" title="Align left">Left</button>' +
@@ -169,14 +191,6 @@
             '<button type="button" data-act="item" title="Turn the selected text into a bullet, or remove the bullet">Bullets</button>' +
             '<button type="button" data-act="link" title="Link the selected words">Link</button>' +
           '</div>' +
-          '<div class="stb__grp" data-grp="layout">' +
-            '<span class="stb__grp-h">Layout</span>' +
-            '<button type="button" data-act="add" title="Insert a ready-made section">Add block</button>' +
-            '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
-            '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
-            '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
-            '<button type="button" data-act="del" title="Delete the selected text, card, or whole section">Delete</button>' +
-          '</div>' +
           '<div class="stb__grp" data-grp="media">' +
             '<span class="stb__grp-h">Photo</span>' +
             '<button type="button" data-act="img" title="Change the selected photo" disabled>Change</button>' +
@@ -184,6 +198,14 @@
             '<button type="button" data-act="resetpos" title="Put the photo back in the middle of its frame" disabled>Reset</button>' +
             '<button type="button" data-act="alt" title="Description (alt)" disabled>Description (alt)</button>' +
             '<button type="button" data-act="noimg" title="Remove the selected photo" disabled>Remove</button>' +
+          '</div>' +
+          '<div class="stb__grp stb__grp--layout" data-grp="layout">' +
+            '<span class="stb__grp-h">Layout</span>' +
+            '<button type="button" data-act="add" title="Insert a ready-made section">Add block</button>' +
+            '<button type="button" data-act="up" title="Move the selected card or section up">Up</button>' +
+            '<button type="button" data-act="down" title="Move the selected card or section down">Down</button>' +
+            '<button type="button" data-act="dup" title="Duplicate the selected card or section">Duplicate</button>' +
+            '<button type="button" data-act="del" title="Delete the selected text, card, or whole section">Delete</button>' +
           '</div>' +
           '<div class="stb__grp" data-grp="page">' +
             '<span class="stb__grp-h">Page</span>' +
@@ -247,19 +269,72 @@
       tog.addEventListener('click', function () { setShut(!root.classList.contains('is-side-off')); });
     })();
 
+    var sideBox = host.querySelector('#stb-side');
+    var sidePin = { y: 0, lock: false, timer: null };
+    function armSidePin() {
+      if (!sideBox) return;
+      if (!sidePin.lock) sidePin.y = sideBox.scrollTop;
+      sidePin.lock = true;
+      clearTimeout(sidePin.timer);
+      sidePin.timer = setTimeout(function () { sidePin.lock = false; }, 180);
+    }
+    function pinSideScroll() {
+      if (!sideBox) return;
+      if (!sidePin.lock) sidePin.y = sideBox.scrollTop;
+      sidePin.lock = true;
+      if (sideBox.scrollTop !== sidePin.y) sideBox.scrollTop = sidePin.y;
+      clearTimeout(sidePin.timer);
+      sidePin.timer = setTimeout(function () { sidePin.lock = false; }, 180);
+    }
+    if (sideBox) {
+      sideBox.addEventListener('scroll', function () {
+        if (sidePin.lock) {
+          if (sideBox.scrollTop !== sidePin.y) sideBox.scrollTop = sidePin.y;
+          return;
+        }
+        sidePin.y = sideBox.scrollTop;
+      }, true);
+    }
+
     frame = host.querySelector('#stb-frame');
     var note = host.querySelector('#stb-note');
     var status = host.querySelector('#stb-status');
     var nameEl = host.querySelector('#stb-name');
 
     function say(msg, kind) {
+      if (msg === 'Unsaved changes.' && historyStatusUntil && Date.now() < historyStatusUntil) return;
       status.textContent = msg || '';
       status.className = 'stb__status' + (kind ? ' is-' + kind : '');
     }
 
+    function editorIsDirty() {
+      return !!(dirty || formDirty || chromeDirty || metaDirty);
+    }
+
     function syncDirty() {
+      var on = editorIsDirty();
       var badge = host.querySelector('#stb-dirty');
-      if (badge) badge.hidden = !(dirty || formDirty || chromeDirty || metaDirty);
+      if (badge) badge.hidden = !on;
+      var pub = document.getElementById('btn-publish');
+      if (pub) pub.classList.toggle('is-editor-dirty', on);
+      if (window.STPublish && typeof window.STPublish.sync === 'function') window.STPublish.sync();
+      else if (pub) {
+        if (on) {
+          if (!pub.getAttribute('data-stb-clean')) pub.setAttribute('data-stb-clean', pub.textContent || '');
+          pub.textContent = 'Unsaved changes';
+        } else if (pub.hasAttribute('data-stb-clean')) {
+          pub.textContent = pub.getAttribute('data-stb-clean');
+          pub.removeAttribute('data-stb-clean');
+        }
+      }
+    }
+
+    function settleDirty(where) {
+      if (undoStack.length || metaDirty || formDirty || chromeDirty) markDirty(where || 'page');
+      else {
+        dirty = false;
+        syncDirty();
+      }
     }
 
     function syncBanner() {
@@ -301,11 +376,56 @@
       host.querySelector('#stb-redo').disabled = redoStack.length === 0;
     }
 
+    function textSnap(node) {
+      return {
+        uk: node.stbUk != null ? String(node.stbUk) : null,
+        en: node.stbEn != null ? String(node.stbEn) : null,
+        ru: node.stbRu != null ? String(node.stbRu) : null,
+        synthetic: !!node.stbSynthetic,
+        placed: !!node.stbPlaced,
+        fresh: !!node.stbFresh
+      };
+    }
+
+    function hostSnaps() {
+      var rows = [];
+      if (!doc) return rows;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        rows.push({
+          ukSnap: host.stbUkSnap != null ? String(host.stbUkSnap) : null,
+          ukFull: host.stbUkFull || '',
+          stored: host.stbStored || '',
+          enEdited: !!host.stbEnEdited,
+          ruEdited: !!host.stbRuEdited,
+          ruSnap: host.stbRuSnap != null ? String(host.stbRuSnap) : null,
+          ukLeaf: host.stbUkLeaf != null ? String(host.stbUkLeaf) : null
+        });
+      });
+      return rows;
+    }
+
+    function applyHostSnaps(rows) {
+      if (!doc || !rows) return;
+      var hosts = doc.querySelectorAll(PHRASE_SEL);
+      rows.forEach(function (row, i) {
+        var host = hosts[i];
+        if (!host || !row) return;
+        host.stbUkSnap = row.ukSnap;
+        host.stbUkFull = row.ukFull || '';
+        host.stbStored = row.stored || '';
+        host.stbEnEdited = !!row.enEdited;
+        host.stbRuEdited = !!row.ruEdited;
+        host.stbRuSnap = row.ruSnap;
+        if (row.ukLeaf != null) host.stbUkLeaf = row.ukLeaf;
+      });
+    }
+
     function capture() {
       var texts = [];
       var ph = [];
-      if (!doc || !doc.body) return { html: '', texts: texts, ph: ph };
-      walkText(doc, function (node) { texts.push(node.stbUk != null ? String(node.stbUk) : null); });
+      var hosts = hostSnaps();
+      if (!doc || !doc.body) return { html: '', texts: texts, ph: ph, hosts: hosts };
+      walkText(doc, function (node) { texts.push(textSnap(node)); });
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         ph.push(el.stbUk != null ? String(el.stbUk) : null);
       });
@@ -331,26 +451,42 @@
       clone.querySelectorAll('[contenteditable]').forEach(function (el) {
         el.removeAttribute('contenteditable');
         el.removeAttribute('spellcheck');
+        el.removeAttribute('lang');
       });
       clone.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
       });
-      return { html: clone.innerHTML, texts: texts, ph: ph };
+      return { html: clone.innerHTML, texts: texts, ph: ph, hosts: hosts, sel: selectionSnap() };
     }
 
-    function restore(state) {
+    function restore(state, opts) {
+      opts = opts || {};
       if (!doc || !state) return;
       doc.body.innerHTML = state.html;
       var i = 0;
       walkText(doc, function (node) {
-        if (state.texts[i] != null) node.stbUk = state.texts[i];
+        var row = state.texts[i];
         i++;
+        if (row == null) return;
+        if (typeof row === 'string') { node.stbUk = row; return; }
+        if (row.uk != null) node.stbUk = row.uk;
+        if (row.en != null) node.stbEn = row.en;
+        if (row.ru != null) node.stbRu = row.ru;
+        node.stbSynthetic = !!row.synthetic;
+        node.stbPlaced = !!row.placed;
+        node.stbFresh = !!row.fresh;
       });
       var j = 0;
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         if (state.ph[j] != null) el.stbUk = state.ph[j];
         j++;
       });
+      applyHostSnaps(state.hosts);
+      if (opts.quiet) {
+        paintAllLangStyles();
+        showAttrs(mode);
+        return;
+      }
       selected = null;
       image = null;
       field = null;
@@ -358,8 +494,8 @@
       currentSection = null;
       currentItem = null;
       currentField = null;
-      showMarkedHosts();
-      if (mode === 'ru') paintAllRuMarks();
+      /* The snapshot is the text the user saw. Rebuilding it from the dictionary
+         is what dropped Ukrainian into an English paragraph after Undo. */
       paintAllLangStyles();
       showAttrs(mode);
       renderPick();
@@ -368,9 +504,23 @@
       host.querySelector('#stb-ph-wrap').hidden = true;
     }
 
-    function beforeChange() {
+    function holdHistoryQuiet() {
+      historyQuiet = true;
+      clearTimeout(historyQuietTimer);
+      historyQuietTimer = setTimeout(function () { historyQuiet = false; }, 120);
+    }
+
+    function beforeChange(rangeHint) {
+      if (historyQuiet) return;
+      editGen += 1;
+      /* A colour, paste, or other command ends a typing burst so Undo
+         restores only that command, not the command plus the typing. */
+      typing = false;
+      clearTimeout(typeTimer);
       if (!doc) return;
       var snap = capture();
+      var hinted = rangeHint ? selectionFromRange(rangeHint) : null;
+      if (hinted) snap.sel = hinted;
       var last = undoStack[undoStack.length - 1];
       if (last && last.html === snap.html) {
         redoStack = [];
@@ -390,27 +540,364 @@
       syncHist();
     }
 
+    function editingIndex() {
+      if (!doc) return -1;
+      var el = doc.querySelector('[contenteditable="true"]');
+      if (!el || !PHRASE_SEL) return -1;
+      var list = doc.querySelectorAll(PHRASE_SEL);
+      var i;
+      for (i = 0; i < list.length; i++) {
+        if (list[i] === el || list[i].contains(el)) return i;
+      }
+      return -1;
+    }
+
+    function selectionFromRange(range) {
+      if (!range || !doc || !PHRASE_SEL) return null;
+      var host = phraseHost(range.commonAncestorContainer);
+      if (!host) return null;
+      var list = doc.querySelectorAll(PHRASE_SEL);
+      var index = -1;
+      var i;
+      for (i = 0; i < list.length; i++) {
+        if (list[i] === host || list[i].contains(host)) { index = i; host = list[i]; break; }
+      }
+      if (index < 0) return null;
+      var start = textOffset(host, range.startContainer, range.startOffset);
+      var end = textOffset(host, range.endContainer, range.endOffset);
+      if (start < 0 || end < 0) return null;
+      if (end < start) { var swap = start; start = end; end = swap; }
+      return { index: index, start: start, end: end };
+    }
+
+    function selectionSnap() {
+      if (!doc) return null;
+      var sel = doc.getSelection();
+      if (!sel || !sel.rangeCount) return null;
+      try { return selectionFromRange(sel.getRangeAt(0)); } catch (err) { return null; }
+    }
+
+    function placeSnap(host, snap) {
+      if (!host || !snap || snap.start == null || snap.end == null) return null;
+      var start = snap.start;
+      var end = snap.end;
+      var nodes = rawTextNodes(host);
+      var r = doc.createRange();
+      var acc = 0;
+      var started = false;
+      var i;
+      for (i = 0; i < nodes.length; i++) {
+        var len = nodes[i].nodeValue.length;
+        if (!started && start <= acc + len) {
+          r.setStart(nodes[i], Math.max(0, Math.min(len, start - acc)));
+          started = true;
+        }
+        if (started && end <= acc + len) {
+          r.setEnd(nodes[i], Math.max(0, Math.min(len, end - acc)));
+          return r;
+        }
+        acc += len;
+      }
+      if (started && nodes.length) {
+        var last = nodes[nodes.length - 1];
+        r.setEnd(last, last.nodeValue.length);
+        return r;
+      }
+      return null;
+    }
+
+    function resumeEdit(idx, selSnap) {
+      if (!doc || idx < 0 || !PHRASE_SEL) return;
+      var el = doc.querySelectorAll(PHRASE_SEL)[idx];
+      if (!el) return;
+      startEdit(el);
+      highlight(el);
+      try {
+        var range = selSnap ? placeSnap(el, selSnap) : null;
+        if (!range) {
+          range = doc.createRange();
+          range.selectNodeContents(el);
+          range.collapse(false);
+        }
+        var sel = doc.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        heldRange = range.collapsed ? null : range.cloneRange();
+        syncColourTools(range);
+      } catch (err) { /* the paragraph stays editable */ }
+    }
+
+    function frameLangCode(lang) {
+      if (lang === 'uk') return 'uk-UA';
+      if (lang === 'ru') return 'ru';
+      return 'en';
+    }
+
+    function langStatusName(lang) {
+      if (lang === 'uk') return 'Ukrainian';
+      if (lang === 'ru') return 'Russian';
+      return 'English';
+    }
+
+    function setFrameLang(lang) {
+      if (!doc || !doc.documentElement) return;
+      var code = frameLangCode(lang);
+      doc.documentElement.setAttribute('lang', code);
+      doc.documentElement.setAttribute('xml:lang', code);
+    }
+
+    function cssHex(v) {
+      v = String(v || '').trim();
+      var hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+      if (hex) {
+        var h = hex[1].toLowerCase();
+        if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+        return '#' + h;
+      }
+      var rgb = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i.exec(v);
+      if (rgb) {
+        function byte(n) {
+          var s = Math.max(0, Math.min(255, n | 0)).toString(16);
+          return s.length === 1 ? '0' + s : s;
+        }
+        return '#' + byte(+rgb[1]) + byte(+rgb[2]) + byte(+rgb[3]);
+      }
+      return window.STEdit ? (STEdit.normalizeHex(v) || '') : '';
+    }
+
+    function inlineColour(node) {
+      var el = !node ? null : (node.nodeType === 1 ? node : node.parentElement);
+      var stop = node ? phraseHost(node) : null;
+      while (el && el !== stop && el !== doc.body && el !== doc.documentElement) {
+        var raw = (el.style && el.style.color) || '';
+        if (!raw && el.getAttribute) {
+          var found = /(?:^|;)\s*color\s*:\s*([^;]+)/i.exec(el.getAttribute('style') || '');
+          if (found) raw = found[1];
+        }
+        var hex = cssHex(raw);
+        if (hex) return hex;
+        el = el.parentElement;
+      }
+      return '';
+    }
+
+    function selectionColour(range) {
+      if (!range || !doc) return '';
+      var spots = [];
+      function add(node) { if (node) spots.push(node); }
+      add(range.startContainer);
+      add(range.endContainer);
+      if (range.startContainer && range.startContainer.nodeType === 1) add(range.startContainer.childNodes[range.startOffset]);
+      if (range.endContainer && range.endContainer.nodeType === 1 && range.endOffset > 0) add(range.endContainer.childNodes[range.endOffset - 1]);
+      var i;
+      for (i = 0; i < spots.length; i++) {
+        var hex = inlineColour(spots[i]);
+        if (hex) return hex;
+      }
+      try {
+        var box = doc.createElement('div');
+        box.appendChild(range.cloneContents());
+        var coloured = box.querySelector('[style*="color"]');
+        if (coloured) return inlineColour(coloured);
+      } catch (err) { /* the live ends already answered */ }
+      return '';
+    }
+
+    function markSwatches(color) {
+      var want = cssHex(color);
+      host.querySelectorAll('#stb-color .stb__swatch').forEach(function (sw) {
+        var on = !!want && cssHex(sw.getAttribute('data-color') || '') === want;
+        sw.classList.toggle('is-on', on);
+        if (!on && typeof document !== 'undefined' && document.activeElement === sw) {
+          try { sw.blur(); } catch (err) { /* the ring follows is-on */ }
+        }
+      });
+    }
+
+    function syncColourTools(range) {
+      var color = selectionColour(range);
+      var input = host.querySelector('#stb-hex');
+      var typing = input && typeof document !== 'undefined' && document.activeElement === input;
+      if (input && !typing) input.value = color;
+      markSwatches(typing ? input.value : color);
+    }
+
+    function wordChar(ch) {
+      if (!ch || /[\s\u00a0]/.test(ch)) return false;
+      return !/[.,;:!?()[\]{}"«»„“”/\\|]/.test(ch);
+    }
+
+    function textAt(node, offset) {
+      if (!node) return null;
+      if (node.nodeType === 3) return { node: node, offset: offset || 0 };
+      var kids = node.childNodes || [];
+      var child = kids[offset] || kids[offset - 1] || null;
+      if (child && child.nodeType === 3) {
+        return { node: child, offset: child === kids[offset] ? 0 : (child.nodeValue || '').length };
+      }
+      var walk = child;
+      while (walk && walk.nodeType === 1 && walk.firstChild) walk = walk.firstChild;
+      if (walk && walk.nodeType === 3) return { node: walk, offset: 0 };
+      var i;
+      for (i = 0; i < kids.length; i++) {
+        if (kids[i].nodeType === 3 && /\S/.test(kids[i].nodeValue || '')) return { node: kids[i], offset: 0 };
+      }
+      return null;
+    }
+
+    function notePointer(e) {
+      if (!e || !PHRASE_SEL) return;
+      var t = e.target;
+      var el = t && (t.nodeType === 1 ? t : t.parentElement);
+      if (!el || !el.closest || !el.closest(PHRASE_SEL)) return;
+      lastPointer = { clientX: e.clientX, clientY: e.clientY, time: Date.now(), detail: e.detail || 1 };
+    }
+
+    function selectWordAt(e) {
+      if (!doc || !e) return;
+      var caret = null;
+      var x = e.clientX;
+      var y = e.clientY;
+      if (typeof x === 'number' && typeof y === 'number') {
+        try {
+          if (doc.caretPositionFromPoint) {
+            var pos = doc.caretPositionFromPoint(x, y);
+            if (pos && pos.offsetNode) caret = textAt(pos.offsetNode, pos.offset);
+          }
+        } catch (err) { caret = null; }
+        if (!caret) {
+          try {
+            if (doc.caretRangeFromPoint) {
+              var found = doc.caretRangeFromPoint(x, y);
+              if (found) caret = textAt(found.startContainer, found.startOffset);
+            }
+          } catch (err2) { caret = null; }
+        }
+      }
+      var sel = doc.getSelection();
+      if (!caret || !caret.node || caret.node.nodeType !== 3) {
+        if (sel && sel.rangeCount && !sel.isCollapsed && flat(sel.toString())) {
+          try {
+            heldRange = sel.getRangeAt(0).cloneRange();
+            syncColourTools(heldRange);
+          } catch (err3) { /* the browser selection stands */ }
+        }
+        return;
+      }
+      var text = caret.node.nodeValue || '';
+      var i = Math.max(0, Math.min(text.length, caret.offset || 0));
+      if (i >= text.length) i = text.length - 1;
+      if (i > 0 && !wordChar(text.charAt(i))) i -= 1;
+      if (i < 0 || !wordChar(text.charAt(i))) return;
+      var start = i;
+      var end = i + 1;
+      while (start > 0 && wordChar(text.charAt(start - 1))) start -= 1;
+      while (end < text.length && wordChar(text.charAt(end))) end += 1;
+      var range = doc.createRange();
+      try {
+        range.setStart(caret.node, start);
+        range.setEnd(caret.node, end);
+      } catch (err4) { return; }
+      if (!flat(range.toString())) return;
+      var phrase = phraseHost(caret.node);
+      if (phrase) startEdit(phrase);
+      sel = doc.getSelection();
+      if (!sel) return;
+      try {
+        sel.removeAllRanges();
+        sel.addRange(range);
+        heldRange = range.cloneRange();
+      } catch (err5) { return; }
+      syncColourTools(range);
+    }
+
+    function replayWordSelection() {
+      if (!lastPointer || Date.now() - lastPointer.time > 700) return;
+      if ((lastPointer.detail || 1) < 2) return;
+      selectWordAt(lastPointer);
+    }
+
     function undo() {
       if (!doc || !undoStack.length) return;
+      holdHistoryQuiet();
+      editGen += 1;
+      var fallback = editingIndex();
+      var prev = undoStack.pop();
       redoStack.push(capture());
-      restore(undoStack.pop());
-      markDirty('page');
+      restore(prev);
+      var selSnap = prev && prev.sel;
+      resumeEdit(selSnap && selSnap.index >= 0 ? selSnap.index : fallback, selSnap);
+      settleDirty('page');
       syncHist();
       say('Undone.');
+      historyStatusUntil = Date.now() + 250;
     }
 
     function redo() {
       if (!doc || !redoStack.length) return;
+      holdHistoryQuiet();
+      editGen += 1;
+      var fallback = editingIndex();
+      var next = redoStack.pop();
       undoStack.push(capture());
-      restore(redoStack.pop());
-      markDirty('page');
+      restore(next);
+      var selSnap = next && next.sel;
+      resumeEdit(selSnap && selSnap.index >= 0 ? selSnap.index : fallback, selSnap);
+      settleDirty('page');
       syncHist();
       say('Redone.');
+      historyStatusUntil = Date.now() + 250;
+    }
+
+    function toolbarField(e) {
+      var inParent = !e || !e.view || e.view === window;
+      var nodes = [];
+      if (inParent) {
+        if (e && e.target) nodes.push(e.target);
+        if (typeof document !== 'undefined' && document.activeElement) nodes.push(document.activeElement);
+      } else if (typeof document !== 'undefined' && document.activeElement && host.contains(document.activeElement)) {
+        var target = e && e.target;
+        var editing = target && (target.isContentEditable || (target.closest && target.closest('[contenteditable="true"]')));
+        if (!editing && doc && doc.activeElement && doc.activeElement.isContentEditable) editing = true;
+        var key = String(e && e.key || '').toLowerCase();
+        var selectAll = (e.ctrlKey || e.metaKey) && !e.altKey && key === 'a';
+        if (!editing || selectAll) nodes.push(document.activeElement);
+      }
+      var i;
+      for (i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (!n || !n.tagName) continue;
+        var tag = n.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') continue;
+        if (host.contains(n)) return n;
+      }
+      return null;
     }
 
     function onKey(e) {
+      armSidePin();
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        save();
+        return;
+      }
+      var field = toolbarField(e);
+      if (field) {
+        /* Shortcuts typed in the toolbar must not reach the paragraph. */
+        var key = String(e.key || '').toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+          e.stopPropagation();
+          if (key === 'a') {
+            e.preventDefault();
+            try { field.select(); } catch (err) { /* the field keeps its own caret */ }
+          }
+        }
+        return;
+      }
       var t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
       var editing = t && (t.isContentEditable || (t.closest && t.closest('[contenteditable="true"]')));
       if (!editing && doc && doc.activeElement && doc.activeElement.isContentEditable) editing = true;
       if ((e.key === 'Delete' || e.key === 'Backspace') && !e.ctrlKey && !e.metaKey && !e.altKey && !editing) {
@@ -421,20 +908,32 @@
         }
         return;
       }
-      if (!(e.ctrlKey || e.metaKey)) return;
-      var z = e.key === 'z' || e.key === 'Z';
-      var y = e.key === 'y' || e.key === 'Y';
-      if (editing && (z || y)) return;
-      if (z && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); }
-      else if (y || (z && e.shiftKey)) { e.preventDefault(); e.stopPropagation(); redo(); }
+      var act = window.STEdit && STEdit.editorHistoryAction({
+        key: e.key,
+        ctrl: !!(e.ctrlKey),
+        meta: !!(e.metaKey),
+        shift: !!(e.shiftKey),
+        tag: t && t.tagName
+      });
+      if (!act && (e.ctrlKey || e.metaKey)) {
+        var z = e.key === 'z' || e.key === 'Z';
+        var y = e.key === 'y' || e.key === 'Y';
+        if (z && !e.shiftKey) act = 'undo';
+        else if (y || (z && e.shiftKey)) act = 'redo';
+      }
+      if (act === 'undo') { e.preventDefault(); e.stopPropagation(); undo(); }
+      else if (act === 'redo') { e.preventDefault(); e.stopPropagation(); redo(); }
     }
     if (host._stbKey) document.removeEventListener('keydown', host._stbKey, true);
     host._stbKey = onKey;
     document.addEventListener('keydown', onKey, true);
 
     host.querySelector('#stb-back').addEventListener('click', function () {
-      if ((dirty || formDirty || chromeDirty || metaDirty) && !window.confirm('There are unsaved changes. Leave without saving?')) return;
+      if (editorIsDirty() && !window.confirm('There are unsaved changes. Leave without saving?')) return;
       dropPending(function () {
+        var pub = document.getElementById('btn-publish');
+        if (pub) pub.classList.remove('is-editor-dirty');
+        if (window.STPublish && typeof window.STPublish.sync === 'function') window.STPublish.sync();
         if (typeof ctx.back === 'function') ctx.back();
       });
     });
@@ -464,12 +963,45 @@
       });
     });
 
-    host.querySelector('#stb-color').addEventListener('mousedown', armStyleRange);
+    host.querySelector('#stb-color').addEventListener('mousedown', function (e) {
+      if (e.target.closest && e.target.closest('[data-act="applycolor"], #stb-hex')) return;
+      armStyleRange();
+    });
     host.querySelector('#stb-size').addEventListener('mousedown', armStyleRange);
     host.querySelector('[data-act="clearcolor"]').addEventListener('mousedown', armStyleRange);
     host.querySelector('[data-act="nosize"]').addEventListener('mousedown', armStyleRange);
-    host.querySelector('#stb-color').addEventListener('input', function (e) {
-      paint(e.target.value);
+    host.querySelector('#stb-hex').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      applyHex();
+    });
+    bindHexField(host.querySelector('#stb-hex'));
+    var applyBtn = host.querySelector('[data-act="applycolor"]');
+    if (applyBtn) {
+      applyBtn.addEventListener('pointerdown', function (e) {
+        var live = activeRange();
+        var armed = armedStyle && armedStyle.range ? armedStyle.range : null;
+        var kept = null;
+        try { kept = (live || armed) ? (live || armed).cloneRange() : null; } catch (err) { kept = null; }
+        hexApplyHold = kept;
+        try { if (e.pointerId != null) applyBtn.setPointerCapture(e.pointerId); } catch (err2) { /* the click still lands */ }
+        e.preventDefault();
+      }, true);
+      applyBtn.addEventListener('pointerup', function () {
+        var hold = hexApplyHold;
+        hexApplyHold = null;
+        hexApplyAt = Date.now();
+        applyHex(hold);
+      }, true);
+    }
+    host.querySelector('#stb-color').addEventListener('click', function (e) {
+      var sw = e.target.closest && e.target.closest('.stb__swatch');
+      if (!sw) return;
+      var color = sw.getAttribute('data-color') || '';
+      var hex = host.querySelector('#stb-hex');
+      if (hex && color) hex.value = color;
+      markSwatches(color);
+      paint(color);
     });
     host.querySelector('#stb-size').addEventListener('change', function (e) {
       applySize(e.target.value);
@@ -510,7 +1042,18 @@
       else if (act === 'resetpos') resetPhoto();
       else if (act === 'alt') editAlt();
       else if (act === 'noimg') removeImage();
-      else if (act === 'clearcolor') paint('');
+      else if (act === 'clearcolor') {
+        var hexBox = host.querySelector('#stb-hex');
+        if (hexBox) hexBox.value = '';
+        markSwatches('');
+        paint('');
+      }
+      else if (act === 'applycolor') {
+        if (Date.now() - hexApplyAt < 400) return;
+        var held = hexApplyHold;
+        hexApplyHold = null;
+        applyHex(held);
+      }
       else if (act === 'nosize') applySize('inherit');
       else if (act === 'desk' || act === 'tab' || act === 'phone') setStage(act);
     });
@@ -545,7 +1088,7 @@
           live.href = res.url + (res.url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
         }
         host.querySelector('#stb-delpage').hidden = !res.canDelete;
-        mode = 'en';
+        if (!pendingLang) pendingLang = mode || 'en';
         pickedEl = null;
         linkRange = null;
         dirty = false;
@@ -584,13 +1127,18 @@
       field = null;
       syncImageTools();
       syncPageTools();
-      var nextLang = pendingLang || 'en';
+      var nextLang = pendingLang || mode || 'en';
       pendingLang = null;
       applyLang(nextLang);
       var folded = foldSplitBlocks(doc.getElementById('main') || doc.body);
       if (ctx.i18nSwept !== id && (folded || sourceHasEnglishSentence())) {
         ctx.i18nSwept = id;
-        setTimeout(function () { save(); }, 0);
+        var sweepGen = editGen;
+        setTimeout(function () {
+          if (sweepGen !== editGen) return;
+          if (dirty || formDirty || chromeDirty || metaDirty) return;
+          save();
+        }, 0);
       }
       if (ctx.keepY) {
         var keepAt = ctx.keepY;
@@ -608,8 +1156,12 @@
       syncDirty();
       var hello = ctx.hello || '';
       ctx.hello = '';
-      var langName = nextLang === 'uk' ? 'Ukrainian' : (nextLang === 'ru' ? 'Russian' : 'English');
-      say(hello || (nextLang !== 'en' ? 'Saved. Now editing ' + langName + '.' : 'Click text to edit it. Double-click a link to open that page. Save publishes immediately.'));
+      var fromSave = savedReload;
+      savedReload = false;
+      var langName = langStatusName(nextLang);
+      if (hello) say(hello);
+      else if (fromSave || nextLang !== 'en') say('Saved. Now editing ' + langName + '.');
+      else say('Click text to edit it. Double-click a link to open that page. Save publishes immediately.');
     });
 
     function injectChrome(d) {
@@ -620,7 +1172,7 @@
       style.setAttribute('data-stb-ui', '1');
       style.textContent = [
         '.stb-on{outline:2px solid #d10a11;outline-offset:3px}',
-        'html{scroll-behavior:auto!important}',
+        'html,body{scroll-behavior:auto!important;overflow-anchor:none!important}',
         '.stb-ink-light{background-color:#1a1a1a!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff!important}',
         '.stb-ink-dark{background-color:#fff!important;color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
         /* A coloured letter stays in the word. It does not get its own chip or lose its colour. */
@@ -876,33 +1428,171 @@
         e.stopPropagation();
       }, true);
       d.addEventListener('selectionchange', function () {
+        pinSideScroll();
         var live = d.getSelection();
         if (live && live.rangeCount && !live.isCollapsed) {
         try { heldRange = live.getRangeAt(0).cloneRange(); } catch (err) { heldRange = null; }
-        var sameArmed = armedStyle && flat(live.toString()) === armedStyle.text;
-        if ((!armedStyle || armedStyle.used) && !sameArmed) armedStyle = null;
+        var liveText = flat(live.toString());
+        if (armedStyle && window.STEdit && STEdit.selectionWins(liveText, armedStyle.text)) armedStyle = null;
+        try { if (heldRange) syncColourTools(heldRange); } catch (err2) { /* the toolbar keeps its colour */ }
         }
         if (!pickedEl || !pickedEl.isConnected) { pickedEl = null; return; }
         if (!live || !live.rangeCount || live.isCollapsed) return;
         if (live.anchorNode && !pickedEl.contains(live.anchorNode)) pickedEl = null;
       });
+      var dragCaret = null;
+      function caretFromPoint(x, y) {
+        try {
+          if (d.caretPositionFromPoint) {
+            var pos = d.caretPositionFromPoint(x, y);
+            if (pos && pos.offsetNode) return { node: pos.offsetNode, offset: pos.offset };
+          }
+        } catch (err) { /* older browsers */ }
+        try {
+          if (d.caretRangeFromPoint) {
+            var found = d.caretRangeFromPoint(x, y);
+            if (found) return { node: found.startContainer, offset: found.startOffset };
+          }
+        } catch (err2) { /* ignore */ }
+        return null;
+      }
+      d.addEventListener('mousedown', function (e) {
+        armSidePin();
+        dragCaret = null;
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        var t = e.target && (e.target.nodeType === 1 ? e.target : e.target.parentElement);
+        if (!t || !t.closest || !t.closest(PHRASE_SEL)) return;
+        notePointer(e);
+        /* The second press of a double-click selects the word. A drag would collapse it. */
+        if (e.detail >= 2) return;
+        var caret = caretFromPoint(e.clientX, e.clientY);
+        if (!caret || !caret.node) return;
+        dragCaret = caret;
+        var sel = d.getSelection();
+        var cur = null;
+        if (sel && sel.rangeCount && !sel.isCollapsed) {
+          try { cur = sel.getRangeAt(0); } catch (err) { cur = null; }
+        }
+        var inside = false;
+        if (cur) {
+          try { inside = cur.comparePoint(caret.node, caret.offset) === 0; } catch (err2) { inside = false; }
+        }
+        if (inside && sel) {
+          try {
+            var collapsed = d.createRange();
+            collapsed.setStart(caret.node, caret.offset);
+            collapsed.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(collapsed);
+          } catch (err3) { /* the previous selection stays */ }
+        }
+        heldRange = null;
+        armedStyle = null;
+      }, true);
+      d.addEventListener('mouseup', function (e) {
+        var start = dragCaret;
+        dragCaret = null;
+        if (!start || e.button !== 0) return;
+        var end = caretFromPoint(e.clientX, e.clientY);
+        if (!end || !end.node || (start.node === end.node && start.offset === end.offset)) return;
+        var drag = null;
+        try {
+          drag = d.createRange();
+          drag.setStart(start.node, start.offset);
+          drag.setEnd(end.node, end.offset);
+          if (drag.collapsed) {
+            var flipped = d.createRange();
+            flipped.setStart(end.node, end.offset);
+            flipped.setEnd(start.node, start.offset);
+            drag = flipped;
+          }
+        } catch (err) { return; }
+        if (!drag || drag.collapsed || !flat(drag.toString())) return;
+        var sel = d.getSelection();
+        var browserText = '';
+        try {
+          if (sel && sel.rangeCount && !sel.isCollapsed) browserText = flat(sel.toString());
+        } catch (err2) { browserText = ''; }
+        var dragText = flat(drag.toString());
+        var shrink = window.STEdit && STEdit.dragShrinks(browserText, dragText);
+        if (!shrink && browserText && browserText !== dragText) return;
+        try {
+          if (!sel) return;
+          sel.removeAllRanges();
+          sel.addRange(drag);
+          heldRange = drag.cloneRange();
+          armedStyle = null;
+        } catch (err3) { /* the browser selection stands */ }
+      }, true);
       d.addEventListener('click', onClick, true);
       d.addEventListener('dblclick', onDblClick, true);
       d.addEventListener('keydown', onKey, true);
       d.addEventListener('submit', function (e) { e.preventDefault(); }, true);
       d.addEventListener('beforeinput', function (e) {
         if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
-          var box = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
-          if (box || (e.target && e.target.isContentEditable)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          /* Keydown already ran undo or redo. A second call would put "Undone." back. */
+          if (historyQuiet) return;
+          if (e.inputType === 'historyUndo') undo();
+          else redo();
+          return;
+        }
+        if (historyQuiet) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
+          var phrasePaste = e.target && e.target.closest && e.target.closest(PHRASE_SEL);
+          if (phrasePaste && (mode === 'en' || mode === 'ru')) ensureUkSnap(phrasePaste);
+          /* The paste listener already stored this step. A second snapshot would
+             glue the paste to the previous colour. */
+          if (!pasteSnap) beforeChange();
+          pasteSnap = false;
           e.preventDefault();
           return;
         }
+        var phraseHold = e.target && e.target.closest && e.target.closest(PHRASE_SEL);
+        if (phraseHold && (mode === 'en' || mode === 'ru')) ensureUkSnap(phraseHold);
         if (!typing) beforeChange();
         typing = true;
         clearTimeout(typeTimer);
         typeTimer = setTimeout(function () { typing = false; }, 700);
       });
+      d.addEventListener('paste', function (e) {
+        var box = editableBox(d, e);
+        if (!box) return;
+        var cd = e.clipboardData || (d.defaultView && d.defaultView.clipboardData);
+        var raw = cd ? (cd.getData('text/plain') || cd.getData('text/html') || '') : '';
+        var text = window.STEdit ? STEdit.plainPaste(raw) : String(raw || '').replace(/<[^>]+>/g, '');
+        e.preventDefault();
+        e.stopPropagation();
+        var phraseBox = box.closest ? box.closest(PHRASE_SEL) : null;
+        if (phraseBox && (mode === 'en' || mode === 'ru')) ensureUkSnap(phraseBox);
+        /* Capture runs before the browser inserts, and preventDefault skips
+           beforeinput. Snapshot here so Undo drops only the paste. */
+        beforeChange();
+        pasteSnap = true;
+        var sel = d.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        var range = sel.getRangeAt(0);
+        if (!box.contains(range.commonAncestorContainer) && range.commonAncestorContainer !== box) return;
+        if (!range.collapsed) range.deleteContents();
+        if (!text) return;
+        var node = d.createTextNode(text);
+        range.insertNode(node);
+        var parent = node.parentElement;
+        if (parent && parent.childNodes && parent.childNodes.length === 1 && parent.stbUkLeaf && node.stbUk == null) node.stbUk = null;
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        try { box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text })); }
+        catch (err) { box.dispatchEvent(new Event('input', { bubbles: true })); }
+      }, true);
       d.addEventListener('input', function (e) {
+        editGen += 1;
         var t = e.target;
         var where = 'page';
         if (t.closest && t.closest('#zapyt')) where = 'form';
@@ -1175,7 +1865,8 @@
       if (!el) return;
       clearEdit();
       el.setAttribute('contenteditable', 'true');
-      el.setAttribute('spellcheck', 'false');
+      el.setAttribute('spellcheck', 'true');
+      el.setAttribute('lang', frameLangCode(mode));
       var color = '#161616';
       try { color = frame.contentWindow.getComputedStyle(el).color; } catch (err) { /* keep default */ }
       el.classList.add(lum(color) > 0.7 ? 'stb-ink-light' : 'stb-ink-dark');
@@ -1252,14 +1943,18 @@
       var t = e.target;
       if (!t || t.nodeType !== 1) t = t && t.parentElement;
       if (!t) return;
+      notePointer(e);
       var a = t.closest('a[href]');
-      if (!a) return;
-      var href = a.getAttribute('href') || '';
-      if (!href || href.charAt(0) === '#' || /^(?:mailto|tel|javascript):/i.test(href)) return;
-      if (!pageByUrl(href)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openFromAnchor(a);
+      var href = a ? (a.getAttribute('href') || '') : '';
+      var opens = a && href && href.charAt(0) !== '#' && !/^(?:mailto|tel|javascript):/i.test(href) && pageByUrl(href);
+      if (opens) {
+        e.preventDefault();
+        e.stopPropagation();
+        openFromAnchor(a);
+        return;
+      }
+      /* Language changes rewrite the preview. Select the word here so that reload cannot drop the click. */
+      selectWordAt(e);
     }
 
     function toggleNav(e) {
@@ -1443,8 +2138,9 @@
       if (hostEl && !hostEl.matches('img')) startEdit(hostEl);
       else if (!hostEl) clearEdit();
       var clickedLink = textLinkFrom(t);
-      if (clickedLink) selectInside(clickedLink);
+      if (clickedLink && e.detail < 2) selectInside(clickedLink);
       setNote(t);
+      if (e.detail >= 2) selectWordAt(e);
     }
 
     function selectInside(el) {
@@ -1975,6 +2671,59 @@
       });
     }
 
+    function repairRuPlain() {
+      if (mode !== 'ru' || !doc) return;
+      var win = frame.contentWindow;
+      if (!win || !win.ST || typeof win.ST.lookup !== 'function') return;
+      doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+        if (host.closest && host.closest('script, style, noscript')) return;
+        if (host.querySelector('br, img, svg, a')) return;
+        var uk = flat(host.stbUkFull || '');
+        if (!uk && host.stbUkSnap) {
+          var snapBox = doc.createElement('div');
+          snapBox.innerHTML = host.stbUkSnap;
+          uk = phrasePlain(snapBox);
+        }
+        if (!uk) {
+          var acc = '';
+          rawTextNodes(host).forEach(function (n) {
+            if (n.stbUk != null) acc += String(n.stbUk);
+          });
+          uk = flat(acc);
+        }
+        var cur = phrasePlain(host);
+        if (!uk) uk = cur;
+        var tr = uk ? String(win.ST.lookup(uk, 'ru') || '').trim() : '';
+        var stored = String(host.getAttribute('data-st-ruhtml') || '');
+        if (stored.trim()) {
+          var hold = doc.createElement('div');
+          hold.innerHTML = stored;
+          var storedPlain = phrasePlain(hold);
+          if (storedPlain && storedPlain !== uk) return;
+          if (!(storedPlain === uk && tr && flat(tr) !== uk)) return;
+        } else if (!tr || flat(tr) === uk || cur !== uk) return;
+        if (host.stbUkSnap == null) {
+          host.stbUkSnap = host.innerHTML;
+          host.stbUkFull = uk;
+        }
+        host.textContent = tr;
+        if (host.firstChild && host.firstChild.nodeType === 3) host.firstChild.stbUk = uk;
+      });
+    }
+
+    function storedLang() {
+      try {
+        var v = window.localStorage && localStorage.getItem('stb-last-lang');
+        if (v === 'uk' || v === 'en' || v === 'ru') return v;
+      } catch (err) { /* private browsing */ }
+      return '';
+    }
+
+    function rememberLang(lang) {
+      if (lang !== 'uk' && lang !== 'en' && lang !== 'ru') return;
+      try { localStorage.setItem('stb-last-lang', lang); } catch (err) { /* private browsing */ }
+    }
+
     function applyLang(lang) {
       if (!doc) return;
       if (lang !== 'en' && lang !== 'uk' && lang !== 'ru') lang = 'en';
@@ -1982,31 +2731,40 @@
       if (lang === 'ru' && win && !win.ST_RU) {
         if (applyLang.waiting) return;
         applyLang.waiting = true;
+        var ruGen = editGen;
         loadFrameRu().then(function () {
           applyLang.waiting = false;
+          if (ruGen !== editGen) return;
           if (win.ST_RU) applyLang('ru');
           else say('Russian did not load.', 'err');
         }, function () {
           applyLang.waiting = false;
+          if (ruGen !== editGen) return;
           say('Russian did not load.', 'err');
         });
         return;
       }
+      var langGen = editGen;
+      showHost.force = true;
+      showHost.gen = langGen;
       restoreRuSnaps();
       clearLangVisuals();
       restoreMarkSnaps();
       if ((lang === 'en' || lang === 'ru') && (!win.ST || typeof win.ST.lookup !== 'function')) {
         mode = 'uk';
+        setFrameLang('uk');
+        showHost.force = false;
+        showHost.gen = null;
         say('Translations did not load. Showing the Ukrainian source.', 'err');
         syncLangButtons();
         return;
       }
       mode = lang;
+      setFrameLang(lang);
+      rememberLang(lang);
       holdSourceSnaps();
       if (lang === 'uk') {
-        walkText(doc, function (node) {
-          if (node.stbUk != null) node.nodeValue = node.stbUk;
-        });
+        walkText(doc, function (node) { putSource(node); });
         doc.querySelectorAll('[placeholder]').forEach(function (el) {
           if (el.stbUk != null) el.setAttribute('placeholder', el.stbUk);
         });
@@ -2025,6 +2783,7 @@
       if (lang === 'ru') overlayLang('ru');
       if (lang === 'ru') paintAllRuMarks();
       showStoredLangHtml(lang);
+      if (lang === 'ru') repairRuPlain();
       paintAllLangStyles();
       showMeta(lang);
       markLocks();
@@ -2033,6 +2792,11 @@
       syncBanner();
       syncImageTools();
       if (field) host.querySelector('#stb-ph').value = field.getAttribute('placeholder') || '';
+      showHost.force = false;
+      showHost.gen = null;
+      if (langGen !== editGen) return;
+      replayWordSelection();
+      say('Now editing ' + langStatusName(lang) + '.');
     }
 
     function move(dir) {
@@ -2559,6 +3323,12 @@
 
     function stylePhrase(prop, value) {
       var armed = armedStyle && armedStyle.mode === mode && armedStyle.host && armedStyle.host.isConnected ? armedStyle : null;
+      var live = activeRange();
+      var liveText = live ? flat(live.toString()) : '';
+      if (armed && window.STEdit && STEdit.selectionWins(liveText, armed.text)) {
+        armed = null;
+        armedStyle = null;
+      }
       if (armed && armed.used) {
         if (!updateArmedStyle(armed, prop, value)) {
           say(prop === 'color' ? 'Those words could not be coloured.' : 'Those words could not be resized.', 'err');
@@ -2567,7 +3337,7 @@
         return 'applied';
       }
       var range = armed && armed.range && armed.range.startContainer && armed.range.startContainer.isConnected && !armed.range.collapsed
-        ? armed.range : activeRange();
+        ? armed.range : (live && live.startContainer && live.startContainer.isConnected ? live : activeRange());
       if (!range || !flat(range.toString())) return '';
       var ok = applySelectionStyle(range, prop, value);
       if (ok && armed) armed.used = true;
@@ -2643,132 +3413,155 @@
       if (!tag) return;
       var range = savedRange();
       if (!range || range.collapsed || !flat(range.toString())) { say('Select the words you want to format.', 'err'); return; }
+      var host = phraseHost(range.commonAncestorContainer);
+      if (!host || (range.endContainer && phraseHost(range.endContainer) !== host)) {
+        say('Select words inside a single sentence.', 'err');
+        return;
+      }
+      /* Format the words on screen. Do not rebuild the sentence from the other language. */
+      if (mode === 'en' || mode === 'ru') ensureUkSnap(host);
+      beforeChange();
       var node = range.commonAncestorContainer;
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       var on = el && el.closest && el.closest(tag);
-      var stH = storedHost(range.commonAncestorContainer);
-      if (stH && (!range.endContainer || phraseHost(range.endContainer) === stH)) {
-        /* English shown from its saved HTML: format the DOM in place (one text unit). */
-        beforeChange();
-        if (on && stH.contains(on) && on !== stH) {
-          unwrapEl(on);
-          say('Formatting removed. Save to publish.');
-        } else {
-          var nodesF = selectedTexts(stH, range);
-          if (!nodesF.length) { say('Select the words you want to format.', 'err'); return; }
-          nodesF.forEach(function (n) {
-            var w = doc.createElement(tag);
-            n.parentNode.insertBefore(w, n);
-            w.appendChild(n);
-          });
-          stH.querySelectorAll(tag).forEach(function (x) {
-            var nx = x.nextSibling;
-            while (nx && nx.nodeType === 1 && nx.tagName === x.tagName && !nx.attributes.length && !x.attributes.length) {
-              while (nx.firstChild) x.appendChild(nx.firstChild);
-              var gone = nx; nx = nx.nextSibling; gone.parentNode.removeChild(gone);
-            }
-          });
-          say('Formatting applied to the English text only. The Ukrainian sentence is unchanged.');
-        }
-        tidyInline(stH);
-        stH.stbEnEdited = true;
-        markDirty(whereOf(stH));
-        return;
-      }
-      if (on && phraseHost(on)) {
-        var host = phraseHost(on);
-        if (mode === 'ru' && !on.hasAttribute('data-st-ru-only')) {
-          say('That formatting is on the Ukrainian text. Switch to Українська to change it.', 'err');
-          return;
-        }
-        beforeChange();
-        if (on.hasAttribute('data-st-ru-only')) {
-          dropRuMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
-          showRuHost(host);
-          markDirty(whereOf(host));
-          say('Formatting removed. Save to publish.');
-          return;
-        }
-        if (on.hasAttribute('data-st-en-only')) dropMark(host, flat(on.textContent), on.getAttribute('data-st-at'), tag);
-        else unwrapEl(on);
-        showHost(host);
+      if (on && host.contains(on) && on !== host) {
+        unwrapEl(on);
+        tidyInline(host);
+        if (mode === 'en') { host.stbEnEdited = true; host.stbStored = 'en'; }
+        if (mode === 'ru') host.stbRuEdited = true;
         markDirty(whereOf(host));
         say('Formatting removed. Save to publish.');
         return;
       }
-      var plan = planPhrase(range);
-      if (!plan) { say('Select words inside a single sentence.', 'err'); return; }
-      beforeChange();
-      var made = null;
-      if (plan.ruOnly) {
-        addRuMark(plan.host, plan.selected, plan.ruStart, tag, '', false);
-        made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
-        if (!made) {
-          dropRuMark(plan.host, plan.selected, plan.ruStart, tag);
-          showRuHost(plan.host);
+      var nodesF = selectedTexts(host, range);
+      if (!nodesF.length) { say('Select the words you want to format.', 'err'); return; }
+      nodesF.forEach(function (n) {
+        var w = doc.createElement(tag);
+        if (mode === 'ru') w.setAttribute('data-st-ru-only', '');
+        n.parentNode.insertBefore(w, n);
+        w.appendChild(n);
+      });
+      host.querySelectorAll(tag).forEach(function (x) {
+        var nx = x.nextSibling;
+        while (nx && nx.nodeType === 1 && nx.tagName === x.tagName && !nx.attributes.length && !x.attributes.length) {
+          while (nx.firstChild) x.appendChild(nx.firstChild);
+          var gone = nx; nx = nx.nextSibling; gone.parentNode.removeChild(gone);
         }
-      }
-      if (!made && plan.auto) {
-        made = wrapPhrase(plan.host, plan.ukPhrase, plan.ukStart, tag);
-        if (made) {
-          made.setAttribute('data-st-en', plan.enPhrase);
-          if (plan.enStart != null && plan.enStart >= 0) made.setAttribute('data-st-at', String(plan.enStart));
-          rememberUk(plan.host);
-          showHost(plan.host);
-          if (!paintedPhrase(plan.host, tag, mode === 'en' ? plan.enPhrase : plan.ukPhrase)) made = null;
-        }
-      }
-      if (!made && mode === 'uk') made = wrapCurrentUk(plan, tag);
-      if (!made && mode === 'en' && !plan.auto) {
-        addEnMark(plan.host, plan.selected, plan.enStart, tag, '', false);
-        made = paintedPhrase(plan.host, tag, plan.selected) ? plan.host : null;
-        if (!made) {
-          dropMark(plan.host, plan.selected, plan.enStart, tag);
-          showHost(plan.host);
-        }
-      }
-      if (!made) { say('Those words could not be formatted.', 'err'); return; }
-      markDirty(whereOf(made));
+      });
+      tidyInline(host);
+      if (mode === 'en') { host.stbEnEdited = true; host.stbStored = 'en'; }
+      if (mode === 'ru') host.stbRuEdited = true;
+      markDirty(whereOf(host));
       say(mode === 'en'
         ? 'Formatting applied to the English text only. The Ukrainian sentence is unchanged.'
         : (mode === 'ru' ? 'Formatting applied to the Russian text only. The Ukrainian sentence is unchanged.' : 'Formatting applied. Save to publish.'));
     }
 
+    function singleHash(raw) {
+      var s = String(raw || '').replace(/\s+/g, '');
+      var marks = 0;
+      var i;
+      for (i = 0; i < s.length; i++) if (s.charAt(i) === '#') marks += 1;
+      if (marks <= 1) return s.slice(0, 7);
+      return ('#' + s.replace(/#/g, '')).slice(0, 7);
+    }
+
+    function bindHexField(input) {
+      if (!input) return;
+      function selectAll() {
+        setTimeout(function () {
+          try { input.setSelectionRange(0, input.value.length); } catch (err) { /* the field stays as it is */ }
+        }, 0);
+      }
+      input.addEventListener('focus', selectAll);
+      input.addEventListener('mouseup', function (e) {
+        if (e.detail >= 2) selectAll();
+      });
+      input.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+      input.addEventListener('beforeinput', function (e) {
+        if (!e.data || e.data.indexOf('#') < 0) return;
+        var start = input.selectionStart || 0;
+        var end = input.selectionEnd == null ? start : input.selectionEnd;
+        var next = input.value.slice(0, start) + e.data + input.value.slice(end);
+        if (next.indexOf('#') === next.lastIndexOf('#')) return;
+        e.preventDefault();
+        var hex = window.STEdit ? STEdit.normalizeHex(e.data) : '';
+        input.value = hex || singleHash(next);
+        try { input.setSelectionRange(input.value.length, input.value.length); } catch (err) { /* caret stays */ }
+      });
+      input.addEventListener('paste', function (e) {
+        var cd = e.clipboardData;
+        var text = cd ? (cd.getData('text/plain') || '') : '';
+        if (!text) return;
+        var hex = window.STEdit ? STEdit.normalizeHex(text) : '';
+        if (!hex && text.indexOf('#') < 0) return;
+        e.preventDefault();
+        if (hex) input.value = hex;
+        else {
+          var start = input.selectionStart || 0;
+          var end = input.selectionEnd == null ? start : input.selectionEnd;
+          input.value = singleHash(input.value.slice(0, start) + text + input.value.slice(end));
+        }
+        try { input.setSelectionRange(0, input.value.length); } catch (err) { /* the value is already one colour */ }
+      });
+      input.addEventListener('input', function () {
+        var tidy = singleHash(input.value);
+        if (tidy !== input.value) input.value = tidy;
+      });
+    }
+
+    function applyHex(hold) {
+      var input = host.querySelector('#stb-hex');
+      var raw = input ? input.value : '';
+      var hex = window.STEdit ? STEdit.normalizeHex(raw) : '';
+      if (!hex) { say('Type a colour as #rrggbb, for example #d10a11.', 'err'); return; }
+      if (input) input.value = hex;
+      if (hold && doc) {
+        try {
+          var sel = doc.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(hold);
+          }
+          heldRange = hold.cloneRange();
+          var phrase = phraseHost(hold.commonAncestorContainer);
+          if (phrase && flat(hold.toString())) {
+            armedStyle = {
+              host: phrase,
+              text: flat(hold.toString()),
+              mode: mode,
+              range: hold.cloneRange(),
+              used: false
+            };
+          }
+        } catch (err) { if (armedStyle) armedStyle.used = false; }
+      }
+      /* A previous swatch left armed.used set. Apply must paint this field, not that swatch. */
+      if (armedStyle) armedStyle.used = false;
+      paint(hex);
+      var phrase = armedStyle && armedStyle.host && armedStyle.host.isConnected ? armedStyle.host : null;
+      if (phrase) {
+        var kept = heldRange;
+        startEdit(phrase);
+        if (kept) {
+          try {
+            var again = doc.getSelection();
+            if (again) {
+              again.removeAllRanges();
+              again.addRange(kept);
+            }
+            heldRange = kept.collapsed ? null : kept.cloneRange();
+          } catch (err3) { /* the colour is applied */ }
+        }
+      }
+    }
+
     function paint(color) {
       if (!doc) return;
       var painted = stylePhrase('color', color || '');
-      if (painted) {
-        if (painted === 'applied') say(colorMessage(!!color));
-        return;
-      }
-      var hostEl = doc.querySelector('[contenteditable="true"]') || currentField;
-      if (!hostEl || !hostEl.style) { say('Click the text you want to colour.', 'err'); return; }
-      if (mode === 'ru' || mode === 'en') {
-        beforeChange();
-        var colorHost = (hostEl.closest && hostEl.closest(PHRASE_SEL)) || hostEl;
-        var colorSpec = mode === 'ru' ? readRuStyle(colorHost) : readEnStyle(colorHost);
-        if (!color) delete colorSpec.color;
-        else colorSpec.color = color;
-        if (mode === 'ru') writeRuStyle(colorHost, colorSpec);
-        else writeEnStyle(colorHost, colorSpec);
-        applyLangVisual(colorHost);
-        markDirty(whereOf(colorHost));
-        say(color
-          ? (mode === 'ru'
-            ? 'Colour applied to the Russian text only. The Ukrainian sentence is unchanged.'
-            : 'Colour applied to the English text only. The Ukrainian sentence is unchanged.')
-          : (mode === 'ru'
-            ? 'Colour reset on the Russian text only. The Ukrainian sentence is unchanged.'
-            : 'Colour reset on the English text only. The Ukrainian sentence is unchanged.'));
-        return;
-      }
-      beforeChange();
-      if (!color) hostEl.style.color = '';
-      else hostEl.style.color = color;
-      if (!hostEl.getAttribute('style')) hostEl.removeAttribute('style');
-      if (hostEl.stbBaseStyle) hostEl.stbBaseStyle.color = hostEl.style.color || '';
-      markDirty(whereOf(hostEl));
-      say(color ? 'Colour applied. Save to publish.' : 'Colour reset to the default. Save to publish.');
+      if (painted === 'applied') { say(colorMessage(!!color)); return; }
+      if (painted === 'failed') return;
+      say(color ? 'Select the words you want to colour.' : 'Select the words whose colour you want to clear.', 'err');
     }
 
     function colorMessage(on) {
@@ -2824,14 +3617,14 @@
 
     function selectedTexts(host, range) {
       if (range.startContainer.nodeType === 3 && range.startOffset > 0 && range.startOffset < range.startContainer.nodeValue.length) {
-        var tail = range.startContainer.splitText(range.startOffset);
+        var tail = splitAt(range.startContainer, range.startOffset);
         if (range.endContainer === range.startContainer) {
           range.setEnd(tail, range.endOffset - range.startOffset);
         }
         range.setStart(tail, 0);
       }
       if (range.endContainer.nodeType === 3 && range.endOffset > 0 && range.endOffset < range.endContainer.nodeValue.length) {
-        range.endContainer.splitText(range.endOffset);
+        splitAt(range.endContainer, range.endOffset);
       }
       return rawTextNodes(host).filter(function (n) {
         if (!n.nodeValue) return false;
@@ -2912,10 +3705,37 @@
       while ((n = tw.nextNode())) copy.push(n);
       var i;
       for (i = 0; i < live.length && i < copy.length; i++) {
-        if (live[i].stbUk != null) copy[i].nodeValue = live[i].stbUk;
+        if (live[i].stbUk == null) continue;
+        var srcUk = String(live[i].stbUk);
+        var curUk = String(copy[i].nodeValue || '');
+        if (window.STEdit && !STEdit.canRevealSource(srcUk, curUk)) continue;
+        copy[i].nodeValue = srcUk;
       }
       host.stbUkSnap = box.innerHTML;
       if (!host.stbUkFull) host.stbUkFull = flat(box.textContent);
+    }
+
+    function detachSplitSource(host) {
+      if (!host) return;
+      rawTextNodes(host).forEach(function (n) {
+        if (n.stbUk == null) return;
+        if (String(n.stbUk).length !== String(n.nodeValue || '').length) n.stbUk = null;
+      });
+    }
+
+    function rememberRuPaint(host) {
+      if (!host || mode !== 'ru') return;
+      if (window.STColor) STColor.normalize(host);
+      var html = richHtml(host);
+      host.stbRuPainted = true;
+      host.stbRuPaintHtml = html;
+      /* The attribute travels with the Ukrainian body. A pair that cannot see
+         data-st-xid behind an older attribute still publishes this colour. */
+      if (html) host.setAttribute('data-st-ruhtml', html);
+      else {
+        host.removeAttribute('data-st-ruhtml');
+        host.removeAttribute('data-st-rumark');
+      }
     }
 
     function markPaintHost(host) {
@@ -2925,6 +3745,7 @@
         host.stbEnEdited = true;
         host.stbStored = 'en';
       }
+      rememberRuPaint(host);
     }
 
     function restorePaintRange(host, start, end) {
@@ -2944,9 +3765,10 @@
       var host = phraseHost(range.commonAncestorContainer);
       if (css && window.STColor && host && (!range.endContainer || phraseHost(range.endContainer) === host)) {
         if (mode === 'en' || mode === 'ru') ensureUkSnap(host);
-        beforeChange();
+        beforeChange(range);
         var res = STColor.apply(host, range, css, value || '');
         if (!res || !res.ok) return false;
+        detachSplitSource(host);
         markPaintHost(host);
         if (armedStyle) {
           armedStyle.engine = true;
@@ -3207,6 +4029,7 @@
         var css = (prop === 'fontSize' || prop === 'font-size') ? 'font-size' : prop;
         var res = STColor.applyOffsets(armed.host, armed.start, armed.end, css, value || '');
         if (!res || !res.ok) return false;
+        detachSplitSource(armed.host);
         markPaintHost(armed.host);
         restorePaintRange(armed.host, armed.start, armed.end);
         markDirty(whereOf(armed.host));
@@ -3531,16 +4354,25 @@
         node.stbUk = uk.slice(0, node.nodeValue.length);
         right.stbUk = uk.slice(node.nodeValue.length);
       } else {
-        node.stbUk = node.nodeValue;
-        right.stbUk = right.nodeValue;
+        /* Visible text is a translation. Keep the source on the phrase, not on this fragment. */
+        node.stbUk = null;
+        right.stbUk = null;
       }
       return right;
     }
 
+    function putSource(node) {
+      if (!node || node.stbUk == null) return;
+      var src = String(node.stbUk);
+      var cur = String(node.nodeValue || '');
+      if (window.STEdit && !STEdit.canRevealSource(src, cur)) return;
+      node.nodeValue = src;
+    }
+
     function revealUk(host) {
       rawTextNodes(host).forEach(function (n) {
-        if (n.stbUk != null) n.nodeValue = n.stbUk;
-        else n.stbUk = n.nodeValue;
+        if (n.stbUk == null) { n.stbUk = n.nodeValue; return; }
+        putSource(n);
       });
     }
 
@@ -3893,6 +4725,9 @@
 
     function showRuHost(host) {
       if (!host) return;
+      /* Saved Russian HTML is the Russian view. Rebuilding it from the dictionary
+         drops the colour and can put the Ukrainian sentence back on screen. */
+      if (String(host.getAttribute('data-st-ruhtml') || '').trim()) return;
       if (host.stbRuSnap != null) host.innerHTML = host.stbRuSnap;
       else if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
@@ -3931,6 +4766,7 @@
     function restoreRuSnaps() {
       if (!doc) return;
       doc.querySelectorAll('[data-st-rumark], [data-st-rustyle]').forEach(function (host) {
+        if (host.stbRuEdited) return;
         if (host.stbRuSnap != null) {
           host.innerHTML = host.stbRuSnap;
           host.stbRuSnap = null;
@@ -4186,8 +5022,10 @@
 
     function showHost(host) {
       if (!host) return;
-      /* English already shown from its saved HTML is the real text: never rebuild it from the Ukrainian copy. */
-      if (mode === 'en' && host.stbStored === 'en') return;
+      if (showHost.gen != null && showHost.gen !== editGen) return;
+      /* English already on screen is the real text. Rebuilding it from the Ukrainian
+         source is what replaced part of a paragraph after Undo and Bold. */
+      if (mode === 'en' && !showHost.force && (host.stbStored === 'en' || host.stbEnEdited)) return;
       if (host.stbUkSnap != null) host.innerHTML = host.stbUkSnap;
       revealUk(host);
       if (mode !== 'en') return;
@@ -4677,7 +5515,7 @@
             if (host.stbRuEdited && !freshRu && flat(shown) === flat(prevEn)) enRow.paintOnly = 1;
             pairs.push(enRow);
             host.removeAttribute('data-st-rumark');
-          } else if (host.stbRuEdited && shown) {
+          } else if (host.stbRuEdited && shown && !(flat(shown) === flat(ukText) && knownRu && flat(knownRu) !== flat(shown))) {
             var ruRow = {
               role: 'ru',
               xid: markXid(host),
@@ -4697,6 +5535,7 @@
         });
         walkText(doc, function (node) {
           if (node.stbUk == null) return;
+          if (window.STEdit && !STEdit.canRevealSource(String(node.stbUk), String(node.nodeValue || ''))) return;
           var uk = String(node.stbUk).replace(/\s+/g, ' ').trim();
           var cur = String(node.nodeValue || '').replace(/\s+/g, ' ').trim();
           var known = String(win.ST.lookup(uk, 'ru') || '').trim();
@@ -4708,7 +5547,7 @@
             if (node.stbEn && looksEn(node.stbEn)) row.en = slotBase(node.stbEn);
             pairs.push(row);
           }
-          node.nodeValue = node.stbUk;
+          putSource(node);
         });
         doc.querySelectorAll('[placeholder]').forEach(function (el) {
           if (el.stbUk == null) return;
@@ -4767,7 +5606,7 @@
           host.stbUkSnap = null; host.stbStored = '';
         } else {
           rawTextNodes(host).forEach(function (n) {
-            if (n.stbUk != null) n.nodeValue = n.stbUk;
+            putSource(n);
             n.stbSynthetic = false;
           });
         }
@@ -4776,11 +5615,12 @@
       });
       walkText(doc, function (node) {
         if (node.stbUk == null) return;
+        if (window.STEdit && !STEdit.canRevealSource(String(node.stbUk), String(node.nodeValue || ''))) return;
         if (node.stbPlaced) {
           var placedHost = phraseHost(node);
           var marked = node.parentElement && node.parentElement.closest('[data-st-en]');
           if (marked || (placedHost && placedHost.querySelector('[data-st-en]'))) {
-            if (node.stbUk != null) node.nodeValue = node.stbUk;
+            putSource(node);
             return;
           }
           node.stbPlaced = false;
@@ -4790,7 +5630,7 @@
         var known = String(win.ST.lookup(uk, 'en') || '').trim();
         var host = node.parentElement && node.parentElement.closest(PHRASE_SEL);
         if (host && host.getAttribute('data-st-xid')) {
-          node.nodeValue = node.stbUk;
+          putSource(node);
           return;
         }
         var freshNode = !!(node.stbFresh && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk));
@@ -4798,7 +5638,7 @@
         if ((cur && cur !== uk && looksEn(cur) && cur !== known) || freshNode || waitingNode) {
           pairs.push({ role: 'en', xid: markXid(host || node.parentElement), uk: uk, en: cur, prevEn: known, fresh: freshNode ? 1 : 0 });
         }
-        node.nodeValue = node.stbUk;
+        putSource(node);
       });
       doc.querySelectorAll('[placeholder]').forEach(function (el) {
         if (el.stbUk == null) return;
@@ -4842,6 +5682,32 @@
       return html.replace(/^(?:\s|&nbsp;|\u00a0)+/, '').replace(/(?:\s|&nbsp;|\u00a0)+$/, '');
     }
 
+    function dropStaleLangHtml() {
+      if (!doc) return;
+      var win = frame && frame.contentWindow;
+      doc.querySelectorAll('[data-st-ruhtml]').forEach(function (el) {
+        if (el.stbRuPainted) return;
+        var stored = String(el.getAttribute('data-st-ruhtml') || '');
+        if (!stored.trim()) {
+          el.removeAttribute('data-st-ruhtml');
+          return;
+        }
+        var hold = doc.createElement('div');
+        hold.innerHTML = stored;
+        var storedPlain = phrasePlain(hold);
+        var uk = flat(el.stbUkFull || '');
+        if (!uk) uk = phrasePlain(el);
+        if (!storedPlain || !uk || storedPlain !== uk) return;
+        var tr = win && win.ST && typeof win.ST.lookup === 'function' ? flat(win.ST.lookup(uk, 'ru') || '') : '';
+        /* The mark was painted on the Ukrainian sentence and stored as Russian.
+           The Russian view uses the dictionary, so the span never appears. */
+        if (tr && tr !== uk) {
+          el.removeAttribute('data-st-ruhtml');
+          el.removeAttribute('data-st-rumark');
+        }
+      });
+    }
+
     function paintCanon(html) {
       if (window.STColor && typeof STColor.canon === 'function') return STColor.canon(html || '');
       return html || '';
@@ -4857,6 +5723,7 @@
       doc.querySelectorAll('[contenteditable]').forEach(function (el) {
         el.removeAttribute('contenteditable');
         el.removeAttribute('spellcheck');
+        el.removeAttribute('lang');
       });
       if (window.STColor) {
         doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
@@ -4902,7 +5769,10 @@
     function saveBody(btn, after) {
       var keepY = 0;
       try { keepY = doc.defaultView ? (doc.defaultView.scrollY || 0) : 0; } catch (e) { keepY = 0; }
+      var view = null;
+      try { view = capture(); } catch (errView) { view = null; }
       var pairs = collectPairs();
+      dropStaleLangHtml();
       var formEl = doc.getElementById('zapyt');
       freshForm = !!(formEl && formEl.getAttribute('data-stb-newform') === '1');
       cleanup();
@@ -4917,17 +5787,25 @@
         else if (freshForm || !(page && page.hasForm)) keepForm = true;
         formEl.replaceWith(doc.createTextNode('\n{{FORMULARZ}}\n'));
       } else if (page && page.hasForm) dropForm = true;
-      var payload = { action: 'cms.page.commit', id: id, main: main.innerHTML, i18nPairs: pairs };
+      var mainHtml = main.innerHTML;
+      var chromeHtml = null;
+      if (chromeDirty) {
+        chromeHtml = {};
+        ['topbar', 'header', 'drawer', 'footer', 'mbar'].forEach(function (key) {
+          var el = doc.querySelector('[data-st-region="' + key + '"]');
+          if (el) chromeHtml[key] = el.outerHTML;
+        });
+      }
+      if (view) {
+        restore(view, { quiet: true });
+        injectChrome(doc);
+      }
+      var startedGen = editGen;
+      var payload = { action: 'cms.page.commit', id: id, main: mainHtml, i18nPairs: pairs };
       if (dropForm) payload.dropForm = true;
       if (formHtml) payload.form = formHtml;
       if (keepForm) payload.keepForm = true;
-      if (chromeDirty) {
-        payload.chrome = {};
-        ['topbar', 'header', 'drawer', 'footer', 'mbar'].forEach(function (key) {
-          var el = doc.querySelector('[data-st-region="' + key + '"]');
-          if (el) payload.chrome[key] = el.outerHTML;
-        });
-      }
+      if (chromeHtml) payload.chrome = chromeHtml;
       if (metaDirty) {
         payload.meta = {
           title: host.querySelector('#stb-title').value,
@@ -4939,9 +5817,15 @@
       }
       api(payload).then(function (res) {
         btn.disabled = false;
+        if (startedGen !== editGen) {
+          say('Saved the previous version. You edited again — Save once more to publish the latest text.', 'err');
+          markDirty('page');
+          return;
+        }
         if (!res || !res.ok) {
           say((res && res.error) || 'Not saved.', 'err');
           flash((res && res.error) || 'Not saved.');
+          if (!pendingLang) pendingLang = mode || 'en';
           ctx.keepY = keepY;
           load();
           return;
@@ -4968,6 +5852,8 @@
         }
         say(noteText, res.i18nPending ? 'err' : 'ok');
         flash(noteText);
+        if (!pendingLang) pendingLang = mode || 'en';
+        savedReload = true;
         ctx.keepY = keepY;
         load();
       }).catch(function () {
@@ -6049,6 +6935,7 @@
       if (!window.confirm('Delete the page “' + label + '”? It leaves the site immediately.')) return;
       api({ action: 'cms.page.delete', id: id }).then(function (res) {
         if (!res || !res.ok) { say((res && res.error) || 'Not deleted.', 'err'); return; }
+        try { if (localStorage.getItem('stb-last-page') === id) localStorage.removeItem('stb-last-page'); } catch (err) { /* ignore */ }
         flash('Deleted. The page is no longer on the site.');
         if (typeof ctx.back === 'function') ctx.back();
       });
