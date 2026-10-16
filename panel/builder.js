@@ -625,6 +625,7 @@
         '.stb-ink-dark{background-color:#fff!important;color:#161616!important;-webkit-text-fill-color:#161616!important;caret-color:#161616!important}',
         /* A coloured letter stays in the word. It does not get its own chip or lose its colour. */
         '.stb-ink-light [style*="color"],.stb-ink-dark [style*="color"],.stb-ink-light [data-stb-paint],.stb-ink-dark [data-stb-paint]{background-color:transparent!important;-webkit-text-fill-color:currentColor!important}',
+        '[contenteditable="true"] span[style*="color"],[contenteditable="true"] span[style*="font-size"]{display:inline!important;margin:0!important;padding:0!important;letter-spacing:inherit;word-spacing:inherit;white-space:inherit;vertical-align:baseline}',
         '[data-st-lock]{outline:1px dashed #b86e00!important;outline-offset:3px}',
         'a.st-link,a[data-st-link]{color:#d10a11!important;-webkit-text-fill-color:#d10a11!important;font-weight:700!important;text-decoration:underline!important;text-underline-offset:3px}',
         '.stb-ink-light,.stb-ink-dark{border-radius:2px}',
@@ -1940,6 +1941,14 @@
           host.stbUkFull = flat(host.textContent);
         }
         host.innerHTML = html;
+        if (window.STColor) {
+          var beforeCanon = window.STColor.canon(html);
+          window.STColor.normalize(host);
+          if (window.STColor.canon(host.innerHTML) !== beforeCanon) {
+            if (lang === 'en') host.stbEnEdited = true;
+            else host.stbRuEdited = true;
+          }
+        }
         if (lang === 'en') host.stbStored = 'en';
       });
     }
@@ -2893,7 +2902,63 @@
       return true;
     }
 
+    function ensureUkSnap(host) {
+      if (!host || host.stbUkSnap != null) return;
+      var box = host.cloneNode(true);
+      var live = rawTextNodes(host);
+      var copy = [];
+      var tw = doc.createTreeWalker(box, NodeFilter.SHOW_TEXT, null);
+      var n;
+      while ((n = tw.nextNode())) copy.push(n);
+      var i;
+      for (i = 0; i < live.length && i < copy.length; i++) {
+        if (live[i].stbUk != null) copy[i].nodeValue = live[i].stbUk;
+      }
+      host.stbUkSnap = box.innerHTML;
+      if (!host.stbUkFull) host.stbUkFull = flat(box.textContent);
+    }
+
+    function markPaintHost(host) {
+      if (!host) return;
+      if (mode === 'ru') host.stbRuEdited = true;
+      if (mode === 'en') {
+        host.stbEnEdited = true;
+        host.stbStored = 'en';
+      }
+    }
+
+    function restorePaintRange(host, start, end) {
+      if (!window.STColor) return;
+      var back = STColor.rangeAt(host, start, end);
+      if (!back) return;
+      try {
+        var gs = doc.getSelection();
+        gs.removeAllRanges();
+        gs.addRange(back);
+        heldRange = back.cloneRange();
+      } catch (err) { /* the colour is already stored */ }
+    }
+
     function applySelectionStyle(range, prop, value) {
+      var css = (prop === 'fontSize' || prop === 'font-size') ? 'font-size' : (prop === 'color' ? 'color' : '');
+      var host = phraseHost(range.commonAncestorContainer);
+      if (css && window.STColor && host && (!range.endContainer || phraseHost(range.endContainer) === host)) {
+        if (mode === 'en' || mode === 'ru') ensureUkSnap(host);
+        beforeChange();
+        var res = STColor.apply(host, range, css, value || '');
+        if (!res || !res.ok) return false;
+        markPaintHost(host);
+        if (armedStyle) {
+          armedStyle.engine = true;
+          armedStyle.host = host;
+          armedStyle.start = res.start;
+          armedStyle.end = res.end;
+          armedStyle.stored = false;
+        }
+        restorePaintRange(host, res.start, res.end);
+        markDirty(whereOf(host));
+        return true;
+      }
       var sh = storedHost(range.commonAncestorContainer);
       if (sh && (!range.endContainer || phraseHost(range.endContainer) === sh)) {
         if (armedStyle) armedStyle.stored = true;
@@ -3075,18 +3140,27 @@
       if (!plan) return false;
       var host = plan.host;
       var phrase = plan.selected;
-      var start = mode === 'ru' ? plan.ruStart : plan.enStart;
-      if (start == null || start < 0) start = displayedStart(host, range);
+      var full = shownOf(host);
+      /* Offsets come from the text the reader sees. A start taken from a
+         translation that turned <span> into a space would slice "prrojectio n". */
+      var start = displayedStart(host, range);
+      if (start < 0 || full.slice(start, start + phrase.length) !== phrase) {
+        var hinted = mode === 'ru' ? plan.ruStart : plan.enStart;
+        if (hinted != null && hinted >= 0 && full.slice(hinted, hinted + phrase.length) === phrase) start = hinted;
+        else start = full.indexOf(phrase);
+      }
       if (start == null || start < 0) return false;
       beforeChange();
-      var full = shownOf(host);
       var read = mode === 'ru' ? readRuMarks : readMarks;
       var write = mode === 'ru' ? writeRuMarks : writeMarks;
       var key = prop === 'color' ? 'c' : 'z';
-      var items = retargetSpans(read(host), full, start, start + phrase.length, key, value || '');
-      if (!value) {
+      /* Default colour deletes c. It must not store #000000 in its place. */
+      var paint = value || '';
+      var items = retargetSpans(read(host), full, start, start + phrase.length, key, paint);
+      if (!paint) {
         var spec = mode === 'ru' ? readRuStyle(host) : readEnStyle(host);
         var field = prop === 'color' ? spec.color : spec.fontSize;
+        if (prop === 'color' && /^#0{3,6}$/i.test(String(field || '').replace(/\s+/g, ''))) field = '';
         if (field && phrase !== full) {
           if (start > 0) items = retargetSpans(items, full, 0, start, key, field);
           if (start + phrase.length < full.length) items = retargetSpans(items, full, start + phrase.length, full.length, key, field);
@@ -3128,6 +3202,16 @@
     }
 
     function updateArmedStyle(armed, prop, value) {
+      if (armed.engine && armed.host && armed.host.isConnected && armed.start != null && armed.end != null && window.STColor) {
+        beforeChange();
+        var css = (prop === 'fontSize' || prop === 'font-size') ? 'font-size' : prop;
+        var res = STColor.applyOffsets(armed.host, armed.start, armed.end, css, value || '');
+        if (!res || !res.ok) return false;
+        markPaintHost(armed.host);
+        restorePaintRange(armed.host, armed.start, armed.end);
+        markDirty(whereOf(armed.host));
+        return true;
+      }
       if (armed.stored) {
         var ab = armed.host.stbLastSel;
         var again = ab ? rangeAt(armed.host, ab[0], ab[1]) : null;
@@ -4566,28 +4650,44 @@
         doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
           /* Russian view of a sentence that never translated is still the English.
              A colour change has to travel with that English, or Save paints the old words. */
+          if (host.stbRuEdited && window.STColor) STColor.normalize(host);
           var shown = phrasePlain(host);
           var htmlNow = richHtml(host);
-          if ((host.hasAttribute('data-st-untranslated') || englishSentence(shown)) && htmlNow && looksEn(shown)) {
-            var ukText = flat(host.stbUkFull || '');
-            if (!ukText && host.stbUkSnap) {
-              var box = doc.createElement('div');
-              box.innerHTML = host.stbUkSnap;
-              ukText = phrasePlain(box);
-            }
-            if (!ukText) ukText = shown;
-            var prevEn = ukText && ukText !== shown ? String(win.ST.lookup(ukText, 'en') || '').trim() : shown;
-            if (!prevEn || prevEn === ukText) prevEn = shown;
-            pairs.push({
+          var ukText = flat(host.stbUkFull || '');
+          if (!ukText && host.stbUkSnap) {
+            var box = doc.createElement('div');
+            box.innerHTML = host.stbUkSnap;
+            ukText = phrasePlain(box);
+          }
+          if (!ukText) ukText = shown;
+          var prevEn = ukText && ukText !== shown ? String(win.ST.lookup(ukText, 'en') || '').trim() : shown;
+          if (!prevEn || prevEn === ukText) prevEn = shown;
+          var knownRu = String(win.ST.lookup(ukText, 'ru') || '').trim();
+          if ((host.hasAttribute('data-st-untranslated') || englishSentence(shown)) && looksEn(shown) && (host.stbRuEdited || /<(strong|em|u|b|i|a|span)\b/i.test(htmlNow))) {
+            var freshRu = !/[\u0400-\u04FF]/.test(ukText) && flat(ukText) === shown;
+            var enRow = {
               role: 'en',
               xid: markXid(host),
               uk: ukText,
               en: shown,
               prevEn: prevEn,
               enHtml: htmlNow,
-              fresh: !/[\u0400-\u04FF]/.test(ukText) && flat(ukText) === shown ? 1 : 0
-            });
+              fresh: freshRu ? 1 : 0
+            };
+            if (host.stbRuEdited && !freshRu && flat(shown) === flat(prevEn)) enRow.paintOnly = 1;
+            pairs.push(enRow);
             host.removeAttribute('data-st-rumark');
+          } else if (host.stbRuEdited && shown) {
+            var ruRow = {
+              role: 'ru',
+              xid: markXid(host),
+              uk: ukText,
+              ru: shown,
+              prevEn: prevEn && prevEn !== ukText ? prevEn : String(win.ST.lookup(ukText, 'en') || '').trim(),
+              ruHtml: htmlNow
+            };
+            if (flat(shown) === flat(knownRu) || flat(shown) === flat(ukText)) ruRow.paintOnly = 1;
+            pairs.push(ruRow);
           }
         });
         doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
@@ -4648,14 +4748,19 @@
           box.innerHTML = host.getAttribute('data-st-enhtml') || '';
           prevEn = flat(box.textContent) || known;
         }
+        if (host.stbEnEdited && window.STColor) STColor.normalize(host);
+        /* richHtml is '' once the last span is gone. Compare that with the stored
+           HTML anyway, so Default colour is sent and the server can clear the attributes. */
         var htmlNow = richHtml(host);
         var htmlWas = host.getAttribute('data-st-enhtml') || '';
         var changed = !!(host.stbEnEdited && cur && uk && looksEn(cur) && cur !== uk && cur !== prevEn);
         var fresh = !!(host.stbEnEdited && cur && looksEn(cur) && !/[\u0400-\u04FF]/.test(uk) && flat(uk) === cur);
-        var formatChanged = !!(host.stbEnEdited && htmlNow && htmlNow !== htmlWas && cur && looksEn(cur));
+        var paintChanged = !!(host.stbEnEdited && cur && looksEn(cur) && paintCanon(htmlNow) !== paintCanon(htmlWas));
         var waiting = !!(host.hasAttribute('data-st-untranslated') && cur && looksEn(cur));
-        if (changed || fresh || formatChanged || waiting) {
-          pairs.push({ role: 'en', xid: markXid(host), uk: uk, en: cur, prevEn: prevEn, enHtml: htmlNow, fresh: fresh ? 1 : 0 });
+        if (changed || fresh || paintChanged || waiting) {
+          var enRow = { role: 'en', xid: markXid(host), uk: uk, en: cur, prevEn: prevEn, enHtml: htmlNow, fresh: fresh ? 1 : 0 };
+          if (paintChanged && !changed && !fresh && flat(cur) === flat(prevEn)) enRow.paintOnly = 1;
+          pairs.push(enRow);
         }
         if (host.stbUkSnap != null) {
           host.innerHTML = host.stbUkSnap;
@@ -4732,11 +4837,20 @@
       el.setAttribute('data-st-xid', idv);
       return idv;
     }
-    function richHtml(el) {
+    function trimmedHtml(el) {
       var html = el && el.innerHTML ? el.innerHTML : '';
-      if (!/<(strong|em|u|b|i|a|span)\b/i.test(html)) return '';
-      /* Deleting the first or last word leaves a hard space behind; drop it. */
       return html.replace(/^(?:\s|&nbsp;|\u00a0)+/, '').replace(/(?:\s|&nbsp;|\u00a0)+$/, '');
+    }
+
+    function paintCanon(html) {
+      if (window.STColor && typeof STColor.canon === 'function') return STColor.canon(html || '');
+      return html || '';
+    }
+
+    function richHtml(el) {
+      var html = trimmedHtml(el);
+      if (!/<(strong|em|u|b|i|a|span)\b/i.test(html)) return '';
+      return html;
     }
 
     function cleanup() {
@@ -4744,6 +4858,12 @@
         el.removeAttribute('contenteditable');
         el.removeAttribute('spellcheck');
       });
+      if (window.STColor) {
+        doc.querySelectorAll(PHRASE_SEL).forEach(function (host) {
+          if (host.closest && host.closest('script, style, noscript')) return;
+          STColor.normalize(host);
+        });
+      }
       doc.querySelectorAll('.stb-ink-light, .stb-ink-dark, .stb-on, .stb-dragging').forEach(function (el) {
         el.classList.remove('stb-ink-light', 'stb-ink-dark', 'stb-on', 'stb-dragging');
       });

@@ -415,7 +415,7 @@ function st_i18n_write(array $overlay): void
 function st_i18n_plain(string $s): string
 {
     $t = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $t = preg_replace('/<[^>]+>/', ' ', $t) ?? $t;
+    $t = st_cms_untag($t);
     $t = str_replace("\u{00A0}", ' ', $t);
     $t = preg_replace('/[\x{2018}\x{2019}\x{02BC}\x{02B9}\x{201B}]/u', "'", $t) ?? $t;
     $t = preg_replace('/[\x{2010}-\x{2015}\x{2212}]/u', '-', $t) ?? $t;

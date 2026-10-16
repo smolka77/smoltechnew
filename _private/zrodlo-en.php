@@ -10,6 +10,8 @@ declare(strict_types=1);
  * With no key, the English is kept and the field is marked untranslated.
  */
 
+require_once __DIR__ . '/farba.php';
+
 const ST_I18N_SOURCE = ST_ROOT . '/_build/zrodlo-en.json';
 
 function st_i18n_engine_cfg(): array
@@ -59,7 +61,7 @@ function st_i18n_retry_hint(): string
 function st_i18n_plain_show(string $s): string
 {
     $t = html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $t = preg_replace('/<[^>]+>/', ' ', $t) ?? $t;
+    $t = st_cms_untag($t);
     $t = str_replace("\u{00A0}", ' ', $t);
     return trim(preg_replace('/\s+/u', ' ', $t) ?? $t);
 }
@@ -265,6 +267,10 @@ function st_i18n_clean_rich(string $html): string
         $next = preg_replace('/<span(?: style="[^"]*")?><\/span>/u', '', $next) ?? $next;
         if ($next === $html) break;
         $html = $next;
+    }
+    if (function_exists('st_paint_normalize') || is_file(__DIR__ . '/farba.php')) {
+        require_once __DIR__ . '/farba.php';
+        $html = st_paint_normalize($html);
     }
     return $html;
 }
@@ -644,6 +650,25 @@ function st_i18n_enmark_from_html(string $html): ?string
     if ($items === []) return null;
     $json = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     return is_string($json) ? $json : null;
+}
+
+/**
+ * Store colour HTML, or drop the attributes when the selection is plain again.
+ * An empty string is a real edit: Default colour removed the last span.
+ * #000000 is kept only when the editor actually sent a black span, never invented on clear.
+ */
+function st_i18n_paint_store(array $row, string $key, string $htmlAttr, ?string $markAttr): array
+{
+    $clean = st_i18n_clean_rich((string) ($row[$key] ?? ''));
+    $rich = $clean !== '' && preg_match('/<(?:strong|em|u|b|i|a|span)\b/i', $clean);
+    if (!$rich) {
+        $attrs = [$htmlAttr => null];
+        if ($markAttr !== null) $attrs[$markAttr] = null;
+        return $attrs;
+    }
+    $attrs = [$htmlAttr => $clean];
+    if ($markAttr !== null) $attrs[$markAttr] = st_i18n_enmark_from_html($clean);
+    return $attrs;
 }
 
 function st_i18n_tag_count(string $html): int
@@ -1122,17 +1147,31 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
     }
     $pairs = $rest;
     $seen = [];
+    $paintSkipXid = [];
+    $paintSkipEn = [];
     foreach ($pairs as $row) {
         if (!is_array($row)) continue;
         $seenEn = st_i18n_plain((string) ($row['en'] ?? ''));
         $seenUk = st_i18n_plain((string) ($row['uk'] ?? ''));
         if ($seenEn !== '') $seen[st_i18n_norm_en($seenEn) . "\n" . $seenUk] = true;
+        if (!empty($row['paintOnly'])) {
+            $px = (string) ($row['xid'] ?? '');
+            if ($px !== '') $paintSkipXid[$px] = true;
+            if ($seenEn !== '') $paintSkipEn[st_i18n_norm_en($seenEn)] = true;
+        }
     }
     foreach (st_i18n_harvest_pending($docs, $ledger, $overlay, $seen) as $extra) {
+        $hx = (string) ($extra['xid'] ?? '');
+        $he = st_i18n_norm_en((string) ($extra['en'] ?? ''));
+        if (($hx !== '' && isset($paintSkipXid[$hx])) || ($he !== '' && isset($paintSkipEn[$he]))) continue;
         $pairs[] = $extra;
         $seen[st_i18n_norm_en((string) ($extra['en'] ?? '')) . "\n" . st_i18n_plain((string) ($extra['uk'] ?? ''))] = true;
     }
-    foreach (st_i18n_harvest_english($docs, $seen) as $extra) $pairs[] = $extra;
+    foreach (st_i18n_harvest_english($docs, $seen) as $extra) {
+        $he = st_i18n_norm_en((string) ($extra['en'] ?? ''));
+        if ($he !== '' && isset($paintSkipEn[$he])) continue;
+        $pairs[] = $extra;
+    }
 
     $put = static function (string $uk, string $en, string $ru, bool $untranslated) use (&$overlay, &$touch): void {
         if ($uk === '') return;
@@ -1145,9 +1184,11 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $touch = true;
     };
 
+    $ledgerBefore = json_encode($ledger);
     $jobs = [];
     foreach ($pairs as $row) {
-        if (!is_array($row) || (($row['role'] ?? 'en') !== 'en' && isset($row['role']))) continue;
+        if (!is_array($row) || !empty($row['paintOnly'])) continue;
+        if (($row['role'] ?? 'en') !== 'en' && isset($row['role'])) continue;
         $pre = st_i18n_clean_rich((string) ($row['enHtml'] ?? ''));
         if ($pre !== '' && preg_match('/<(?:strong|em|u|b|i|a|span)\b/i', $pre)) $jobs[] = [st_i18n_shield($pre), true];
         $pl = st_i18n_plain_show((string) ($row['en'] ?? ''));
@@ -1167,6 +1208,14 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $xid = preg_match('/^[a-z][a-z0-9]{0,11}$/', (string) ($row['xid'] ?? '')) ? (string) $row['xid'] : '';
         if ($prev === '' && $uk !== '') $prev = st_i18n_current_en($uk, $overlay);
         if ($en === '' && $prev !== '') $en = $prev;
+
+        if (!empty($row['paintOnly'])) {
+            $attrs = [];
+            if (array_key_exists('enHtml', $row)) $attrs = array_merge($attrs, st_i18n_paint_store($row, 'enHtml', 'data-st-enhtml', 'data-st-enmark'));
+            if (array_key_exists('ruHtml', $row)) $attrs = array_merge($attrs, st_i18n_paint_store($row, 'ruHtml', 'data-st-ruhtml', 'data-st-rumark'));
+            if ($xid !== '' && $attrs !== []) st_i18n_docs_replace($docs, $xid, '', '', null, $attrs);
+            continue;
+        }
 
         if ($role === 'uk') {
             $next = st_i18n_plain((string) ($row['nextUk'] ?? ''));
@@ -1199,7 +1248,9 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
                     'pending' => 0,
                 ];
             }
-            if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, ['data-st-lock' => 'ru']);
+            $ruAttrs = ['data-st-lock' => 'ru'];
+            if (array_key_exists('ruHtml', $row)) $ruAttrs = array_merge($ruAttrs, st_i18n_paint_store($row, 'ruHtml', 'data-st-ruhtml', 'data-st-rumark'));
+            if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, $ruAttrs);
             $locked++;
             continue;
         }
@@ -1225,6 +1276,14 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         }
         $retry = $marked || (is_array($pendingRow) && !empty($pendingRow['pending']));
         $sameWords = !$fresh && $prev !== '' && $normEn === $normPrev;
+        /* Colour-only: the words did not change, so keep the Ukrainian sentence.
+           A plain (or empty) English HTML clears data-st-enhtml and data-st-enmark. */
+        if ($sameWords && !$retry && !$fresh && array_key_exists('enHtml', $row)) {
+            $attrs = st_i18n_paint_store($row, 'enHtml', 'data-st-enhtml', 'data-st-enmark');
+            if (array_key_exists('ruHtml', $row)) $attrs = array_merge($attrs, st_i18n_paint_store($row, 'ruHtml', 'data-st-ruhtml', 'data-st-rumark'));
+            if ($xid !== '') st_i18n_docs_replace($docs, $xid, '', '', null, $attrs);
+            continue;
+        }
         if ($sameWords && !$rich && !$retry) continue;
         if (preg_match('/\p{Cyrillic}/u', $en) && !preg_match('/[A-Za-z]/', $en)) continue;
         /* Colour on a sentence that already translates must not be translated again.
@@ -1240,7 +1299,9 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         if ($canonUk !== '' && $wordsUnchanged) {
             $held = $ledger['byEn'][st_i18n_norm_en($prev !== '' ? $prev : $en)] ?? null;
             if ($sameWords && is_array($held) && (!empty($held['ukLock']) || !empty($held['ruLock']))) {
-                if ($xid !== '' && $rich) st_i18n_docs_replace($docs, $xid, '', '', null, ['data-st-enhtml' => $enHtml]);
+                if ($xid !== '' && array_key_exists('enHtml', $row)) {
+                    st_i18n_docs_replace($docs, $xid, '', '', null, st_i18n_paint_store($row, 'enHtml', 'data-st-enhtml', 'data-st-enmark'));
+                }
                 $locked++;
                 continue;
             }
@@ -1251,8 +1312,10 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
                 ];
                 if ($rich) {
                     $attrs['data-st-enhtml'] = $enHtml;
-                    $mark = st_i18n_enmark_from_html($enHtml);
-                    if ($mark !== null) $attrs['data-st-enmark'] = $mark;
+                    $attrs['data-st-enmark'] = st_i18n_enmark_from_html($enHtml);
+                } elseif (array_key_exists('enHtml', $row)) {
+                    $attrs['data-st-enhtml'] = null;
+                    $attrs['data-st-enmark'] = null;
                 }
                 $inner = $elementIsCanon ? null : htmlspecialchars($canonUk, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 if ($xid !== '') {
@@ -1283,6 +1346,10 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
             $keepWords = $sameWords && !$retry && preg_match('/\p{Cyrillic}/u', $uk);
             $failAttrs = [];
             if ($rich) $failAttrs['data-st-enhtml'] = $enHtml;
+            elseif (array_key_exists('enHtml', $row)) {
+                $failAttrs['data-st-enhtml'] = null;
+                $failAttrs['data-st-enmark'] = null;
+            }
             if (!$keepWords) $failAttrs['data-st-untranslated'] = '1';
             if ($xid !== '' && $failAttrs !== []) st_i18n_docs_replace($docs, $xid, '', '', null, $failAttrs);
             $put($uk, $en, st_i18n_current_ru($uk, $overlay), !$keepWords);
@@ -1306,11 +1373,13 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         $attrs = ['data-st-lock' => null, 'data-st-untranslated' => $ruOk ? null : '1', 'data-st-enmark' => null];
         if ($rich) {
             $attrs['data-st-enhtml'] = $enHtml;
+            $attrs['data-st-enmark'] = st_i18n_enmark_from_html($enHtml);
             if ($newRuHtml !== '') $attrs['data-st-ruhtml'] = $newRuHtml;
             st_i18n_docs_replace($docs, $xid, $fresh ? $uk : '', $newUk, $newUkHtml, $attrs);
             if ($newRuHtml !== '') st_i18n_fragment_pairs($overlay, $newUkHtml, $enHtml, $newRuHtml);
             $touch = true;
         } else {
+            if (array_key_exists('enHtml', $row)) $attrs['data-st-enhtml'] = null;
             st_i18n_docs_replace($docs, $xid, $uk, $newUk, null, $attrs);
             if ($fresh) {
                 foreach ($docs as $dk => $html) {
@@ -1407,7 +1476,7 @@ function st_i18n_apply_documents(array $docs, array $pairs, ?array $meta = null,
         if (is_string($html)) $docs[$k] = preg_replace('/\sdata-st-xid="[a-z0-9]+"/i', '', $html) ?? $html;
     }
     if ($touch) st_i18n_overlay_save($overlay);
-    st_i18n_source_save($ledger);
+    if (json_encode($ledger) !== $ledgerBefore) st_i18n_source_save($ledger);
     if ($replacedManual > 0) {
         $warnings[] = $replacedManual === 1
             ? 'One manual Ukrainian or Russian edit was translated again because its English changed.'

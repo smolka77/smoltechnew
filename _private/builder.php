@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/farba.php';
+
 /** Visual page builder: edit the real Ukrainian HTML and publish it immediately. */
 
 function st_builder_style(string $style): string
@@ -114,7 +116,7 @@ function st_builder_clean(string $html): string
         $cls = trim((string) preg_replace('/\s+/', ' ', $cls));
         return $cls === '' ? '' : ' class="' . $cls . '"';
     }, $html) ?? $html;
-    return st_builder_strip_link_paint($html);
+    return st_paint_normalize_document(st_builder_strip_link_paint($html));
 }
 
 /** A real photo must not keep the empty-slot frame, size or placeholder description. */
